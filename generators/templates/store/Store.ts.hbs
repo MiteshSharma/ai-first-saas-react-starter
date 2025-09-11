@@ -1,0 +1,172 @@
+import { create } from 'zustand';
+{{#if hasApi}}
+import { {{apiService}} } from '@services/{{apiService}}';
+
+// Define request/response types
+interface Create{{entityName}}Request {
+  // Define your create request properties here
+  [key: string]: any;
+}
+
+interface Update{{entityName}}Request {
+  // Define your update request properties here
+  [key: string]: any;
+}
+{{/if}}
+{{#if hasTypes}}
+import { {{types}} } from '@utils/types';
+{{/if}}
+
+interface {{storeName}}State {
+  // State properties
+{{#each properties}}
+  {{name}}: {{type}};
+{{/each}}
+  loading: boolean;
+  error: string | null;
+
+  // Computed values
+{{#each computed}}
+  readonly {{name}}: {{type}};
+{{/each}}
+  readonly hasData: boolean;
+  readonly hasError: boolean;
+
+  // Actions
+{{#each actions}}
+  {{name}}: ({{parameters}}) => {{returnType}};
+{{/each}}
+{{#if hasApi}}
+  fetch{{entityName}}: () => Promise<void>;
+  create{{entityName}}: (data: Create{{entityName}}Request) => Promise<void>;
+  update{{entityName}}: (id: string, data: Update{{entityName}}Request) => Promise<void>;
+  delete{{entityName}}: (id: string) => Promise<void>;
+{{/if}}
+  reset: () => void;
+  clearError: () => void;
+}
+
+/**
+ * @store use{{storeName}}
+ * @description {{description}}
+ * @category Stores
+ */
+export const use{{storeName}} = create<{{storeName}}State>((set: any, get: any) => ({
+  // State properties
+{{#each properties}}
+  {{name}}: {{defaultValue}},
+{{/each}}
+  loading: false,
+  error: null,
+
+  // Computed values
+{{#each computed}}
+  get {{name}}(): {{type}} {
+    const state = get();
+    {{implementation}}
+  },
+{{/each}}
+  get hasData(): boolean {
+    const state: any = get();
+    return state.{{dataProperty}} && (Array.isArray(state.{{dataProperty}}) ? state.{{dataProperty}}.length > 0 : !!state.{{dataProperty}});
+  },
+
+  get hasError(): boolean {
+    const state: any = get();
+    return state.error !== null;
+  },
+
+  // Actions
+{{#each actions}}
+  {{name}}: ({{parameters}}): {{returnType}} => {
+    {{implementation}}
+  },
+
+{{/each}}
+{{#if hasApi}}
+  fetch{{entityName}}: async (): Promise<void> => {
+    set({ loading: true, error: null });
+
+    try {
+      const data = await {{apiService}}.get{{entityName}}();
+      set({ {{dataProperty}}: data, loading: false });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred',
+        loading: false 
+      });
+    }
+  },
+
+  create{{entityName}}: async (data: Create{{entityName}}Request): Promise<void> => {
+    set({ loading: true, error: null });
+
+    try {
+      const newItem = await {{apiService}}.create{{entityName}}(data);
+      set((state: any) => ({
+        {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+          ? [...state.{{dataProperty}}, newItem]
+          : newItem,
+        loading: false
+      }));
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred',
+        loading: false 
+      });
+    }
+  },
+
+  update{{entityName}}: async (id: string, data: Update{{entityName}}Request): Promise<void> => {
+    set({ loading: true, error: null });
+
+    try {
+      const updatedItem = await {{apiService}}.update{{entityName}}(id, data);
+      set((state: any) => ({
+        {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+          ? state.{{dataProperty}}.map(item => item.id === id ? updatedItem : item)
+          : updatedItem,
+        loading: false
+      }));
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred',
+        loading: false 
+      });
+    }
+  },
+
+  delete{{entityName}}: async (id: string): Promise<void> => {
+    set({ loading: true, error: null });
+
+    try {
+      await {{apiService}}.delete{{entityName}}(id);
+      set((state: any) => ({
+        {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+          ? state.{{dataProperty}}.filter(item => item.id !== id)
+          : state.{{dataProperty}},
+        loading: false
+      }));
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'An error occurred',
+        loading: false 
+      });
+    }
+  },
+{{/if}}
+
+  reset: (): void => {
+    set({
+{{#each properties}}
+      {{name}}: {{defaultValue}},
+{{/each}}
+      loading: false,
+      error: null,
+    });
+  },
+
+  clearError: (): void => {
+    set({ error: null });
+  },
+}));
