@@ -1,6 +1,12 @@
 import { create } from 'zustand';
+import { devtools, persist } from 'zustand/middleware';
+import { 
+  createRequestLifecycleMethods,
+  createInitialRequestState,
+  createErrorFromResponse 
+} from '../base';
 {{#if hasApi}}
-import { {{apiService}} } from '@services/{{apiService}}';
+import apiHelper from '../../helpers/apiHelper';
 
 // Define request/response types
 interface Create{{entityName}}Request {
@@ -12,18 +18,31 @@ interface Update{{entityName}}Request {
   // Define your update request properties here
   [key: string]: any;
 }
+
+// Request types enum
+enum {{entityName}}RequestType {
+  FETCH_{{entityName}}_LIST = 'FETCH_{{entityName}}_LIST',
+  FETCH_{{entityName}} = 'FETCH_{{entityName}}',
+  CREATE_{{entityName}} = 'CREATE_{{entityName}}',
+  UPDATE_{{entityName}} = 'UPDATE_{{entityName}}',
+  DELETE_{{entityName}} = 'DELETE_{{entityName}}'
+}
 {{/if}}
 {{#if hasTypes}}
 import { {{types}} } from '@utils/types';
 {{/if}}
 
+// State interface extending standardized pattern
 interface {{storeName}}State {
-  // State properties
+  // Core data properties
 {{#each properties}}
   {{name}}: {{type}};
 {{/each}}
+
+  // Request lifecycle state (standardized pattern)
   loading: boolean;
-  error: string | null;
+  error: { message: string; code?: string } | null;
+  currentRequest: string | null;
 
   // Computed values
 {{#each computed}}
@@ -31,142 +50,145 @@ interface {{storeName}}State {
 {{/each}}
   readonly hasData: boolean;
   readonly hasError: boolean;
+}
 
-  // Actions
+// Actions interface
+interface {{storeName}}Actions {
+  // Request lifecycle methods (standardized)
+  setLoading: (loading: boolean, requestType?: string) => void;
+  setError: (error: { message: string; code?: string } | null) => void;
+  resetRequestState: () => void;
+
+  // Custom actions
 {{#each actions}}
   {{name}}: ({{parameters}}) => {{returnType}};
 {{/each}}
 {{#if hasApi}}
-  fetch{{entityName}}: () => Promise<void>;
+  
+  // API actions
+  fetch{{entityName}}List: () => Promise<void>;
+  fetch{{entityName}}: (id: string) => Promise<void>;
   create{{entityName}}: (data: Create{{entityName}}Request) => Promise<void>;
   update{{entityName}}: (id: string, data: Update{{entityName}}Request) => Promise<void>;
   delete{{entityName}}: (id: string) => Promise<void>;
 {{/if}}
-  reset: () => void;
-  clearError: () => void;
 }
+
+// Combined interface
+interface {{storeName}} extends {{storeName}}State, {{storeName}}Actions {}
 
 /**
  * @store use{{storeName}}
  * @description {{description}}
  * @category Stores
  */
-export const use{{storeName}} = create<{{storeName}}State>((set: any, get: any) => ({
-  // State properties
-{{#each properties}}
-  {{name}}: {{defaultValue}},
-{{/each}}
-  loading: false,
-  error: null,
-
-  // Computed values
-{{#each computed}}
-  get {{name}}(): {{type}} {
-    const state = get();
-    {{implementation}}
-  },
-{{/each}}
-  get hasData(): boolean {
-    const state: any = get();
-    return state.{{dataProperty}} && (Array.isArray(state.{{dataProperty}}) ? state.{{dataProperty}}.length > 0 : !!state.{{dataProperty}});
-  },
-
-  get hasError(): boolean {
-    const state: any = get();
-    return state.error !== null;
-  },
-
-  // Actions
-{{#each actions}}
-  {{name}}: ({{parameters}}): {{returnType}} => {
-    {{implementation}}
-  },
-
-{{/each}}
+export const use{{storeName}} = create<{{storeName}}>()(\n  devtools(\n    persist(\n      (set, get) => ({\n        // Initial state\n{{#each properties}}\n        {{name}}: {{defaultValue}},\n{{/each}}\n        \n        // Request lifecycle state (from base utilities)\n        ...createInitialRequestState(),\n\n        // Request lifecycle methods (from base utilities)\n        ...createRequestLifecycleMethods(set),\n\n        // Computed values\n{{#each computed}}\n        get {{name}}(): {{type}} {\n          const state = get();\n          {{implementation}}\n        },\n{{/each}}\n        get hasData(): boolean {\n          const state = get();\n          return state.{{dataProperty}} && (Array.isArray(state.{{dataProperty}}) ? state.{{dataProperty}}.length > 0 : !!state.{{dataProperty}});\n        },\n\n        get hasError(): boolean {\n          const state = get();\n          return state.error !== null;\n        },\n\n        // Custom actions\n{{#each actions}}\n        {{name}}: ({{parameters}}): {{returnType}} => {\n          {{implementation}}\n        },\n\n{{/each}}
 {{#if hasApi}}
-  fetch{{entityName}}: async (): Promise<void> => {
-    set({ loading: true, error: null });
+        // API operations
+        fetch{{entityName}}List: async (): Promise<void> => {
+          const { setLoading, setError } = get();
+          setLoading(true, {{entityName}}RequestType.FETCH_{{entityName}}_LIST);
 
-    try {
-      const data = await {{apiService}}.get{{entityName}}();
-      set({ {{dataProperty}}: data, loading: false });
-    } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'An error occurred',
-        loading: false 
-      });
-    }
-  },
+          try {
+            const response = await apiHelper.get('/{{entityName}}'.toLowerCase());
+            const data = response.data;
+            
+            set({ 
+              {{dataProperty}}: data,
+              loading: false, 
+              currentRequest: null,
+              error: null 
+            });
+          } catch (error: any) {
+            setError(createErrorFromResponse(error, 'Failed to fetch {{entityName}} list'));
+          }
+        },
 
-  create{{entityName}}: async (data: Create{{entityName}}Request): Promise<void> => {
-    set({ loading: true, error: null });
+        fetch{{entityName}}: async (id: string): Promise<void> => {
+          const { setLoading, setError } = get();
+          setLoading(true, {{entityName}}RequestType.FETCH_{{entityName}});
 
-    try {
-      const newItem = await {{apiService}}.create{{entityName}}(data);
-      set((state: any) => ({
-        {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
-          ? [...state.{{dataProperty}}, newItem]
-          : newItem,
-        loading: false
-      }));
-    } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'An error occurred',
-        loading: false 
-      });
-    }
-  },
+          try {
+            const response = await apiHelper.get(`/{{entityName}}/${id}`.toLowerCase());
+            const item = response.data;
+            
+            // Add to list if not already present
+            set(state => ({
+              {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+                ? state.{{dataProperty}}.some(p => p.id === item.id) 
+                  ? state.{{dataProperty}}.map(p => p.id === item.id ? item : p)
+                  : [...state.{{dataProperty}}, item]
+                : item,
+              loading: false,
+              currentRequest: null,
+              error: null
+            }));
+          } catch (error: any) {
+            setError(createErrorFromResponse(error, 'Failed to fetch {{entityName}}'));
+          }
+        },
 
-  update{{entityName}}: async (id: string, data: Update{{entityName}}Request): Promise<void> => {
-    set({ loading: true, error: null });
+        create{{entityName}}: async (data: Create{{entityName}}Request): Promise<void> => {
+          const { setLoading, setError } = get();
+          setLoading(true, {{entityName}}RequestType.CREATE_{{entityName}});
 
-    try {
-      const updatedItem = await {{apiService}}.update{{entityName}}(id, data);
-      set((state: any) => ({
-        {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
-          ? state.{{dataProperty}}.map(item => item.id === id ? updatedItem : item)
-          : updatedItem,
-        loading: false
-      }));
-    } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'An error occurred',
-        loading: false 
-      });
-    }
-  },
+          try {
+            const response = await apiHelper.post('/{{entityName}}'.toLowerCase(), data);
+            const newItem = response.data;
+            
+            set(state => ({ 
+              {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+                ? [...state.{{dataProperty}}, newItem]
+                : newItem,
+              loading: false, 
+              currentRequest: null,
+              error: null 
+            }));
+          } catch (error: any) {
+            setError(createErrorFromResponse(error, 'Failed to create {{entityName}}'));
+          }
+        },
 
-  delete{{entityName}}: async (id: string): Promise<void> => {
-    set({ loading: true, error: null });
+        update{{entityName}}: async (id: string, data: Update{{entityName}}Request): Promise<void> => {
+          const { setLoading, setError } = get();
+          setLoading(true, {{entityName}}RequestType.UPDATE_{{entityName}});
 
-    try {
-      await {{apiService}}.delete{{entityName}}(id);
-      set((state: any) => ({
-        {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
-          ? state.{{dataProperty}}.filter(item => item.id !== id)
-          : state.{{dataProperty}},
-        loading: false
-      }));
-    } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'An error occurred',
-        loading: false 
-      });
-    }
-  },
+          try {
+            const response = await apiHelper.put(`/{{entityName}}/${id}`.toLowerCase(), data);
+            const updatedItem = response.data;
+            
+            set(state => ({
+              {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+                ? state.{{dataProperty}}.map(item => item.id === id ? updatedItem : item)
+                : updatedItem,
+              loading: false,
+              currentRequest: null,
+              error: null
+            }));
+          } catch (error: any) {
+            setError(createErrorFromResponse(error, 'Failed to update {{entityName}}'));
+          }
+        },
+
+        delete{{entityName}}: async (id: string): Promise<void> => {
+          const { setLoading, setError } = get();
+          setLoading(true, {{entityName}}RequestType.DELETE_{{entityName}});
+
+          try {
+            await apiHelper.delete(`/{{entityName}}/${id}`.toLowerCase());
+            
+            set(state => ({
+              {{dataProperty}}: Array.isArray(state.{{dataProperty}}) 
+                ? state.{{dataProperty}}.filter(item => item.id !== id)
+                : state.{{dataProperty}},
+              loading: false,
+              currentRequest: null,
+              error: null
+            }));
+          } catch (error: any) {
+            setError(createErrorFromResponse(error, 'Failed to delete {{entityName}}'));
+          }
+        },
 {{/if}}
 
-  reset: (): void => {
-    set({
-{{#each properties}}
-      {{name}}: {{defaultValue}},
-{{/each}}
-      loading: false,
-      error: null,
-    });
-  },
-
-  clearError: (): void => {
-    set({ error: null });
-  },
-}));
+      }),\n      {\n        name: '{{storeName}}',\n        partialize: (state) => ({ \n{{#each properties}}\n          {{name}}: state.{{name}},\n{{/each}}\n        })\n      }\n    ),\n    {\n      name: '{{storeName}}'\n    }\n  )\n);

@@ -7,6 +7,7 @@ const { generateComponent } = require('../generators/component-generator');
 const { generateStore } = require('../generators/store-generator');
 const { generateService } = require('../generators/service-generator');
 const { generatePage } = require('../generators/page-generator');
+const { generateEndpoints } = require('../generators/endpoint-generator');
 
 /**
  * AI-First SaaS React Starter CLI
@@ -46,11 +47,20 @@ class AIFirstCLI {
     
     if (!appName) {
       console.error('❌ App name is required');
-      console.log('Usage: ai-first create-app <app-name>');
+      console.log('Usage: ai-first create-app <app-name> [options]');
+      console.log('Options: --with-auth true/false, --with-tenant true/false');
       return;
     }
 
+    // Parse options
+    const config = this.parseOptions(args.slice(1), {
+      'with-auth': true,
+      'with-tenant': true
+    });
+
     console.log(`🚀 Creating AI-First SaaS React application: ${appName}`);
+    if (config['with-auth']) console.log('   ✅ Including authentication scaffolding');
+    if (config['with-tenant']) console.log('   ✅ Including multi-tenant patterns');
     
     const appDir = path.join(process.cwd(), appName);
     if (fs.existsSync(appDir)) {
@@ -76,7 +86,7 @@ class AIFirstCLI {
       'react-router-dom@^6.28.0',
       'styled-components@^6.1.13',
       'swr@^2.3.0',
-      'web-vitals@^4.2.3',
+      'web-vitals@^5.1.0',
       'zod@^3.23.8'
     ];
 
@@ -146,11 +156,28 @@ class AIFirstCLI {
     console.log(`   cd ${appName}`);
     console.log('   npm start');
     console.log('');
+    
+    if (config['with-auth']) {
+      console.log('🔐 Authentication features included:');
+      console.log('   - Complete auth flow (login, register, password reset)');
+      console.log('   - Automatic token refresh and management');
+      console.log('   - Protected routes and auth guards');
+    }
+    
+    if (config['with-tenant']) {
+      console.log('🏢 Multi-tenant features included:');
+      console.log('   - Tenant store with switching capabilities');
+      console.log('   - Workspace-scoped data management');
+      console.log('   - Tenant isolation testing page at /tenant-isolation-test');
+      console.log('   - API calls automatically include tenant headers');
+    }
+    
+    console.log('');
     console.log('📚 Available generators:');
     console.log('   ai-first g component UserProfile');
-    console.log('   ai-first g store UserStore');
-    console.log('   ai-first g service UserService');
-    console.log('   ai-first g page UsersPage');
+    console.log('   ai-first g store UserStore --api true');
+    console.log('   ai-first g endpoints ProductService --workspace true');
+    console.log('   ai-first g page UsersPage --store true --service true');
   }
 
   async generate(args) {
@@ -180,6 +207,10 @@ class AIFirstCLI {
       case 'page':
       case 'p':
         await this.generatePage(name, args.slice(2));
+        break;
+      case 'endpoints':
+      case 'e':
+        await this.generateEndpoints(name, args.slice(2));
         break;
       default:
         throw new Error(`Unknown generator type: ${type}`);
@@ -281,11 +312,28 @@ class AIFirstCLI {
     });
   }
 
+  async generateEndpoints(name, options) {
+    const config = this.parseOptions(options, {
+      description: `API endpoints for ${name.replace('Service', '')} operations`,
+      auth: true,
+      tenant: false,
+      workspace: false
+    });
+
+    await generateEndpoints({
+      domain: name,
+      description: config.description,
+      hasAuth: config.auth,
+      hasTenant: config.tenant,
+      hasWorkspace: config.workspace
+    });
+  }
+
   parseOptions(args, defaults = {}) {
     const config = { ...defaults };
     
     for (let i = 0; i < args.length; i += 2) {
-      const key = args[i]?.replace('--', '');
+      let key = args[i]?.replace('--', '');
       const value = args[i + 1];
       
       if (key && value !== undefined) {
@@ -410,25 +458,32 @@ COMMANDS:
 
 GENERATORS:
   component <name>               Generate a React component with tests
-  store <name>                   Generate a Zustand store with API integration
+  store <name>                   Generate a Zustand store with standardized patterns
   service <name>                 Generate an API service with Zod validation
   page <name>                    Generate a complete page with routing
+  endpoints <name>               Generate API endpoints for urlHelper/backendHelper
 
 EXAMPLES:
-  ai-first create-app my-saas-app
+  ai-first create-app my-saas-app --with-auth --with-tenant
   ai-first g component UserProfile --antd true --styled false
   ai-first g store UserStore --api true
   ai-first g service UserService --zod true
   ai-first g page UsersPage --store true --service true
+  ai-first g endpoints ProductService --workspace true --tenant false
 
 OPTIONS:
   --description "text"           Custom description
+  --with-auth true/false        Include authentication scaffolding (create-app)
+  --with-tenant true/false      Include tenant-aware patterns (create-app)
   --antd true/false             Use Ant Design components (component)
   --styled true/false           Use styled-components (component)
   --api true/false              Include API integration (store)
   --zod true/false              Use Zod validation (service)
   --store true/false            Include store integration (page)
   --service true/false          Include service integration (page)
+  --auth true/false             Include authentication (endpoints)
+  --tenant true/false           Include tenant scoping (endpoints)
+  --workspace true/false        Include workspace scoping (endpoints)
 
 For more information, visit: https://github.com/MiteshSharma/ai-first-saas-react-starter
     `);

@@ -1,10 +1,10 @@
-import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from 'web-vitals';
+import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
 
 const reportWebVitals = (onPerfEntry?: (metric: Metric) => void): void => {
   if (onPerfEntry && typeof onPerfEntry === 'function') {
     onCLS(onPerfEntry);
-    onINP(onPerfEntry);
     onFCP(onPerfEntry);
+    onINP(onPerfEntry);
     onLCP(onPerfEntry);
     onTTFB(onPerfEntry);
   }

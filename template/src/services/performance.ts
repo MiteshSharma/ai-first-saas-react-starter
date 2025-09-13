@@ -1,9 +1,9 @@
-import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from 'web-vitals';
+import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
 
 /**
  * Web Vitals performance monitoring configuration
  */
-interface PerformanceConfig {
+export interface PerformanceConfig {
   endpoint?: string | undefined;
   apiKey?: string | undefined;
   enabled: boolean;
@@ -34,15 +34,13 @@ export const initPerformanceMonitoring = (): void => {
       name: metric.name,
       value: metric.value,
       id: metric.id,
-      rating: metric.rating,
-      navigationType: metric.navigationType,
       timestamp: Date.now(),
       url: window.location.href,
       userAgent: navigator.userAgent,
     });
 
     if (config.debug) {
-      console.log('Web Vital:', metric.name, metric.value, metric.rating);
+      console.log('Web Vital:', metric.name, metric.value);
     }
 
     // Send to analytics endpoint if configured
@@ -72,8 +70,8 @@ export const initPerformanceMonitoring = (): void => {
 
   // Collect all Web Vitals metrics
   onCLS(sendToAnalytics);
-  onINP(sendToAnalytics);
   onFCP(sendToAnalytics);
+  onINP(sendToAnalytics);
   onLCP(sendToAnalytics);
   onTTFB(sendToAnalytics);
 

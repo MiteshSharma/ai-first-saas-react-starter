@@ -11,12 +11,12 @@ interface TestStore {
  * @store useTestStore
  * @description A test store to verify Zustand configuration
  */
-export const useTestStore = create<TestStore>((set: any) => ({
+export const useTestStore = create<TestStore>((set) => ({
   count: 0,
   
-  increment: () => set((state: any) => ({ count: state.count + 1 })),
+  increment: () => set((state: TestStore) => ({ count: state.count + 1 })),
   
-  decrement: () => set((state: any) => ({ count: state.count - 1 })),
+  decrement: () => set((state: TestStore) => ({ count: state.count - 1 })),
   
   reset: () => set({ count: 0 }),
 }));

@@ -1,0 +1,47 @@
+// {{entityName}} API functions (Generated on {{timestamp}})
+{{#each endpoints}}
+
+/**
+ * {{description}}
+ * {{method}} {{fullPath}}
+ */
+{{#if (eq method 'GET')}}
+{{#if hasParams}}
+export async function {{name}}({{#each params}}{{this}}: string{{#unless @last}}, {{/unless}}{{/each}}): Promise<ApiResponse<any>> {
+  const url = expandUrl({{toUpperCase name}}, { {{#each params}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} });
+  return apiHelper.get(url);
+}
+{{else}}
+export async function {{name}}(): Promise<ApiResponse<any[]>> {
+  return apiHelper.get({{toUpperCase name}});
+}
+{{/if}}
+{{else if (eq method 'POST')}}
+export async function {{name}}(data: any{{#if hasParams}}, {{#each params}}{{this}}: string{{#unless @last}}, {{/unless}}{{/each}}{{/if}}): Promise<ApiResponse<any>> {
+  {{#if hasParams}}
+  const url = expandUrl({{toUpperCase name}}, { {{#each params}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} });
+  return apiHelper.post(url, data);
+  {{else}}
+  return apiHelper.post({{toUpperCase name}}, data);
+  {{/if}}
+}
+{{else if (eq method 'PUT')}}
+export async function {{name}}({{#if hasParams}}{{#each params}}{{this}}: string, {{/each}}{{/if}}data: any): Promise<ApiResponse<any>> {
+  {{#if hasParams}}
+  const url = expandUrl({{toUpperCase name}}, { {{#each params}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} });
+  return apiHelper.put(url, data);
+  {{else}}
+  return apiHelper.put({{toUpperCase name}}, data);
+  {{/if}}
+}
+{{else if (eq method 'DELETE')}}
+export async function {{name}}({{#each params}}{{this}}: string{{#unless @last}}, {{/unless}}{{/each}}): Promise<ApiResponse<void>> {
+  {{#if hasParams}}
+  const url = expandUrl({{toUpperCase name}}, { {{#each params}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} });
+  return apiHelper.delete(url);
+  {{else}}
+  return apiHelper.delete({{toUpperCase name}});
+  {{/if}}
+}
+{{/if}}
+{{/each}}

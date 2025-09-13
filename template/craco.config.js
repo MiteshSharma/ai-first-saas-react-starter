@@ -61,8 +61,26 @@ module.exports = {
       // Enhanced test setup
       jestConfig.setupFilesAfterEnv = [
         ...jestConfig.setupFilesAfterEnv,
-        '<rootDir>/src/test/setupTests.ts',
+        '<rootDir>/src/setupTests.ts',
       ];
+      
+      // Coverage configuration
+      jestConfig.collectCoverageFrom = [
+        'src/**/*.{ts,tsx}',
+        '!src/**/*.d.ts',
+        '!src/index.tsx',
+        '!src/reportWebVitals.ts',
+        '!src/setupTests.ts'
+      ];
+      
+      jestConfig.coverageThreshold = {
+        global: {
+          branches: 70,
+          functions: 70,
+          lines: 70,
+          statements: 70
+        }
+      };
 
       return jestConfig;
     },

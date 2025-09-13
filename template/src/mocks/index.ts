@@ -1,9 +1,11 @@
 import MockAdapter from 'axios-mock-adapter';
-import { apiClient } from '@services/apiClient';
+import { apiHelper } from '../helpers/apiHelper';
 import { userMocks } from './data/userMocks';
 import { authMocks } from './data/authMocks';
+import { tenantMocks } from './tenantMocks';
 import { setupUserMocks } from './handlers/userHandlers';
 import { setupAuthMocks } from './handlers/authHandlers';
+import { setupTenantMocks } from './handlers/tenantHandlers';
 
 // Check if mocking is enabled via environment variable
 const isMockingEnabled = () => {
@@ -21,7 +23,7 @@ export const setupMocks = () => {
   }
 
   // Create mock adapter instance
-  mockInstance = new MockAdapter(apiClient.client, { 
+  mockInstance = new MockAdapter(apiHelper.client, {
     delayResponse: Math.random() * 1000 + 500 // Random delay 500-1500ms
   });
 
@@ -30,12 +32,14 @@ export const setupMocks = () => {
   // Setup mock handlers for different domains
   setupAuthMocks(mockInstance);
   setupUserMocks(mockInstance);
+  setupTenantMocks(mockInstance);
 
   // Log all registered mocks in development
   if (process.env.NODE_ENV === 'development') {
     console.log('📝 Registered mock endpoints:', {
       auth: '/api/auth/*',
       users: '/api/users/*',
+      tenants: '/api/tenants/*',
     });
   }
 };
@@ -49,7 +53,7 @@ export const teardownMocks = () => {
 };
 
 // Export mock data for testing
-export { userMocks, authMocks };
+export { userMocks, authMocks, tenantMocks };
 
 // Export for use in tests
 export { mockInstance };

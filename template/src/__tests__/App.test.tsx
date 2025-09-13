@@ -1,12 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { useTestStore } from '@hooks/useTestStore';
+import { useTestStore } from '../hooks/useTestStore';
+import { renderHook, act } from '@testing-library/react';
 import App from '../App';
 
 describe('App', () => {
   beforeEach(() => {
-    const store = useTestStore();
-    store.reset();
+    // Reset store state before each test
+    const { result } = renderHook(() => useTestStore());
+    act(() => {
+      result.current.reset();
+    });
   });
   it('should render main heading', () => {
     render(<App />);
@@ -25,9 +29,9 @@ describe('App', () => {
     const button = screen.getByRole('button', { name: /count:/i });
 
     fireEvent.click(button);
-    // Check if the store actually incremented (MobX reactivity tested elsewhere)
-    const store = useTestStore();
-    expect(store.count).toBe(1);
+    
+    // Check if the UI was updated to reflect the increment
+    expect(screen.getByText('Count: 1')).toBeInTheDocument();
   });
 
   it('should render TestComponent with processed message', () => {
