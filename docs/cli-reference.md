@@ -1,482 +1,855 @@
 # CLI Reference
 
-The AI-First React Framework CLI is a powerful code generation tool that helps you quickly scaffold applications, components, stores, services, and pages with best practices built-in.
+The AI-First SaaS React Starter CLI is a powerful code generation and project management tool that accelerates development and maintains consistency across your codebase.
 
-## 📖 Overview
+## 🚀 Installation & Setup
 
-The CLI provides two main commands:
-- `create-app` - Create a new React application
-- `generate` (or `g`) - Generate code components
+### Global Installation
+```bash
+# Install globally
+npm install -g ai-first-saas-react-starter
 
-## 🚀 Installation & Usage
+# Verify installation
+ai-first --version
+```
+
+### Project-Level Usage
+```bash
+# Use with npx (recommended)
+npx ai-first-saas-react-starter <command>
+
+# Use with npm scripts
+npm run ai-first <command>
+```
+
+## 📖 Command Structure
 
 ```bash
-# Navigate to the framework directory
-cd ai-first-react-starter
-
-# Use the CLI
-node cli/index.js <command> [options]
-
-# Or from within a generated app
-node ../ai-first-react-starter/cli/index.js <command> [options]
+ai-first <command> [options] [arguments]
 ```
 
-## 📱 Create App Command
+### Global Options
+- `--help, -h` - Show help information
+- `--version, -v` - Show version information
+- `--verbose` - Enable verbose logging
+- `--dry-run` - Show what would be generated without creating files
+- `--config <path>` - Specify custom config file
 
-### Syntax
+## 🏗️ Project Commands
+
+### `create-app`
+Create a new AI-First SaaS application.
 
 ```bash
-node cli/index.js create-app <app-name> [options]
+ai-first create-app <app-name> [options]
 ```
 
-### Description
+#### Options
+- `--template <name>` - Use specific template (default: `default`)
+- `--with-auth` - Include authentication scaffolding (default: `true`)
+- `--with-tenant` - Include multi-tenant patterns (default: `true`)
+- `--typescript` - Use TypeScript (default: `true`)
+- `--package-manager <npm|yarn|pnpm>` - Package manager to use
+- `--git` - Initialize git repository (default: `true`)
+- `--install` - Install dependencies after creation (default: `true`)
 
-Creates a new React application with the AI-First framework template, including all dependencies, configuration, and folder structure.
-
-### Arguments
-
-- `<app-name>` (required): Name of the application to create
-
-### Options
-
-Currently no additional options are supported for create-app.
-
-### Example
-
+#### Examples
 ```bash
-# Create a new app called "my-awesome-app"
-node cli/index.js create-app my-awesome-app
+# Basic app with all defaults
+ai-first create-app my-saas-app
 
-# This will:
-# 1. Create a new directory "my-awesome-app"
-# 2. Copy the framework template
-# 3. Install npm dependencies
-# 4. Set up the project structure
-# 5. Run initial formatting
+# Minimal app without auth
+ai-first create-app simple-app --with-auth=false --with-tenant=false
+
+# Custom configuration
+ai-first create-app enterprise-app \
+  --template=enterprise \
+  --package-manager=yarn \
+  --git=true
 ```
 
-### What Gets Created
-
+#### Output Structure
 ```
-my-awesome-app/
-├── public/
+my-saas-app/
 ├── src/
-│   ├── components/
-│   ├── stores/
-│   ├── services/
-│   ├── pages/
-│   ├── types/
-│   ├── utils/
-│   ├── styles/
-│   ├── hooks/
-│   └── index.tsx
+│   ├── core/                 # Core framework
+│   ├── plugins/              # Default plugins
+│   ├── pages/                # Application pages
+│   └── components/           # Shared components
+├── public/                   # Static assets
+├── docs/                     # Documentation
 ├── package.json
-├── tsconfig.json
-├── craco.config.js
-├── .eslintrc.js
-└── .prettierrc
+└── README.md
 ```
 
-## 🧩 Generate Command
+## 🔌 Plugin Commands
 
-### Syntax
+### `generate plugin` / `g plugin`
+Generate a new plugin with complete structure.
 
 ```bash
-node cli/index.js generate <type> <name> [options]
-node cli/index.js g <type> <name> [options]  # shorthand
+ai-first g plugin <plugin-name> [options]
 ```
 
-### Supported Types
+#### Options
+- `--description <text>` - Plugin description
+- `--with-store` - Include Zustand store (default: `true`)
+- `--with-routes` - Include React Router routes (default: `true`)
+- `--with-api` - Include API service layer (default: `true`)
+- `--with-tests` - Include test files (default: `true`)
+- `--antd` - Use Ant Design components (default: `true`)
+- `--styled` - Include styled-components (default: `false`)
+- `--auth` - Include authentication integration (default: `true`)
+- `--tenant` - Include tenant-aware patterns (default: `true`)
 
-- `component` - React functional component
-- `store` - Zustand state store
-- `service` - API service layer
-- `page` - Full page component
+#### Examples
+```bash
+# Full-featured plugin
+ai-first g plugin TaskManagement \
+  --description="Complete task management system" \
+  --with-store \
+  --with-routes \
+  --with-api
 
-## 🎨 Component Generation
+# Minimal plugin
+ai-first g plugin SimpleWidget \
+  --with-store=false \
+  --with-routes=false \
+  --with-api=false
 
-### Syntax
+# UI-only plugin
+ai-first g plugin Dashboard \
+  --with-api=false \
+  --styled=true
+```
+
+#### Generated Structure
+```
+src/plugins/TaskManagement/
+├── TaskManagementPlugin.ts   # Main plugin class
+├── stores/                   # State management
+│   └── taskStore.ts
+├── components/              # React components
+│   ├── TaskList.tsx
+│   ├── TaskForm.tsx
+│   └── TaskDetail.tsx
+├── pages/                   # Route pages
+│   ├── TaskListPage.tsx
+│   ├── TaskDetailPage.tsx
+│   └── CreateTaskPage.tsx
+├── services/                # API services
+│   └── taskService.ts
+├── types.ts                 # TypeScript types
+├── config.ts                # Plugin configuration
+└── __tests__/               # Test files
+    ├── TaskManagementPlugin.test.ts
+    ├── stores/
+    ├── components/
+    └── services/
+```
+
+## 🧩 Component Commands
+
+### `generate component` / `g component`
+Generate React components with proper structure and tests.
 
 ```bash
-node cli/index.js generate component <ComponentName> [options]
+ai-first g component <component-name> [options]
 ```
 
-### Options
+#### Options
+- `--type <type>` - Component type: `functional|class|hook` (default: `functional`)
+- `--antd` - Use Ant Design components (default: `true`)
+- `--styled` - Use styled-components (default: `false`)
+- `--props <interface>` - TypeScript props interface name
+- `--story` - Generate Storybook story (default: `false`)
+- `--test` - Generate test file (default: `true`)
+- `--export` - Add to index.ts exports (default: `true`)
+- `--path <path>` - Custom path for component
 
-- `--path <path>` - Target directory (default: `src/components`)
-- `--props <props>` - Component props (JSON format)
-- `--styled` - Include styled-components (default: true)
-- `--test` - Generate test file (default: true)
-
-### Examples
-
+#### Examples
 ```bash
-# Basic component
-node cli/index.js generate component UserCard
+# Basic functional component
+ai-first g component UserCard
 
-# Component with custom path
-node cli/index.js generate component UserCard --path src/components/user
+# Component with custom props
+ai-first g component ProductCard \
+  --props="ProductCardProps" \
+  --antd \
+  --story
 
-# Component with props
-node cli/index.js generate component UserCard --props '{"name":"string","age":"number","email":"string"}'
+# Hook component
+ai-first g component useUserData \
+  --type=hook \
+  --test
+
+# Component in specific path
+ai-first g component TaskItem \
+  --path="src/plugins/TaskManagement/components"
 ```
 
-### Generated Files
-
+#### Generated Files
 ```
 src/components/UserCard/
-├── UserCard.tsx        # Component implementation
-├── UserCard.test.tsx   # Test file
-└── index.ts           # Export barrel
+├── UserCard.tsx             # Component implementation
+├── UserCard.test.tsx        # Unit tests
+├── UserCard.stories.tsx     # Storybook story (if --story)
+├── UserCard.module.css      # Styles (if --styled=false)
+├── UserCard.styled.ts       # Styled components (if --styled)
+└── index.ts                 # Barrel export
 ```
 
-### Generated Component Structure
-
-```tsx
+#### Component Template
+```typescript
+// UserCard.tsx
 import React from 'react';
-import styled from 'styled-components';
+import { Card, Avatar, Typography } from 'antd';
 
-interface UserCardProps {
-  name: string;
-  age: number;
-  email: string;
+const { Text, Title } = Typography;
+
+export interface UserCardProps {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  onClick?: (userId: string) => void;
 }
 
-const UserCardWrapper = styled.div`
-  /* Styled component styles */
-`;
-
-export const UserCard: React.FC<UserCardProps> = ({
-  name,
-  age,
-  email
-}) => {
+export const UserCard: React.FC<UserCardProps> = ({ user, onClick }) => {
   return (
-    <UserCardWrapper data-testid="user-card">
-      {/* Component content */}
-    </UserCardWrapper>
+    <Card
+      hoverable
+      onClick={() => onClick?.(user.id)}
+      className="user-card"
+    >
+      <Card.Meta
+        avatar={<Avatar src={user.avatar} size="large">{user.name[0]}</Avatar>}
+        title={<Title level={4}>{user.name}</Title>}
+        description={<Text type="secondary">{user.email}</Text>}
+      />
+    </Card>
   );
 };
 ```
 
-## 🗄️ Store Generation
+## 🗄️ Store Commands
 
-### Syntax
-
-```bash
-node cli/index.js generate store <StoreName> [options]
-```
-
-### Options
-
-- `--path <path>` - Target directory (default: `src/stores`)
-- `--entity <name>` - Entity name for CRUD operations
-- `--properties <props>` - Store properties (JSON format)
-
-### Examples
+### `generate store` / `g store`
+Generate Zustand stores with standardized patterns.
 
 ```bash
-# Basic store
-node cli/index.js generate store UserStore
-
-# Store with custom entity
-node cli/index.js generate store UserStore --entity User
-
-# Store with properties
-node cli/index.js generate store UserStore --properties '{"users":"User[]","loading":"boolean","error":"string|null"}'
+ai-first g store <store-name> [options]
 ```
 
-### Generated Files
+#### Options
+- `--api` - Include API integration (default: `true`)
+- `--persist` - Add persistence with localStorage (default: `false`)
+- `--middleware` - Include middleware (logger, devtools) (default: `true`)
+- `--crud` - Generate CRUD operations (default: `true`)
+- `--pagination` - Include pagination support (default: `false`)
+- `--cache` - Add caching layer (default: `false`)
+- `--optimistic` - Optimistic updates (default: `false`)
 
+#### Examples
+```bash
+# Basic store with API
+ai-first g store UserStore \
+  --api \
+  --crud
+
+# Store with persistence and pagination
+ai-first g store ProductStore \
+  --persist \
+  --pagination \
+  --cache
+
+# Simple state store
+ai-first g store UIStore \
+  --api=false \
+  --crud=false
 ```
-src/stores/
-├── UserStore.ts        # Store implementation
-└── __tests__/
-    └── UserStore.test.ts  # Store tests
-```
 
-### Generated Store Structure
-
-```tsx
+#### Generated Store Template
+```typescript
+// stores/userStore.ts
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
+import { createRequestLifecycleMethods } from '../core/stores/base/requestLifecycle';
+import { UserAPIService } from '../services/userService';
+import { eventBus } from '../core/EventBus';
 
-export interface User {
+interface User {
   id: string;
   name: string;
-  // ... other properties
+  email: string;
+  role: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-interface UserStore {
+interface UserState {
+  // Data
   users: User[];
+  currentUser: User | null;
+
+  // UI State
   loading: boolean;
   error: string | null;
-  
+
+  // Pagination
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+
   // Actions
-  setUsers: (users: User[]) => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  
-  // Computed values
-  userCount: number;
+  loadUsers: () => Promise<void>;
+  loadUser: (id: string) => Promise<void>;
+  createUser: (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+
+  // Pagination
+  loadMore: () => Promise<void>;
+  setPageSize: (size: number) => void;
+
+  // Utility
+  clearUsers: () => void;
+  clearError: () => void;
 }
 
-export const useUserStore = create<UserStore>()(
+export const useUserStore = create<UserState>()(
   devtools(
-    (set, get) => ({
-      users: [],
-      loading: false,
-      error: null,
+    persist(
+      (set, get) => {
+        const userAPI = new UserAPIService();
+        const requestMethods = createRequestLifecycleMethods(set);
 
-      // Actions
-      setUsers: (users) => set({ users }),
-      setLoading: (loading) => set({ loading }),
-      setError: (error) => set({ error }),
+        return {
+          // Initial state
+          users: [],
+          currentUser: null,
+          loading: false,
+          error: null,
+          page: 1,
+          pageSize: 20,
+          totalCount: 0,
+          hasMore: true,
 
-      // Computed values
-      get userCount() {
-        return get().users.length;
+          // Actions
+          loadUsers: async () => {
+            try {
+              requestMethods.setLoading(true);
+              const response = await userAPI.getUsers({
+                page: get().page,
+                pageSize: get().pageSize
+              });
+
+              set({
+                users: response.data,
+                totalCount: response.totalCount,
+                hasMore: response.hasMore
+              });
+
+              eventBus.emit('USERS_LOADED', { count: response.data.length });
+            } catch (error) {
+              requestMethods.setError(error.message);
+              eventBus.emit('USERS_LOAD_FAILED', { error });
+            } finally {
+              requestMethods.setLoading(false);
+            }
+          },
+
+          createUser: async (userData) => {
+            try {
+              requestMethods.setLoading(true);
+              const newUser = await userAPI.createUser(userData);
+
+              set(state => ({
+                users: [...state.users, newUser],
+                totalCount: state.totalCount + 1
+              }));
+
+              eventBus.emit('USER_CREATED', { user: newUser });
+            } catch (error) {
+              requestMethods.setError(error.message);
+              throw error;
+            } finally {
+              requestMethods.setLoading(false);
+            }
+          },
+
+          // ... other methods
+        };
       },
-    }),
-    { name: 'user-store' }
+      {
+        name: 'user-store',
+        partialize: (state) => ({
+          users: state.users,
+          currentUser: state.currentUser
+        })
+      }
+    ),
+    {
+      name: 'UserStore'
+    }
   )
 );
 ```
 
-## 🌐 Service Generation
+## 🌐 Service Commands
 
-### Syntax
-
-```bash
-node cli/index.js generate service <ServiceName> [options]
-```
-
-### Options
-
-- `--path <path>` - Target directory (default: `src/services`)
-- `--entity <name>` - Entity name for API operations
-- `--baseUrl <url>` - API base URL
-- `--methods <methods>` - Custom methods (JSON format)
-
-### Examples
+### `generate service` / `g service`
+Generate API service classes with type safety and error handling.
 
 ```bash
-# Basic service
-node cli/index.js generate service UserService
-
-# Service with custom entity and base URL
-node cli/index.js generate service UserService --entity User --baseUrl "/api/users"
-
-# Service with custom methods
-node cli/index.js generate service UserService --methods '[{"name":"activate","method":"POST","endpoint":"/activate"}]'
+ai-first g service <service-name> [options]
 ```
 
-### Generated Files
+#### Options
+- `--zod` - Use Zod for validation (default: `true`)
+- `--cache` - Include caching layer (default: `false`)
+- `--retry` - Add retry logic (default: `true`)
+- `--auth` - Include authentication headers (default: `true`)
+- `--tenant` - Add tenant context (default: `true`)
+- `--mock` - Generate mock implementation (default: `true`)
 
+#### Examples
+```bash
+# Full API service
+ai-first g service UserService \
+  --zod \
+  --cache \
+  --retry
+
+# Simple service
+ai-first g service NotificationService \
+  --zod=false \
+  --cache=false
+
+# Core service
+ai-first g service PaymentService \
+  --auth \
+  --tenant
 ```
-src/services/
-├── UserService.ts      # Service implementation
-├── apiClient.ts       # API client (if not exists)
-└── __tests__/
-    └── UserService.test.ts  # Service tests
-```
 
-### Generated Service Structure
-
-```tsx
-import { apiClient } from './apiClient';
+#### Generated Service Template
+```typescript
+// services/userService.ts
 import { z } from 'zod';
+import { ApiHelper } from '../core/api/apiHelper';
+import { CacheManager } from '../core/utils/cache';
 
-// Zod schemas for validation
+// Zod schemas
 const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  role: z.enum(['admin', 'user', 'viewer']),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+const CreateUserSchema = UserSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
 });
 
 export type User = z.infer<typeof UserSchema>;
+export type CreateUserRequest = z.infer<typeof CreateUserSchema>;
 
-export class UserService {
-  private baseUrl = '/api/users';
+export class UserAPIService {
+  private cache = new CacheManager('user-service');
 
-  async getUsers(): Promise<User[]> {
-    const response = await apiClient.get(this.baseUrl);
-    return response.data;
+  constructor(private apiHelper = new ApiHelper()) {}
+
+  async getUsers(params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    role?: string;
+  }): Promise<{
+    data: User[];
+    totalCount: number;
+    hasMore: boolean;
+  }> {
+    const cacheKey = `users-${JSON.stringify(params)}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await this.apiHelper.get('/users', { params });
+    const result = {
+      data: response.data.map(user => UserSchema.parse(user)),
+      totalCount: response.totalCount,
+      hasMore: response.hasMore
+    };
+
+    this.cache.set(cacheKey, result, 300000); // 5 minutes
+    return result;
   }
 
   async getUser(id: string): Promise<User> {
-    const response = await apiClient.get(`${this.baseUrl}/${id}`);
-    return UserSchema.parse(response.data);
+    const cacheKey = `user-${id}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await this.apiHelper.get(`/users/${id}`);
+    const user = UserSchema.parse(response.data);
+
+    this.cache.set(cacheKey, user, 300000);
+    return user;
   }
 
-  // ... other CRUD methods
+  async createUser(userData: CreateUserRequest): Promise<User> {
+    const validatedData = CreateUserSchema.parse(userData);
+    const response = await this.apiHelper.post('/users', validatedData);
+    const user = UserSchema.parse(response.data);
+
+    // Invalidate cache
+    this.cache.clear();
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<CreateUserRequest>): Promise<User> {
+    const response = await this.apiHelper.put(`/users/${id}`, updates);
+    const user = UserSchema.parse(response.data);
+
+    // Update cache
+    this.cache.delete(`user-${id}`);
+    this.cache.clear(); // Clear list cache
+
+    return user;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.apiHelper.delete(`/users/${id}`);
+
+    // Clear cache
+    this.cache.delete(`user-${id}`);
+    this.cache.clear();
+  }
 }
-
-export const userService = new UserService();
 ```
 
-## 📄 Page Generation
+## 📄 Page Commands
 
-### Syntax
+### `generate page` / `g page`
+Generate complete pages with routing, stores, and services.
 
 ```bash
-node cli/index.js generate page <PageName> [options]
+ai-first g page <page-name> [options]
 ```
 
-### Options
+#### Options
+- `--route <path>` - Custom route path
+- `--store` - Include store integration (default: `true`)
+- `--service` - Include service integration (default: `true`)
+- `--auth` - Require authentication (default: `true`)
+- `--permissions <list>` - Required permissions (comma-separated)
+- `--layout <name>` - Layout component to use
+- `--breadcrumb` - Add breadcrumb navigation (default: `true`)
 
-- `--path <path>` - Target directory (default: `src/pages`)
-- `--route <route>` - Route path (default: derived from name)
-- `--layout <layout>` - Layout component to use
+#### Examples
+```bash
+# Basic page with store and service
+ai-first g page UsersPage \
+  --route="/users" \
+  --store \
+  --service
 
-### Examples
+# Protected admin page
+ai-first g page AdminDashboard \
+  --route="/admin" \
+  --permissions="admin:read,admin:write" \
+  --layout="AdminLayout"
+
+# Public page without auth
+ai-first g page LandingPage \
+  --route="/" \
+  --auth=false \
+  --store=false
+```
+
+## 🔌 API Commands
+
+### `generate endpoints` / `g endpoints`
+Generate API endpoint configurations for URL and backend helpers.
 
 ```bash
-# Basic page
-node cli/index.js generate page Dashboard
-
-# Page with custom route
-node cli/index.js generate page Dashboard --route "/admin/dashboard"
-
-# Page with layout
-node cli/index.js generate page Dashboard --layout AdminLayout
+ai-first g endpoints <service-name> [options]
 ```
 
-### Generated Files
+#### Options
+- `--auth` - Include authentication endpoints (default: `true`)
+- `--tenant` - Include tenant-scoped endpoints (default: `true`)
+- `--workspace` - Include workspace-scoped endpoints (default: `false`)
+- `--crud` - Generate CRUD endpoints (default: `true`)
+- `--upload` - Include file upload endpoints (default: `false`)
 
-```
-src/pages/Dashboard/
-├── Dashboard.tsx       # Page component
-├── Dashboard.test.tsx  # Page tests
-└── index.ts           # Export barrel
-```
+#### Examples
+```bash
+# User management endpoints
+ai-first g endpoints UserService \
+  --auth \
+  --tenant \
+  --crud
 
-### Generated Page Structure
+# File management endpoints
+ai-first g endpoints FileService \
+  --upload \
+  --workspace
 
-```tsx
-import React from 'react';
-import styled from 'styled-components';
-import { Layout, Typography } from 'antd';
-
-const { Content } = Layout;
-const { Title } = Typography;
-
-const DashboardWrapper = styled(Content)`
-  padding: 24px;
-  min-height: 100vh;
-`;
-
-export const Dashboard: React.FC = () => {
-  return (
-    <DashboardWrapper data-testid="dashboard">
-      <Title level={2}>Dashboard</Title>
-      {/* Page content */}
-    </DashboardWrapper>
-  );
-};
+# Simple API endpoints
+ai-first g endpoints SettingsService \
+  --crud=false
 ```
 
-## ⚙️ Configuration
+#### Generated Endpoints
+```typescript
+// services/endpoints/userEndpoints.ts
+export const USER_ENDPOINTS = {
+  // CRUD operations
+  getUsers: {
+    method: 'GET',
+    url: '/users',
+    auth: true,
+    tenant: true
+  },
 
-### Global CLI Configuration
+  getUser: {
+    method: 'GET',
+    url: '/users/:id',
+    auth: true,
+    tenant: true
+  },
 
-The CLI can be configured through environment variables or a config file:
+  createUser: {
+    method: 'POST',
+    url: '/users',
+    auth: true,
+    tenant: true,
+    permissions: ['users:create']
+  },
+
+  updateUser: {
+    method: 'PUT',
+    url: '/users/:id',
+    auth: true,
+    tenant: true,
+    permissions: ['users:update']
+  },
+
+  deleteUser: {
+    method: 'DELETE',
+    url: '/users/:id',
+    auth: true,
+    tenant: true,
+    permissions: ['users:delete']
+  },
+
+  // Bulk operations
+  bulkUpdateUsers: {
+    method: 'POST',
+    url: '/users/bulk-update',
+    auth: true,
+    tenant: true,
+    permissions: ['users:bulk_update']
+  }
+} as const;
+```
+
+## 🧪 Test Commands
+
+### `generate test` / `g test`
+Generate test files for existing components, stores, or services.
 
 ```bash
-# Environment variables
-export AI_FIRST_DEFAULT_AUTHOR="Your Name"
-export AI_FIRST_DEFAULT_EMAIL="you@example.com"
-export AI_FIRST_DEFAULT_STYLE="styled-components"
+ai-first g test <target-file> [options]
 ```
 
-### Template Customization
+#### Options
+- `--type <type>` - Test type: `unit|integration|e2e` (default: `unit`)
+- `--coverage` - Include coverage requirements (default: `true`)
+- `--mocks` - Generate mock files (default: `true`)
+- `--fixtures` - Include test fixtures (default: `true`)
 
-You can customize generated templates by modifying files in:
+#### Examples
+```bash
+# Component tests
+ai-first g test UserCard --type=unit --mocks
+
+# Store integration tests
+ai-first g test userStore --type=integration --fixtures
+
+# Service tests with coverage
+ai-first g test UserService --coverage --mocks
 ```
-ai-first-react-starter/generators/templates/
-```
 
-## 🔧 Advanced Usage
+## ⚙️ Configuration Commands
 
-### Batch Generation
+### `config`
+Manage CLI configuration and project settings.
 
 ```bash
-# Generate multiple components at once
-node cli/index.js g component UserCard ProductCard OrderCard
-
-# Generate a complete feature set
-node cli/index.js g component UserProfile --path src/features/user
-node cli/index.js g store UserStore --path src/features/user
-node cli/index.js g service UserService --path src/features/user
-node cli/index.js g page UserManagement --path src/features/user
+ai-first config <action> [key] [value]
 ```
+
+#### Actions
+- `get <key>` - Get configuration value
+- `set <key> <value>` - Set configuration value
+- `list` - List all configuration
+- `reset` - Reset to defaults
+
+#### Examples
+```bash
+# View all config
+ai-first config list
+
+# Set default template
+ai-first config set template.default enterprise
+
+# Set default package manager
+ai-first config set packageManager yarn
+
+# Reset configuration
+ai-first config reset
+```
+
+#### Configuration File
+```json
+// .ai-first.json
+{
+  "template": {
+    "default": "default",
+    "enterprise": "enterprise-template"
+  },
+  "packageManager": "npm",
+  "typescript": true,
+  "testing": {
+    "framework": "jest",
+    "coverage": true
+  },
+  "defaults": {
+    "withAuth": true,
+    "withTenant": true,
+    "antd": true,
+    "styled": false
+  },
+  "plugins": {
+    "autoInstall": true,
+    "autoActivate": true
+  }
+}
+```
+
+## 🔍 Analysis Commands
+
+### `analyze`
+Analyze project structure and provide recommendations.
+
+```bash
+ai-first analyze [options]
+```
+
+#### Options
+- `--plugins` - Analyze plugin architecture
+- `--performance` - Performance analysis
+- `--security` - Security audit
+- `--dependencies` - Dependency analysis
+- `--coverage` - Test coverage analysis
+
+#### Examples
+```bash
+# Full analysis
+ai-first analyze --plugins --performance --security
+
+# Plugin-specific analysis
+ai-first analyze --plugins
+
+# Performance audit
+ai-first analyze --performance --dependencies
+```
+
+## 📊 Info Commands
+
+### `info`
+Display project and environment information.
+
+```bash
+ai-first info [options]
+```
+
+#### Options
+- `--system` - System information
+- `--project` - Project details
+- `--plugins` - Installed plugins
+- `--dependencies` - Dependency versions
+
+#### Example Output
+```
+AI-First SaaS React Starter CLI v2.1.0
+
+📦 Project Information:
+  Name: my-saas-app
+  Version: 1.0.0
+  Template: enterprise
+  TypeScript: ✅
+
+🔌 Plugins (5 installed, 4 active):
+  ✅ UserManagement v1.2.0
+  ✅ ProjectManagement v1.1.0
+  ✅ Analytics v1.0.0
+  ✅ TaskManagement v1.0.0
+  ⏸️ NotificationPlugin v0.9.0 (inactive)
+
+💻 System Information:
+  Node.js: v18.17.0
+  npm: 9.6.7
+  OS: macOS 13.4.0
+
+🔧 Dependencies:
+  react: ^18.2.0
+  zustand: ^4.3.8
+  antd: ^5.6.2
+```
+
+## 🚀 Advanced Usage
 
 ### Custom Templates
-
-You can create custom generators by:
-
-1. Adding templates to `generators/templates/`
-2. Creating generator scripts in `generators/`
-3. Registering them in `cli/index.js`
-
-### Integration with IDEs
-
-#### VS Code Integration
-
-Add to your VS Code tasks:
-
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Generate Component",
-      "type": "shell",
-      "command": "node",
-      "args": ["../ai-first-react-starter/cli/index.js", "g", "component", "${input:componentName}"],
-      "group": "build"
-    }
-  ]
-}
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Command not found**: Ensure you're in the correct directory
-2. **Permission denied**: Check file permissions on CLI scripts
-3. **Template errors**: Verify template syntax in generators/templates/
-4. **Path issues**: Use absolute paths when in doubt
-
-### Debug Mode
-
-Enable verbose logging:
-
 ```bash
-DEBUG=1 node cli/index.js generate component MyComponent
+# Create custom template
+ai-first create-template my-template --base=default
+
+# Use custom template
+ai-first create-app my-app --template=my-template
 ```
 
-### Error Messages
+### Batch Operations
+```bash
+# Generate multiple components
+ai-first g component Button Card Modal --batch
 
-The CLI provides detailed error messages for:
-- Invalid component names
-- Missing required arguments
-- Template compilation errors
-- File system permissions
-- Dependency conflicts
+# Generate plugin with all features
+ai-first g plugin ECommerce \
+  --with-store \
+  --with-routes \
+  --with-api \
+  --with-tests \
+  --permissions="ecommerce:read,ecommerce:write"
+```
 
-## 📚 Examples
+### Environment-Specific Generation
+```bash
+# Generate for specific environment
+ai-first g service PaymentService --env=production --cache=false
 
-See the [examples directory](../examples/) for complete applications generated with the CLI.
+# Development-specific features
+ai-first g component DebugPanel --env=development
+```
 
-## 🔄 Updates
+This CLI provides a comprehensive toolkit for building AI-First SaaS applications with consistent patterns, proper testing, and maintainable architecture.
 
-The CLI automatically formats generated code using:
-- Prettier for code formatting
-- ESLint for code quality
-- TypeScript compiler for type checking
-
----
-
-**Next**: Learn about [Code Generators](./generators.md) to understand the template system.
+Next: **[API Mocking](./api-mocking.md)** - Complete guide to API mocking and development

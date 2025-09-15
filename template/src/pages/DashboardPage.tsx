@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, Typography, Button, Space } from 'antd';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../auth/AuthStore';
+import { useAuthStore } from '../core/auth/AuthStore';
 
 const { Title, Text } = Typography;
 

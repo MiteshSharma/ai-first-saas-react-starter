@@ -2,8 +2,8 @@ import React from 'react';
 import { Form, Input, Button, Typography, Alert, Card, Divider } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../auth/AuthStore';
-import type { LoginCredentials } from '../../auth/types';
+import { useAuthStore } from '../../core/auth/AuthStore';
+import type { LoginCredentials } from '../../core/auth/types';
 
 const { Title, Text } = Typography;
 

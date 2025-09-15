@@ -34,9 +34,10 @@ import {
   ProjectOutlined,
   TeamOutlined
 } from '@ant-design/icons';
-import { useProjectStore } from '../store/projects';
-import { useTenantStore } from '../store/tenant/tenantStore';
-import type { Project, ProjectStatus, ProjectPriority, CreateProjectPayload } from '../store/projects/types';
+import { useProjectStore } from '../core/stores/projects';
+import { useTenantStore } from '../core/stores/tenant/tenantStore';
+import type { Project, ProjectStatus, ProjectPriority, CreateProjectPayload } from '../core/stores/projects/types';
+import { logger } from '../core/utils/logger';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
@@ -80,7 +81,7 @@ export const ProjectsPage: React.FC = () => {
       setCreateModalVisible(false);
       form.resetFields();
     } catch (error) {
-      console.error('Failed to create project:', error);
+      logger.error('Failed to create project', 'ProjectsPage', error);
     }
   };
 
@@ -93,7 +94,7 @@ export const ProjectsPage: React.FC = () => {
       setEditingProject(null);
       form.resetFields();
     } catch (error) {
-      console.error('Failed to update project:', error);
+      logger.error('Failed to update project', 'ProjectsPage', error);
     }
   };
 
@@ -108,7 +109,7 @@ export const ProjectsPage: React.FC = () => {
         try {
           await deleteProject(project.id);
         } catch (error) {
-          console.error('Failed to delete project:', error);
+          logger.error('Failed to delete project', 'ProjectsPage', error);
         }
       }
     });
@@ -223,7 +224,7 @@ export const ProjectsPage: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, project: Project) => (
+      render: (_: unknown, project: Project) => (
         <Space>
           <Button
             icon={<EditOutlined />}

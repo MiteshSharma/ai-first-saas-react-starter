@@ -9,7 +9,7 @@ import {
   MemberStatus,
   InviteStatus,
   WorkspaceStatus
-} from '../store/tenant/types';
+} from '../core/stores/tenant/types';
 
 // Mock tenant data for testing
 export const tenantMocks = {

@@ -13,8 +13,8 @@ import {
 const getRandomDelay = () => Math.floor(Math.random() * 800) + 200; // 200-1000ms
 
 export const setupUserMocks = (mock: MockAdapter) => {
-  // GET /api/users - List users with pagination and filtering
-  mock.onGet(/\/api\/users(\?.*)?/).reply((config) => {
+  // GET /users - List users with pagination and filtering
+  mock.onGet(/\/users(\?.*)?/).reply((config) => {
     const url = new URL('http://localhost' + config.url);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '10', 10);
@@ -69,8 +69,8 @@ export const setupUserMocks = (mock: MockAdapter) => {
     return [200, response];
   });
 
-  // GET /api/users/:id - Get single user
-  mock.onGet(/\/api\/users\/(.+)/).reply((config) => {
+  // GET /users/:id - Get single user
+  mock.onGet(/\/users\/(.+)/).reply((config) => {
     const userId = config.url?.split('/').pop();
     if (!userId) {
       return [400, { message: 'User ID is required' }];
@@ -88,8 +88,8 @@ export const setupUserMocks = (mock: MockAdapter) => {
     return [200, { data: user }];
   });
 
-  // POST /api/users - Create new user
-  mock.onPost('/api/users').reply((config) => {
+  // POST /users - Create new user
+  mock.onPost('/users').reply((config) => {
     try {
       const userData = JSON.parse(config.data);
       
@@ -139,8 +139,8 @@ export const setupUserMocks = (mock: MockAdapter) => {
     }
   });
 
-  // PUT /api/users/:id - Update user
-  mock.onPut(/\/api\/users\/(.+)/).reply((config) => {
+  // PUT /users/:id - Update user
+  mock.onPut(/\/users\/(.+)/).reply((config) => {
     const userId = config.url?.split('/').pop();
     if (!userId) {
       return [400, { message: 'User ID is required' }];
@@ -190,8 +190,8 @@ export const setupUserMocks = (mock: MockAdapter) => {
     }
   });
 
-  // DELETE /api/users/:id - Delete user
-  mock.onDelete(/\/api\/users\/(.+)/).reply((config) => {
+  // DELETE /users/:id - Delete user
+  mock.onDelete(/\/users\/(.+)/).reply((config) => {
     const userId = config.url?.split('/').pop();
     if (!userId) {
       return [400, { message: 'User ID is required' }];
@@ -232,8 +232,8 @@ export const setupUserMocks = (mock: MockAdapter) => {
     }
   });
 
-  // PATCH /api/users/:id/status - Toggle user status
-  mock.onPatch(/\/api\/users\/(.+)\/status/).reply((config) => {
+  // PATCH /users/:id/status - Toggle user status
+  mock.onPatch(/\/users\/(.+)\/status/).reply((config) => {
     const userId = config.url?.split('/')[3]; // Extract ID from path
     if (!userId) {
       return [400, { message: 'User ID is required' }];
@@ -264,8 +264,8 @@ export const setupUserMocks = (mock: MockAdapter) => {
     }
   });
 
-  // GET /api/users/stats - Get user statistics
-  mock.onGet('/api/users/stats').reply(() => {
+  // GET /users/stats - Get user statistics
+  mock.onGet('/users/stats').reply(() => {
     const totalUsers = userMocks.list.length;
     const activeUsers = userMocks.list.filter(user => user.isActive).length;
     const usersByRole = userMocks.list.reduce((acc, user) => {

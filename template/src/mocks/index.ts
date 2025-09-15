@@ -1,5 +1,5 @@
 import MockAdapter from 'axios-mock-adapter';
-import { apiHelper } from '../helpers/apiHelper';
+import { apiHelper } from '../core/api/apiHelper';
 import { userMocks } from './data/userMocks';
 import { authMocks } from './data/authMocks';
 import { tenantMocks } from './tenantMocks';
@@ -37,9 +37,9 @@ export const setupMocks = () => {
   // Log all registered mocks in development
   if (process.env.NODE_ENV === 'development') {
     console.log('📝 Registered mock endpoints:', {
-      auth: '/api/auth/*',
-      users: '/api/users/*',
-      tenants: '/api/tenants/*',
+      auth: '/auth/*',
+      users: '/users/*',
+      tenants: '/tenants/*',
     });
   }
 };

@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { setupMocks } from './mocks';
-import { initAllPerformanceMonitoring } from './services/performance';
+import { initAllPerformanceMonitoring } from './core/services/performance';
 
 // Initialize performance monitoring
 initAllPerformanceMonitoring();

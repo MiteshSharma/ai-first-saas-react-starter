@@ -60,6 +60,9 @@
   "exclude": [
     "node_modules",
     "build",
-    "dist"
-  ]
-}
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**",
+    "**/testUtils.ts"
+  ]}

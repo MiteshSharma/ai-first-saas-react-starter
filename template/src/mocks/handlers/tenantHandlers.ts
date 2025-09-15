@@ -22,7 +22,7 @@ import {
   TenantStatus,
   InviteStatus,
   WorkspaceStatus
-} from '../../store/tenant/types';
+} from '../../core/stores/tenant/types';
 
 /**
  * Setup mock handlers for tenant-related API endpoints
@@ -32,7 +32,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   console.log('🏢 Setting up tenant mock handlers');
 
   // Get current user's tenants
-  mock.onGet('/api/tenants').reply((config) => {
+  mock.onGet('/tenants').reply((config) => {
     console.log('📋 Mock: Get user tenants');
     
     // Simulate getting current user from auth header
@@ -47,7 +47,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Get specific tenant details
-  mock.onGet(/\/api\/tenants\/([^\/]+)$/).reply((config) => {
+  mock.onGet(/\/tenants\/([^/]+)$/).reply((config) => {
     const tenantId = config.url?.split('/').pop();
     console.log(`📋 Mock: Get tenant details for ${tenantId}`);
     
@@ -63,7 +63,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Switch tenant context
-  mock.onPost('/api/tenants/switch').reply((config) => {
+  mock.onPost('/tenants/switch').reply((config) => {
     const { tenantId } = JSON.parse(config.data);
     console.log(`🔄 Mock: Switch to tenant ${tenantId}`);
     
@@ -92,14 +92,14 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Create new tenant
-  mock.onPost('/api/tenants').reply((config) => {
+  mock.onPost('/tenants').reply((config) => {
     const payload: CreateTenantPayload = JSON.parse(config.data);
     console.log('🆕 Mock: Create tenant', payload);
     
     const newTenant: Tenant = {
       id: `tenant-${Date.now()}`,
       name: payload.name,
-      slug: payload.slug || payload.name.toLowerCase().replace(/\s+/g, '-'),
+      slug: payload.slug || (payload.name || 'unnamed').toLowerCase().replace(/\s+/g, '-'),
       plan: payload.plan || TenantPlan.FREE,
       status: TenantStatus.ACTIVE,
       ownerId: 'user-1',
@@ -123,7 +123,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Update tenant
-  mock.onPut(/\/api\/tenants\/([^\/]+)$/).reply((config) => {
+  mock.onPut(/\/tenants\/([^/]+)$/).reply((config) => {
     const tenantId = config.url?.split('/').pop();
     const payload: UpdateTenantPayload = JSON.parse(config.data);
     console.log(`✏️ Mock: Update tenant ${tenantId}`, payload);
@@ -163,7 +163,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Get tenant members
-  mock.onGet(/\/api\/tenants\/([^\/]+)\/members$/).reply((config) => {
+  mock.onGet(/\/tenants\/([^/]+)\/members$/).reply((config) => {
     const tenantId = config.url?.split('/')[3];
     console.log(`👥 Mock: Get tenant members for ${tenantId}`);
     
@@ -177,7 +177,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Invite member
-  mock.onPost(/\/api\/tenants\/([^\/]+)\/members\/invite$/).reply((config) => {
+  mock.onPost(/\/tenants\/([^/]+)\/members\/invite$/).reply((config) => {
     const tenantId = config.url?.split('/')[3];
     const payload: InviteMemberPayload = JSON.parse(config.data);
     console.log(`📧 Mock: Invite member to tenant ${tenantId}`, payload);
@@ -214,7 +214,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Get tenant workspaces
-  mock.onGet(/\/api\/tenants\/([^\/]+)\/workspaces$/).reply((config) => {
+  mock.onGet(/\/tenants\/([^/]+)\/workspaces$/).reply((config) => {
     const tenantId = config.url?.split('/')[3];
     console.log(`📁 Mock: Get workspaces for tenant ${tenantId}`);
     
@@ -228,7 +228,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Create workspace
-  mock.onPost(/\/api\/tenants\/([^\/]+)\/workspaces$/).reply((config) => {
+  mock.onPost(/\/tenants\/([^/]+)\/workspaces$/).reply((config) => {
     const tenantId = config.url?.split('/')[3];
     const payload: CreateWorkspacePayload = JSON.parse(config.data);
     console.log(`🆕 Mock: Create workspace in tenant ${tenantId}`, payload);
@@ -238,7 +238,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
       tenantId: tenantId!,
       name: payload.name,
       description: payload.description,
-      slug: payload.slug || payload.name.toLowerCase().replace(/\s+/g, '-'),
+      slug: payload.slug || (payload.name || 'unnamed').toLowerCase().replace(/\s+/g, '-'),
       ownerId: 'user-1',
       status: WorkspaceStatus.ACTIVE,
       createdAt: new Date().toISOString(),
@@ -260,7 +260,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Update workspace
-  mock.onPut(/\/api\/workspaces\/([^\/]+)$/).reply((config) => {
+  mock.onPut(/\/workspaces\/([^/]+)$/).reply((config) => {
     const workspaceId = config.url?.split('/').pop();
     const payload: UpdateWorkspacePayload = JSON.parse(config.data);
     console.log(`✏️ Mock: Update workspace ${workspaceId}`, payload);
@@ -298,7 +298,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Delete workspace
-  mock.onDelete(/\/api\/workspaces\/([^\/]+)$/).reply((config) => {
+  mock.onDelete(/\/workspaces\/([^/]+)$/).reply((config) => {
     const workspaceId = config.url?.split('/').pop();
     console.log(`🗑️ Mock: Delete workspace ${workspaceId}`);
     
@@ -316,7 +316,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Get tenant-scoped data sources (testing data isolation)
-  mock.onGet('/api/data-sources').reply((config) => {
+  mock.onGet('/data-sources').reply((config) => {
     const tenantId = config.headers?.['X-Tenant-Id'];
     console.log(`📊 Mock: Get data sources for tenant ${tenantId}`);
     
@@ -338,7 +338,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Get tenant-scoped charts (testing data isolation)
-  mock.onGet('/api/charts').reply((config) => {
+  mock.onGet('/charts').reply((config) => {
     const tenantId = config.headers?.['X-Tenant-Id'];
     console.log(`📈 Mock: Get charts for tenant ${tenantId}`);
     
@@ -360,7 +360,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   });
 
   // Test tenant isolation endpoint
-  mock.onGet('/api/test/tenant-isolation').reply((config) => {
+  mock.onGet('/test/tenant-isolation').reply((config) => {
     const tenantId = config.headers?.['X-Tenant-Id'];
     console.log(`🔒 Mock: Test tenant isolation for ${tenantId}`);
     

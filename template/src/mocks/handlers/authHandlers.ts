@@ -11,8 +11,8 @@ import {
 } from '../data/authMocks';
 
 export const setupAuthMocks = (mock: MockAdapter) => {
-  // POST /api/auth/login - User login
-  mock.onPost('/api/auth/login').reply((config) => {
+  // POST /auth/login - User login
+  mock.onPost('/auth/login').reply((config) => {
     try {
       const credentials: MockLoginCredentials = JSON.parse(config.data);
       
@@ -72,8 +72,8 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }
   });
 
-  // POST /api/auth/logout - User logout
-  mock.onPost('/api/auth/logout').reply((config) => {
+  // POST /auth/logout - User logout
+  mock.onPost('/auth/logout').reply((config) => {
     try {
       const { refreshToken } = JSON.parse(config.data);
       
@@ -92,8 +92,8 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }
   });
 
-  // POST /api/auth/refresh - Refresh access token
-  mock.onPost('/api/auth/refresh').reply((config) => {
+  // POST /auth/refresh - Refresh access token
+  mock.onPost('/auth/refresh').reply((config) => {
     try {
       const { refreshToken } = JSON.parse(config.data);
       
@@ -136,8 +136,8 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }
   });
 
-  // GET /api/auth/me - Get current user info
-  mock.onGet('/api/auth/me').reply((config) => {
+  // GET /auth/me - Get current user info
+  mock.onGet('/auth/me').reply((config) => {
     // Check for Authorization header
     const authHeader = config.headers?.Authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -173,8 +173,8 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }];
   });
 
-  // POST /api/auth/forgot-password - Forgot password
-  mock.onPost('/api/auth/forgot-password').reply((config) => {
+  // POST /auth/forgot-password - Forgot password
+  mock.onPost('/auth/forgot-password').reply((config) => {
     try {
       const { email } = JSON.parse(config.data);
       
@@ -206,8 +206,8 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }
   });
 
-  // POST /api/auth/reset-password - Reset password
-  mock.onPost('/api/auth/reset-password').reply((config) => {
+  // POST /auth/reset-password - Reset password
+  mock.onPost('/auth/reset-password').reply((config) => {
     try {
       const { token, newPassword, confirmPassword } = JSON.parse(config.data);
       
@@ -259,8 +259,8 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }
   });
 
-  // POST /api/auth/change-password - Change password (authenticated)
-  mock.onPost('/api/auth/change-password').reply((config) => {
+  // POST /auth/change-password - Change password (authenticated)
+  mock.onPost('/auth/change-password').reply((config) => {
     // Check authorization
     const authHeader = config.headers?.Authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

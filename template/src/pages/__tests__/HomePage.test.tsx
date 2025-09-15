@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import HomePage from '../HomePage';
 
 // Mock the stores and components to avoid complex dependencies
-jest.mock('../../hooks/useTestStore', () => ({
+jest.mock('../../core/hooks/useTestStore', () => ({
   useTestStore: () => ({
     count: 0,
     increment: jest.fn(),
@@ -13,7 +13,7 @@ jest.mock('../../hooks/useTestStore', () => ({
   })
 }));
 
-jest.mock('../../auth/AuthStore', () => ({
+jest.mock('../../core/auth/AuthStore', () => ({
   useAuthStore: () => ({
     user: null,
     logout: jest.fn()
@@ -24,7 +24,7 @@ jest.mock('../../components/TestComponent', () => ({
   TestComponent: ({ message }: { message: string }) => <div>Test Component: {message}</div>
 }));
 
-jest.mock('../../utils/testUtils', () => ({
+jest.mock('../../core/utils/testUtils', () => ({
   testUtilFunction: (msg: string) => `Processed: ${msg}`
 }));
 

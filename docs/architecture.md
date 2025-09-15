@@ -1,323 +1,390 @@
-# Architecture Overview
+# Architecture
 
-The AI-First React Framework is designed with a modern, scalable architecture that promotes maintainability, testability, and developer productivity. This document outlines the key architectural decisions and patterns used throughout the framework.
+This document provides a comprehensive overview of the AI-First SaaS React Starter architecture, design principles, and implementation patterns.
 
 ## 🏗️ High-Level Architecture
 
+### System Overview
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AI-First React Framework                 │
-├─────────────────────────────────────────────────────────────┤
-│  🎨 Presentation Layer                                      │
-│  ├── React Components (Functional + Hooks)                 │
-│  ├── Styled Components + Ant Design                        │
-│  ├── Pages & Routing                                       │
-│  └── UI State Management                                   │
-├─────────────────────────────────────────────────────────────┤
-│  🧠 State Management Layer                                  │
-│  ├── Zustand Stores (Business Logic)                      │
-│  ├── Derived State & Selectors                            │
-│  ├── Actions & Subscriptions                              │
-│  └── Store Composition & Middleware                       │
-├─────────────────────────────────────────────────────────────┤
-│  🌐 Service Layer                                           │
-│  ├── API Services (HTTP Client)                            │
-│  ├── Data Fetching (SWR)                                   │
-│  ├── Validation (Zod Schemas)                              │
-│  └── Error Handling                                        │
-├─────────────────────────────────────────────────────────────┤
-│  🛠️ Infrastructure Layer                                    │
-│  ├── Build System (Craco + Webpack)                        │
-│  ├── TypeScript Configuration                              │
-│  ├── Testing Framework (Jest + RTL)                        │
-│  ├── Code Quality (ESLint + Prettier)                      │
-│  └── CI/CD Pipeline                                        │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    Browser Layer                    │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
+│  │   Plugin A  │ │   Plugin B  │ │   Plugin C  │   │
+│  │ Components  │ │ Components  │ │ Components  │   │
+│  │   Pages     │ │   Pages     │ │   Pages     │   │
+│  │   Routes    │ │   Routes    │ │   Routes    │   │
+│  └─────────────┘ └─────────────┘ └─────────────┘   │
+├─────────────────────────────────────────────────────┤
+│                   Event Bus Layer                   │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  Type-Safe Event Communication System          │ │
+│  │  • Subscription Management                     │ │
+│  │  • Event History & Debugging                   │ │
+│  │  • Performance Optimization                    │ │
+│  └─────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────┤
+│                 Core Framework Layer                │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐         │
+│  │   Auth    │ │    API    │ │  Stores   │         │
+│  │  Service  │ │  Helper   │ │   Base    │         │
+│  └───────────┘ └───────────┘ └───────────┘         │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐         │
+│  │  Plugin   │ │   Utils   │ │   Types   │         │
+│  │ Manager   │ │ Library   │ │  System   │         │
+│  └───────────┘ └───────────┘ └───────────┘         │
+├─────────────────────────────────────────────────────┤
+│                Foundation Layer                     │
+│       React + TypeScript + Zustand + Ant Design    │
+└─────────────────────────────────────────────────────┘
 ```
 
-## 📐 Design Principles
+## 🎯 Design Principles
 
 ### 1. **Separation of Concerns**
-- **Components**: Focus solely on rendering and user interaction
-- **Stores**: Handle business logic and state management
-- **Services**: Manage data fetching and external API communication
-- **Utilities**: Provide reusable helper functions
+- **Core Framework** handles foundational services
+- **Plugins** implement specific business features
+- **Event Bus** manages communication
+- **Clear boundaries** between layers
 
-### 2. **Unidirectional Data Flow**
+### 2. **Plugin-First Architecture**
+- Features are built as **independent plugins**
+- **Hot-pluggable** - can be added/removed at runtime
+- **Self-contained** - own stores, components, routes
+- **Loosely coupled** - communicate via events only
+
+### 3. **Event-Driven Communication**
+- **No direct dependencies** between plugins
+- **Type-safe events** with TypeScript definitions
+- **Subscription management** with automatic cleanup
+- **Debugging support** with event tracing
+
+### 4. **Type Safety First**
+- **Full TypeScript** support throughout
+- **Strict typing** for events, stores, services
+- **Interface contracts** for plugin APIs
+- **Compile-time validation** of integrations
+
+### 5. **Testability by Design**
+- **Isolated testing** of plugins
+- **Mockable services** and APIs
+- **Event simulation** for integration testing
+- **Test utilities** built into framework
+
+## 📁 Directory Structure
+
+### Core Framework Structure
 ```
-User Action → Component → Store Action → State Update → Component Re-render
+src/core/
+├── auth/                       # Authentication & Authorization
+│   ├── AuthStore.ts           # Auth state management
+│   ├── authService.ts         # Auth business logic
+│   ├── types.ts               # Auth type definitions
+│   └── __tests__/             # Auth tests
+├── api/                        # API Layer
+│   ├── apiHelper.ts           # HTTP client wrapper
+│   ├── backendHelper.ts       # Backend integration
+│   ├── types.ts               # API type definitions
+│   └── __tests__/             # API tests
+├── stores/                     # Base Store Patterns
+│   ├── base/                  # Base store utilities
+│   │   ├── types.ts           # Store type definitions
+│   │   ├── requestLifecycle.ts # Request state patterns
+│   │   └── pagination.ts      # Pagination patterns
+│   └── __tests__/             # Store tests
+├── plugins/                    # Plugin Management
+│   ├── PluginManager.ts       # Plugin lifecycle management
+│   ├── types.ts               # Plugin type definitions
+│   ├── pluginTestHelper.ts    # Testing utilities
+│   └── __tests__/             # Plugin system tests
+├── EventBus/                   # Event Communication
+│   ├── EventBus.ts           # Core event system
+│   ├── types.ts               # Event type definitions
+│   ├── events.ts              # Event definitions
+│   └── __tests__/             # Event bus tests
+└── utils/                      # Shared Utilities
+    ├── localStorage.ts         # Storage utilities
+    ├── dateUtils.ts           # Date utilities
+    ├── validation.ts          # Validation helpers
+    └── __tests__/             # Utility tests
 ```
 
-Zustand follows a simple, predictable data flow where actions directly update the store state, triggering re-renders in subscribed components.
+### Plugin Structure
+```
+src/plugins/
+├── UserManagement/            # User Management Plugin
+│   ├── UserManagementPlugin.ts # Main plugin class
+│   ├── stores/                # Plugin stores
+│   │   ├── userStore.ts
+│   │   └── profileStore.ts
+│   ├── components/            # Plugin components
+│   │   ├── UserProfile.tsx
+│   │   ├── UserList.tsx
+│   │   └── UserSettings.tsx
+│   ├── pages/                 # Plugin pages
+│   │   ├── UserProfilePage.tsx
+│   │   └── UserSettingsPage.tsx
+│   ├── services/              # Plugin services
+│   │   └── userService.ts
+│   ├── types.ts               # Plugin types
+│   └── __tests__/             # Plugin tests
+├── ProjectManagement/         # Project Management Plugin
+└── Analytics/                 # Analytics Plugin
+```
 
-### 3. **Type Safety First**
-- Strict TypeScript configuration
-- Runtime validation with Zod
-- Interface-driven development
-- Compile-time error detection
+## 🔌 Plugin Architecture
 
-### 4. **Performance by Default**
-- Component memoization
-- Lazy loading
-- Code splitting
-- Optimized bundle sizes
+### Plugin Lifecycle
+```typescript
+interface Plugin {
+  name: string;
+  version: string;
+  dependencies?: string[];
 
-## 🎨 Presentation Layer
+  // Lifecycle hooks
+  install?(context: PluginContext): Promise<void>;
+  activate?(context: PluginContext): Promise<void>;
+  deactivate?(context: PluginContext): Promise<void>;
+  uninstall?(context: PluginContext): Promise<void>;
+}
+```
 
-### Component Architecture
+### Plugin Context
+```typescript
+interface PluginContext {
+  // Core services
+  auth: AuthService;
+  api: ApiHelper;
+  eventBus: EventBus;
 
-```tsx
-// Modern functional component pattern
-export const UserProfile: React.FC<UserProfileProps> = ({
-  user,
-  onEdit,
-  loading = false
-}) => {
-  // Custom hooks for logic
-  const { isEditing, toggleEdit } = useEditMode();
-  
-  // Early returns for loading/error states
-  if (loading) return <Spinner />;
-  
-  return (
-    <StyledWrapper data-testid="user-profile">
-      {/* JSX with clear component composition */}
-    </StyledWrapper>
-  );
+  // Core stores
+  stores: {
+    auth: AuthStore;
+    tenant: TenantStore;
+  };
+
+  // Plugin utilities
+  registerRoute: (path: string, component: React.ComponentType) => void;
+  registerNavItem: (item: NavItem) => void;
+  getConfig: (key: string) => any;
+  setConfig: (key: string, value: any) => void;
+}
+```
+
+### Plugin Communication Flow
+```
+┌─────────────┐    Event     ┌─────────────┐
+│   Plugin A  │────────────→ │ Event Bus   │
+└─────────────┘              └─────────────┘
+                                    │
+                             Event  │  Event
+                                    ↓
+┌─────────────┐              ┌─────────────┐
+│   Plugin B  │←──────────── │   Plugin C  │
+└─────────────┘   Direct     └─────────────┘
+                   Call
+```
+
+## 🎛️ Event System Architecture
+
+### Event Bus Implementation
+```typescript
+class EventBus {
+  private listeners: Map<string, Set<EventListener>>;
+  private eventHistory: EventRecord[];
+  private isDebugging: boolean;
+
+  emit<T>(eventName: string, data: T): void;
+  subscribe<T>(eventName: string, listener: (data: T) => void): Unsubscribe;
+  unsubscribe(eventName: string, listener: EventListener): void;
+  clear(): void;
+}
+```
+
+### Event Types System
+```typescript
+// Core event definitions
+export const AUTH_EVENTS = {
+  USER_LOGIN: 'USER_LOGIN',
+  USER_LOGOUT: 'USER_LOGOUT',
+  TOKEN_REFRESH: 'TOKEN_REFRESH'
+} as const;
+
+export const TENANT_EVENTS = {
+  TENANT_SWITCHED: 'TENANT_SWITCHED',
+  TENANT_CREATED: 'TENANT_CREATED'
+} as const;
+
+// Event payload types
+export interface UserLoginEvent {
+  user: User;
+  token: string;
+  timestamp: Date;
+}
+
+export interface TenantSwitchedEvent {
+  tenantId: string;
+  tenantName: string;
+  previousTenantId?: string;
+}
+```
+
+### Event Flow Patterns
+
+#### 1. **Command Events** (Action Triggers)
+```typescript
+// Plugin initiates an action
+eventBus.emit('CREATE_PROJECT', {
+  name: 'New Project',
+  description: 'Project description'
+});
+
+// Core or other plugins handle the action
+eventBus.subscribe('CREATE_PROJECT', async (data) => {
+  const project = await projectAPI.create(data);
+  eventBus.emit('PROJECT_CREATED', { project });
+});
+```
+
+#### 2. **State Change Events** (Data Updates)
+```typescript
+// Core updates state and notifies
+const updateUser = (userId: string, updates: Partial<User>) => {
+  const updatedUser = { ...user, ...updates };
+  setUser(updatedUser);
+
+  eventBus.emit('USER_UPDATED', {
+    userId,
+    user: updatedUser,
+    changes: updates
+  });
 };
 ```
 
-### Styling Strategy
+#### 3. **UI Events** (Interface Changes)
+```typescript
+// Register navigation items
+eventBus.emit('REGISTER_NAV_ITEM', {
+  id: 'projects',
+  label: 'Projects',
+  path: '/projects',
+  icon: 'ProjectOutlined',
+  order: 2
+});
 
-**Hybrid Approach**: Styled Components + Ant Design
-
-```tsx
-// Styled Components for custom styling
-const StyledCard = styled(Card)`
-  margin: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  
-  .ant-card-body {
-    padding: 24px;
-  }
-`;
-
-// Ant Design for consistent UI components
-<StyledCard>
-  <Form>
-    <Form.Item label="Name">
-      <Input value={name} onChange={handleNameChange} />
-    </Form.Item>
-  </Form>
-</StyledCard>
+// Plugin responds to navigation
+eventBus.subscribe('NAV_ITEM_CLICKED', (item) => {
+  trackEvent('navigation', { item: item.id });
+});
 ```
 
-### Component Patterns
+## 🗄️ State Management Architecture
 
-1. **Container vs Presentational**
-   - Container components connect to stores
-   - Presentational components receive props
-
-2. **Compound Components**
-   - Related components grouped together
-   - Shared context and state
-
-3. **Render Props & Custom Hooks**
-   - Logic reuse across components
-   - Cleaner component interfaces
-
-## 🧠 State Management Layer
-
-### Zustand Architecture
-
-```tsx
-// Store structure with Zustand
-import { create } from 'zustand';
-
-export interface UserState {
-  users: User[];
-  loading: boolean;
-  error: string | null;
-  // Actions
-  fetchUsers: () => Promise<void>;
-  addUser: (user: User) => void;
-  updateUser: (id: string, updates: Partial<User>) => void;
-  // Computed/derived state
-  getActiveUsers: () => User[];
+### Store Hierarchy
+```typescript
+// Global Core Stores
+interface CoreStores {
+  auth: AuthStore;          // Authentication state
+  tenant: TenantStore;      // Multi-tenant state
+  navigation: NavStore;     // Navigation state
+  ui: UIStore;             // UI preferences
 }
 
-export const useUserStore = create<UserState>()((set, get) => ({
-  // Initial state
-  users: [],
-  loading: false,
-  error: null,
+// Plugin Stores (isolated)
+interface PluginStores {
+  [pluginName: string]: {
+    [storeName: string]: any;
+  };
+}
+```
 
-  // Computed values (derived state)
-  getActiveUsers: () => {
-    return get().users.filter(user => user.isActive);
-  },
+### Base Store Patterns
+```typescript
+// Request lifecycle pattern
+interface RequestState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+  lastFetch: Date | null;
+}
 
-  // Actions
-  fetchUsers: async () => {
-    set({ loading: true, error: null });
+// Pagination pattern
+interface PaginatedState<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+// Cache pattern
+interface CacheState<T> {
+  data: Map<string, T>;
+  expiryTimes: Map<string, Date>;
+  maxAge: number;
+}
+```
+
+### Store Integration with Events
+```typescript
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  projects: [],
+  currentProject: null,
+
+  createProject: async (projectData) => {
+    set({ loading: true });
+
     try {
-      const users = await userService.getUsers();
-      set({ users, loading: false });
+      const project = await projectAPI.create(projectData);
+      set(state => ({
+        projects: [...state.projects, project],
+        loading: false
+      }));
+
+      // Emit event for other plugins
+      eventBus.emit('PROJECT_CREATED', { project });
     } catch (error) {
       set({ error: error.message, loading: false });
+      eventBus.emit('PROJECT_CREATE_FAILED', { error });
     }
-  },
-
-  addUser: (user) => set((state) => ({ 
-    users: [...state.users, user] 
-  })),
-
-  updateUser: (id, updates) => set((state) => ({
-    users: state.users.map(user => 
-      user.id === id ? { ...user, ...updates } : user
-    )
-  }))
+  }
 }));
 ```
 
-### Zustand Middleware
+## 🌐 API Architecture
 
-```tsx
-// Persist middleware for data persistence
-import { persist } from 'zustand/middleware';
+### API Layer Structure
+```typescript
+// Core API helper
+class ApiHelper {
+  private client: AxiosInstance;
+  private authStore: AuthStore;
 
-export const useUserStore = create<UserState>()(
-  persist(
-    (set, get) => ({
-      // Store implementation
-    }),
-    {
-      name: 'user-storage',
-      // Optional: customize what gets persisted
-      partialize: (state) => ({ users: state.users }),
-    }
-  )
-);
-
-// DevTools middleware for debugging
-import { devtools } from 'zustand/middleware';
-
-export const useUserStore = create<UserState>()(
-  devtools(
-    (set, get) => ({
-      // Store implementation
-    }),
-    { name: 'UserStore' }
-  )
-);
-
-// Immer middleware for complex state updates
-import { immer } from 'zustand/middleware/immer';
-
-export const useUserStore = create<UserState>()(
-  immer((set, get) => ({
-    users: [],
-    updateUser: (id, updates) => 
-      set((state) => {
-        const user = state.users.find(u => u.id === id);
-        if (user) {
-          Object.assign(user, updates);
-        }
-      })
-  }))
-);
-```
-
-### Store Composition
-
-```tsx
-// Modular store pattern with Zustand
-// Individual stores are self-contained
-export const useUserStore = create<UserState>()(/* user store implementation */);
-export const useAuthStore = create<AuthState>()(/* auth store implementation */);
-export const useUIStore = create<UIState>()(/* UI store implementation */);
-
-// Store composition through custom hooks when needed
-export const useAppState = () => {
-  const users = useUserStore((state) => state.users);
-  const currentUser = useAuthStore((state) => state.user);
-  const isLoading = useUIStore((state) => state.isLoading);
-  
-  return { users, currentUser, isLoading };
-};
-
-// Cross-store actions using subscriptions
-export const useStoreSubscriptions = () => {
-  useEffect(() => {
-    const unsubAuth = useAuthStore.subscribe(
-      (state) => state.isAuthenticated,
-      (isAuthenticated) => {
-        if (!isAuthenticated) {
-          useUserStore.getState().clearUsers();
-        }
-      }
-    );
-    
-    return unsubAuth;
-  }, []);
-};
-```
-
-### State Flow Patterns
-
-1. **Immutable Updates**
-   - Actions create new state objects
-   - Shallow equality checks for optimized re-renders
-   - Clear separation between state and actions
-
-2. **Selective Subscriptions**
-   - Components subscribe to specific state slices
-   - Prevents unnecessary re-renders
-   - Optimized performance by default
-
-3. **Error Boundaries**
-   - Graceful error handling
-   - Fallback UI components
-   - Error reporting
-
-## 🌐 Service Layer
-
-### API Service Architecture
-
-```tsx
-// Base API client
-export class ApiClient {
-  private axiosInstance: AxiosInstance;
-
-  constructor(baseURL: string) {
-    this.axiosInstance = axios.create({
-      baseURL,
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+  constructor() {
+    this.client = axios.create({
+      baseURL: process.env.REACT_APP_API_URL,
+      timeout: 10000
     });
 
     this.setupInterceptors();
   }
 
   private setupInterceptors() {
-    // Request interceptor for auth
-    this.axiosInstance.interceptors.request.use(
-      (config) => {
-        const token = useAuthStore.getState().token;
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
+    // Request interceptor - add auth headers
+    this.client.interceptors.request.use((config) => {
+      const token = this.authStore.getState().token;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-    );
+      return config;
+    });
 
-    // Response interceptor for error handling
-    this.axiosInstance.interceptors.response.use(
+    // Response interceptor - handle auth errors
+    this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Global error handling
+        if (error.response?.status === 401) {
+          eventBus.emit('AUTH_TOKEN_EXPIRED');
+        }
         return Promise.reject(error);
       }
     );
@@ -325,364 +392,290 @@ export class ApiClient {
 }
 ```
 
-### Data Fetching with SWR
+### Backend Helper Pattern
+```typescript
+// Plugin-specific API services
+export class ProjectAPIService {
+  constructor(private apiHelper: ApiHelper) {}
 
-```tsx
-// SWR integration for caching and revalidation
-export const useUsers = () => {
-  const { data, error, mutate } = useSWR(
-    'users',
-    () => userService.getUsers(),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      dedupingInterval: 60000,
-    }
-  );
+  async getProjects(params?: ProjectFilters): Promise<Project[]> {
+    const response = await this.apiHelper.get('/projects', { params });
+    return response.data;
+  }
 
-  return {
-    users: data || [],
-    loading: !error && !data,
-    error,
-    refresh: mutate,
-  };
-};
-```
+  async createProject(project: CreateProjectRequest): Promise<Project> {
+    const response = await this.apiHelper.post('/projects', project);
 
-### Validation Strategy
-
-```tsx
-// Zod schemas for runtime validation
-export const UserSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).max(100),
-  email: z.string().email(),
-  age: z.number().min(18).max(120),
-  role: z.enum(['admin', 'user', 'moderator']),
-});
-
-export type User = z.infer<typeof UserSchema>;
-
-// Service with validation
-export class UserService {
-  async createUser(userData: unknown): Promise<User> {
-    // Validate input
-    const validatedData = UserSchema.parse(userData);
-    
-    // API call
-    const response = await apiClient.post('/users', validatedData);
-    
-    // Validate response
-    return UserSchema.parse(response.data);
+    // Emit event for caching/state updates
+    eventBus.emit('PROJECT_API_CREATED', { project: response.data });
+    return response.data;
   }
 }
 ```
 
-## 🛠️ Infrastructure Layer
+## 🔐 Security Architecture
 
-### Build Configuration
+### Authentication Flow
+```typescript
+class AuthService {
+  async login(credentials: LoginCredentials): Promise<AuthResult> {
+    // 1. Validate credentials with backend
+    const response = await this.apiHelper.post('/auth/login', credentials);
 
-```javascript
-// craco.config.js - Webpack customization
-module.exports = {
-  webpack: {
-    configure: (webpackConfig) => {
-      // Bundle splitting
-      webpackConfig.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-        },
-      };
+    // 2. Store tokens securely
+    this.tokenStorage.setTokens(response.data);
 
-      // Path aliases
-      webpackConfig.resolve.alias = {
-        '@components': path.resolve(__dirname, 'src/components'),
-        '@stores': path.resolve(__dirname, 'src/stores'),
-        '@services': path.resolve(__dirname, 'src/services'),
-      };
+    // 3. Update auth state
+    this.authStore.getState().setAuth(response.data.user, response.data.token);
 
-      return webpackConfig;
-    },
-  },
-};
-```
-
-### TypeScript Configuration
-
-```json
-{
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
-    "baseUrl": "src",
-    "paths": {
-      "@components/*": ["components/*"],
-      "@stores/*": ["stores/*"],
-      "@services/*": ["services/*"],
-      "@types/*": ["types/*"],
-      "@utils/*": ["utils/*"]
-    }
-  }
-}
-```
-
-### Testing Architecture
-
-```tsx
-// Testing strategy layers
-describe('UserProfile Component', () => {
-  // Unit tests - isolated component testing
-  it('renders user information correctly', () => {
-    render(<UserProfile user={mockUser} />);
-    expect(screen.getByText(mockUser.name)).toBeInTheDocument();
-  });
-
-  // Integration tests - component + store interaction
-  it('handles user editing flow', async () => {
-    // Zustand stores are global, so no provider needed
-    // Reset store state before test
-    useUserStore.setState({ users: [mockUser], loading: false, error: null });
-    
-    render(<UserProfile user={mockUser} />);
-    
-    fireEvent.click(screen.getByText('Edit'));
-    
-    // Test store state changes
-    await waitFor(() => {
-      const updatedUser = useUserStore.getState().users[0];
-      expect(updatedUser).toEqual(expect.objectContaining({ isEditing: true }));
+    // 4. Emit login event
+    eventBus.emit('USER_LOGIN', {
+      user: response.data.user,
+      timestamp: new Date()
     });
-  });
-});
+
+    return response.data;
+  }
+
+  async refreshToken(): Promise<void> {
+    const refreshToken = this.tokenStorage.getRefreshToken();
+    if (!refreshToken) throw new Error('No refresh token');
+
+    const response = await this.apiHelper.post('/auth/refresh', {
+      refreshToken
+    });
+
+    this.tokenStorage.setTokens(response.data);
+    eventBus.emit('TOKEN_REFRESHED', { timestamp: new Date() });
+  }
+}
 ```
 
-## 🔄 Data Flow Patterns
+### Permission System
+```typescript
+interface PluginPermissions {
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  customPermissions: Record<string, boolean>;
+}
 
-### 1. **Optimistic Updates**
-```tsx
-// Optimistic updates with Zustand
-const optimisticUpdateUser = async (id: string, updates: Partial<User>) => {
-  const { users, updateUser, fetchUsers } = useUserStore.getState();
-  
-  // Store original state for rollback
-  const originalUsers = users;
-  
-  // Optimistic update
-  updateUser(id, updates);
+class PermissionManager {
+  checkPluginPermission(
+    pluginName: string,
+    permission: string
+  ): boolean {
+    const userPermissions = this.authStore.getState().user?.permissions;
+    const pluginPerms = userPermissions?.[pluginName];
+    return pluginPerms?.[permission] ?? false;
+  }
+}
+```
 
-  try {
-    await userService.updateUser(id, updates);
-  } catch (error) {
-    // Rollback on error
-    useUserStore.setState({ users: originalUsers });
-    throw error;
+## 📊 Performance Architecture
+
+### Lazy Loading Strategy
+```typescript
+// Plugin lazy loading
+const PluginLoader = {
+  async loadPlugin(name: string): Promise<Plugin> {
+    const module = await import(`../plugins/${name}/${name}Plugin.ts`);
+    return new module[`${name}Plugin`]();
   }
 };
-```
-
-### 2. **Error Boundaries**
-```tsx
-export class ErrorBoundary extends Component<Props, State> {
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log to error reporting service
-    errorService.captureException(error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <ErrorFallback error={this.state.error} />;
-    }
-
-    return this.props.children;
-  }
-}
-```
-
-### 3. **Loading States**
-```tsx
-// Centralized loading state management with Zustand
-interface UIState {
-  loadingStates: Record<string, boolean>;
-  setLoading: (key: string, loading: boolean) => void;
-  isLoading: () => boolean;
-  isLoadingKey: (key: string) => boolean;
-}
-
-export const useUIStore = create<UIState>()((set, get) => ({
-  loadingStates: {},
-  
-  setLoading: (key: string, loading: boolean) => 
-    set((state) => ({
-      loadingStates: { ...state.loadingStates, [key]: loading }
-    })),
-  
-  isLoading: () => {
-    const { loadingStates } = get();
-    return Object.values(loadingStates).some(Boolean);
-  },
-  
-  isLoadingKey: (key: string) => {
-    const { loadingStates } = get();
-    return loadingStates[key] || false;
-  }
-}));
-```
-
-## 📊 Performance Patterns
-
-### 1. **Component Optimization**
-```tsx
-// Memoization for expensive computations
-const ExpensiveComponent = React.memo<Props>(({ data }) => {
-  const processedData = useMemo(() => {
-    return expensiveDataProcessing(data);
-  }, [data]);
-
-  return <div>{processedData}</div>;
-});
-```
-
-### 2. **Lazy Loading**
-```tsx
-// Route-based code splitting
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const UserManagement = lazy(() => import('./pages/UserManagement'));
 
 // Component lazy loading
-const HeavyChart = lazy(() => import('./components/HeavyChart'));
+const LazyUserProfile = lazy(() =>
+  import('./components/UserProfile').then(module => ({
+    default: module.UserProfile
+  }))
+);
 ```
 
-### 3. **Virtual Scrolling**
-```tsx
-// Large list optimization
-const VirtualizedList: React.FC<{ items: Item[] }> = ({ items }) => {
-  return (
-    <FixedSizeList
-      height={600}
-      itemCount={items.length}
-      itemSize={50}
-      itemData={items}
-    >
-      {ItemRenderer}
-    </FixedSizeList>
-  );
-};
+### Caching Strategy
+```typescript
+class CacheManager {
+  private cache = new Map<string, CacheEntry>();
+
+  set(key: string, data: any, ttl: number = 300000): void {
+    this.cache.set(key, {
+      data,
+      expiresAt: Date.now() + ttl
+    });
+  }
+
+  get(key: string): any | null {
+    const entry = this.cache.get(key);
+    if (!entry || entry.expiresAt < Date.now()) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+}
 ```
 
-## 🔒 Security Patterns
+### Bundle Optimization
+```typescript
+// Code splitting by plugin
+const routes = [
+  {
+    path: '/users/*',
+    component: lazy(() => import('./plugins/UserManagement')),
+  },
+  {
+    path: '/projects/*',
+    component: lazy(() => import('./plugins/ProjectManagement')),
+  }
+];
+```
 
-### 1. **Authentication Flow**
-```tsx
-// JWT-based authentication with Zustand
-import { persist } from 'zustand/middleware';
+## 🧪 Testing Architecture
 
-interface AuthState {
-  token: string | null;
-  user: User | null;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
-  isAuthenticated: () => boolean;
+### Testing Strategy
+```
+┌─────────────────────────────────────────┐
+│              Testing Pyramid             │
+├─────────────────────────────────────────┤
+│                   E2E                   │
+│            (Cypress/Playwright)         │
+├─────────────────────────────────────────┤
+│               Integration               │
+│          (Plugin Interactions)         │
+├─────────────────────────────────────────┤
+│                  Unit                   │
+│        (Components, Stores, Utils)     │
+└─────────────────────────────────────────┘
+```
+
+### Plugin Test Environment
+```typescript
+interface PluginTestEnvironment {
+  plugin: Plugin;
+  context: MockPluginContext;
+  eventBus: EventBus;
+  cleanup: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(persist(
-  (set, get) => ({
-    token: null,
-    user: null,
+export async function setupPluginTest(
+  PluginClass: new () => Plugin
+): Promise<PluginTestEnvironment> {
+  const eventBus = new EventBus();
+  const context = createMockContext(eventBus);
+  const plugin = new PluginClass();
 
-    login: async (credentials) => {
-      const response = await authService.login(credentials);
-      set({ 
-        token: response.token, 
-        user: response.user 
-      });
-      
-      // Token is automatically persisted via persist middleware
-    },
+  await plugin.install?.(context);
+  await plugin.activate?.(context);
 
-    logout: () => set({ token: null, user: null }),
-
-    isAuthenticated: () => {
-      const { token, user } = get();
-      return !!token && !!user;
+  return {
+    plugin,
+    context,
+    eventBus,
+    cleanup: async () => {
+      await plugin.deactivate?.(context);
+      await plugin.uninstall?.(context);
+      eventBus.clear();
     }
-  }),
-  {
-    name: 'auth-storage',
-    partialize: (state) => ({ token: state.token, user: state.user })
-  }
-));
+  };
+}
 ```
 
-### 2. **Route Protection**
-```tsx
-// Protected route component with Zustand
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+## 🔮 Advanced Patterns
+
+### Plugin Composition
+```typescript
+// Composite plugin pattern
+class CompositePlugin implements Plugin {
+  constructor(private plugins: Plugin[]) {}
+
+  async activate(context: PluginContext): Promise<void> {
+    for (const plugin of this.plugins) {
+      await plugin.activate?.(context);
+    }
   }
-  
-  return <>{children}</>;
+}
+
+// Usage
+const ecommercePlugin = new CompositePlugin([
+  new InventoryPlugin(),
+  new OrdersPlugin(),
+  new PaymentsPlugin()
+]);
+```
+
+### Event Middleware
+```typescript
+// Event middleware pattern
+class EventMiddleware {
+  private middlewares: MiddlewareFunction[] = [];
+
+  use(middleware: MiddlewareFunction): void {
+    this.middlewares.push(middleware);
+  }
+
+  async process(event: Event): Promise<Event> {
+    let result = event;
+    for (const middleware of this.middlewares) {
+      result = await middleware(result);
+    }
+    return result;
+  }
+}
+
+// Logging middleware
+const loggingMiddleware: MiddlewareFunction = async (event) => {
+  console.log('Event:', event.name, event.data);
+  return event;
 };
 ```
 
-## 📈 Scalability Patterns
+### Dynamic Plugin Loading
+```typescript
+class DynamicPluginLoader {
+  async loadFromURL(url: string): Promise<Plugin> {
+    const module = await import(/* webpackIgnore: true */ url);
+    return new module.default();
+  }
 
-### 1. **Feature-Based Organization**
-```
-src/
-├── features/
-│   ├── user-management/
-│   │   ├── components/
-│   │   ├── stores/
-│   │   ├── services/
-│   │   └── pages/
-│   └── dashboard/
-│       ├── components/
-│       ├── stores/
-│       ├── services/
-│       └── pages/
-├── shared/
-│   ├── components/
-│   ├── hooks/
-│   ├── utils/
-│   └── types/
+  async loadFromRegistry(name: string, version: string): Promise<Plugin> {
+    const url = `${PLUGIN_REGISTRY_URL}/${name}/${version}/index.js`;
+    return this.loadFromURL(url);
+  }
+}
 ```
 
-### 2. **Micro-Frontend Ready**
-```tsx
-// Module federation configuration
-const ModuleFederationPlugin = require('@module-federation/webpack');
+## 📈 Scalability Considerations
 
-module.exports = {
-  plugins: [
-    new ModuleFederationPlugin({
-      name: 'user_management',
-      filename: 'remoteEntry.js',
-      exposes: {
-        './UserManagement': './src/features/user-management',
-      },
-      shared: ['react', 'react-dom', 'zustand'],
-    }),
-  ],
-};
+### Horizontal Scaling
+- **Plugin isolation** - Independent failure domains
+- **Event partitioning** - Route events efficiently
+- **State sharding** - Distribute state across plugins
+- **API rate limiting** - Per-plugin request limits
+
+### Vertical Scaling
+- **Memory management** - Plugin lifecycle controls memory
+- **CPU optimization** - Event batching and debouncing
+- **Bundle splitting** - Load only needed plugins
+- **Caching strategies** - Multi-level caching system
+
+### Monitoring & Observability
+```typescript
+class PerformanceMonitor {
+  trackPluginPerformance(pluginName: string, operation: string): void {
+    const startTime = performance.now();
+
+    return () => {
+      const duration = performance.now() - startTime;
+      eventBus.emit('PLUGIN_PERFORMANCE', {
+        plugin: pluginName,
+        operation,
+        duration
+      });
+    };
+  }
+}
 ```
 
----
+This architecture provides a robust, scalable foundation for building complex SaaS applications while maintaining code quality, testability, and developer experience.
 
-**Next**: Learn about [Code Generators](./generators.md) to understand how the framework creates consistent code.
+Next: **[Plugin System](./plugin-system.md)** - Deep dive into plugin development

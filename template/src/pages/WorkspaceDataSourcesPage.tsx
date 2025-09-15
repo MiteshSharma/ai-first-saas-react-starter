@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Button, Space, Table, message, Tag, Alert } from 'antd';
 import { PlusOutlined, DatabaseOutlined } from '@ant-design/icons';
-import { useTenantStore } from '../store/tenant/tenantStore';
-import { getDataSources, DataSource } from '../helpers/backendHelper';
-import { apiHelper } from '../helpers/apiHelper';
+import { useTenantStore } from '../core/stores/tenant/tenantStore';
+import { getDataSources, DataSource } from '../core/api/backendHelper';
+import { apiHelper } from '../core/api/apiHelper';
 
 const { Title, Text } = Typography;
 
@@ -21,8 +21,10 @@ export const WorkspaceDataSourcesPage: React.FC = () => {
     
     try {
       // Use tenant-scoped data sources endpoint
-      const response = await apiHelper.get('/api/data-sources');
-      setDataSources(response.data.data || []);
+      const response = await apiHelper.get('/data-sources');
+      // Cast response.data to proper type
+      const responseData = response.data as { data: DataSource[]; meta?: any };
+      setDataSources(responseData.data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch data sources');
       message.error('Failed to load data sources');

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { useTestStore } from '../hooks/useTestStore';
+import { useTestStore } from '../core/hooks/useTestStore';
 import { renderHook, act } from '@testing-library/react';
 import App from '../App';
 

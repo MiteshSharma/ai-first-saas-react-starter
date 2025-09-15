@@ -1,1638 +1,1428 @@
-# State Management with Zustand
+# State Management Documentation
 
-The AI-First React Framework uses Zustand for state management, providing a small, fast, and scalable state-management solution. This guide covers Zustand patterns, best practices, and integration with React.
+This comprehensive guide covers state management in the AI-First SaaS React Starter, focusing on Zustand patterns, plugin-specific stores, and best practices for scalable state architecture.
 
-## 🧠 Zustand Philosophy
+## 🏗️ Overview
 
-Zustand follows the principle of **simple state management without the boilerplate**. This leads to:
+The framework uses **Zustand** as the primary state management solution, providing a lightweight, performant, and TypeScript-friendly approach to managing application state.
 
-- **Minimal API**: Small bundle size (2.6kb) and simple API
-- **TypeScript first**: Excellent TypeScript support out of the box
-- **No providers**: Direct hook access without context providers
-- **Flexible**: Works with class components, functional components, and even outside React
-- **Devtools**: Built-in Redux DevTools integration
-- **Middleware**: Extensible with powerful middleware ecosystem
+### Key Concepts
 
-## 🏗️ Store Architecture
+- **Core Stores** - Framework-level state (auth, UI, navigation)
+- **Plugin Stores** - Plugin-specific state management
+- **Store Patterns** - Reusable patterns for common scenarios
+- **Event Integration** - State changes trigger events
+- **Performance Optimization** - Selectors and subscription management
 
-### Basic Store Creation
+### State Architecture
+
+```
+State Management Architecture
+├── 🏗️ Core Stores                 # Framework-level state
+│   ├── AuthStore                   # Authentication state
+│   ├── UIStore                     # UI preferences & state
+│   ├── NavigationStore             # Navigation state
+│   └── AppStore                    # Global app state
+├── 🔌 Plugin Stores               # Plugin-specific state
+│   ├── UserStore                   # User management state
+│   ├── TaskStore                   # Task management state
+│   ├── ProjectStore                # Project management state
+│   └── Custom Plugin Stores        # Your plugin stores
+├── 🎯 Store Patterns              # Reusable patterns
+│   ├── Request Lifecycle           # Async request handling
+│   ├── Pagination                  # Paginated data
+│   ├── Caching                     # Data caching strategies
+│   └── Real-time Updates           # WebSocket integration
+└── 🔗 Event Integration            # State-event communication
+    ├── Store Events                # State change events
+    ├── Cross-Store Communication   # Store-to-store communication
+    └── Plugin Integration          # Plugin event handling
+```
+
+## 🎯 Core Store Patterns
+
+### Request Lifecycle Pattern
+
+The most common pattern for handling async operations:
 
 ```typescript
-// src/stores/useCounterStore.ts
-import { create } from 'zustand';
+// src/core/stores/base/requestLifecycle.ts
+export interface RequestState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+  lastFetch: Date | null;
+  retryCount: number;
+}
 
-interface CounterStore {
-  count: number;
-  increment: () => void;
-  decrement: () => void;
+export interface RequestActions<T> {
+  fetchData: () => Promise<void>;
+  setData: (data: T) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  retry: () => Promise<void>;
   reset: () => void;
 }
 
-export const useCounterStore = create<CounterStore>((set) => ({
-  count: 0,
-  increment: () => set((state) => ({ count: state.count + 1 })),
-  decrement: () => set((state) => ({ count: state.count - 1 })),
-  reset: () => set({ count: 0 }),
-}));
+export const createRequestLifecycleMethods = <T>(
+  apiCall: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    retryDelay?: number;
+    onSuccess?: (data: T) => void;
+    onError?: (error: Error) => void;
+  } = {}
+) => {
+  const { maxRetries = 3, retryDelay = 1000, onSuccess, onError } = options;
+
+  return {
+    async fetchData(set: any, get: any): Promise<void> {
+      const state = get();
+      set({ loading: true, error: null });
+
+      try {
+        const data = await apiCall();
+
+        set({
+          data,
+          loading: false,
+          lastFetch: new Date(),
+          retryCount: 0
+        });
+
+        onSuccess?.(data);
+      } catch (error) {
+        const newRetryCount = state.retryCount + 1;
+
+        set({
+          error: error.message,
+          loading: false,
+          retryCount: newRetryCount
+        });
+
+        onError?.(error);
+      }
+    },
+
+    async retry(set: any, get: any): Promise<void> {
+      const state = get();
+
+      if (state.retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        await this.fetchData(set, get);
+      } else {
+        set({ error: 'Maximum retry attempts reached' });
+      }
+    },
+
+    setData(data: T, set: any): void {
+      set({ data, error: null });
+    },
+
+    setLoading(loading: boolean, set: any): void {
+      set({ loading });
+    },
+
+    setError(error: string | null, set: any): void {
+      set({ error });
+    },
+
+    reset(set: any): void {
+      set({
+        data: null,
+        loading: false,
+        error: null,
+        lastFetch: null,
+        retryCount: 0
+      });
+    }
+  };
+};
 ```
 
-### Store Export Pattern
+### Pagination Pattern
+
+For handling paginated data:
 
 ```typescript
-// src/stores/index.ts
-// Export all stores for easy importing
-export { useUserStore } from './useUserStore';
-export { useAuthStore } from './useAuthStore';
-export { useUIStore } from './useUIStore';
-export { useCartStore } from './useCartStore';
-```
-
-## 🗄️ Store Patterns
-
-### CRUD Store Pattern
-
-```typescript
-// src/stores/useUserStore.ts
-import { create } from 'zustand';
-import { userService } from '@services/UserService';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface UserStore {
-  // State
-  users: User[];
-  selectedUser: User | null;
-  loading: boolean;
-  error: string | null;
-  
-  // Pagination
-  currentPage: number;
-  pageSize: number;
+// src/core/stores/base/pagination.ts
+export interface PaginationState<T> {
+  items: T[];
   totalCount: number;
-  
-  // Filters
-  searchQuery: string;
-  statusFilter: 'all' | 'active' | 'inactive';
-  
-  // Computed getters
-  filteredUsers: () => User[];
-  paginatedUsers: () => User[];
-  totalPages: () => number;
-  hasUsers: () => boolean;
-  
-  // Actions
-  fetchUsers: (refresh?: boolean) => Promise<void>;
-  createUser: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<User>;
-  updateUser: (id: string, updates: Partial<User>) => Promise<User>;
-  deleteUser: (id: string) => Promise<void>;
-  setSelectedUser: (user: User | null) => void;
-  setSearchQuery: (query: string) => void;
-  setStatusFilter: (filter: 'all' | 'active' | 'inactive') => void;
-  setPage: (page: number) => void;
-  clearError: () => void;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+  loading: boolean;
+  error: string | null;
+  filters: Record<string, any>;
+}
+
+export interface PaginationActions<T> {
+  loadPage: (page: number) => Promise<void>;
+  loadMore: () => Promise<void>;
+  setPageSize: (size: number) => void;
+  setFilters: (filters: Record<string, any>) => void;
+  addItem: (item: T) => void;
+  updateItem: (id: string, updates: Partial<T>) => void;
+  removeItem: (id: string) => void;
   reset: () => void;
 }
 
-export const useUserStore = create<UserStore>((set, get) => ({
-  // Initial state
-  users: [],
-  selectedUser: null,
-  loading: false,
-  error: null,
-  currentPage: 1,
-  pageSize: 10,
-  totalCount: 0,
-  searchQuery: '',
-  statusFilter: 'all',
-
-  // Computed getters
-  filteredUsers: () => {
-    const { users, searchQuery, statusFilter } = get();
-    let filtered = users;
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(user => 
-        user.name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => 
-        statusFilter === 'active' ? user.isActive : !user.isActive
-      );
-    }
-
-    return filtered;
-  },
-
-  paginatedUsers: () => {
-    const { filteredUsers, currentPage, pageSize } = get();
-    const start = (currentPage - 1) * pageSize;
-    return filteredUsers().slice(start, start + pageSize);
-  },
-
-  totalPages: () => {
-    const { filteredUsers, pageSize } = get();
-    return Math.ceil(filteredUsers().length / pageSize);
-  },
-
-  hasUsers: () => get().users.length > 0,
-
-  // Actions
-  fetchUsers: async (refresh = false) => {
-    const { loading, currentPage, pageSize, searchQuery, statusFilter } = get();
-    
-    if (loading && !refresh) return;
-    
+export const createPaginationMethods = <T extends { id: string }>(
+  apiCall: (params: {
+    page: number;
+    pageSize: number;
+    filters: Record<string, any>;
+  }) => Promise<{ items: T[]; total: number }>
+) => ({
+  async loadPage(page: number, set: any, get: any): Promise<void> {
+    const state = get();
     set({ loading: true, error: null });
 
     try {
-      const response = await userService.getUsers({
-        page: currentPage,
-        limit: pageSize,
-        search: searchQuery,
-        status: statusFilter,
+      const response = await apiCall({
+        page,
+        pageSize: state.pageSize,
+        filters: state.filters
       });
 
+      const newItems = page === 1
+        ? response.items
+        : [...state.items, ...response.items];
+
       set({
-        users: response.data,
+        items: newItems,
         totalCount: response.total,
-        loading: false,
+        page,
+        hasMore: response.items.length === state.pageSize,
+        loading: false
       });
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to fetch users',
-        loading: false,
-      });
+      set({ error: error.message, loading: false });
     }
   },
 
-  createUser: async (userData) => {
-    set({ loading: true, error: null });
-
-    try {
-      const newUser = await userService.createUser(userData);
-      
-      set((state) => ({
-        users: [newUser, ...state.users],
-        totalCount: state.totalCount + 1,
-        loading: false,
-      }));
-
-      return newUser;
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to create user',
-        loading: false,
-      });
-      throw error;
+  async loadMore(set: any, get: any): Promise<void> {
+    const state = get();
+    if (state.hasMore && !state.loading) {
+      await this.loadPage(state.page + 1, set, get);
     }
   },
 
-  updateUser: async (id, updates) => {
-    const { users, selectedUser } = get();
-    const userIndex = users.findIndex(user => user.id === id);
-    if (userIndex === -1) throw new Error('User not found');
-
-    // Optimistic update
-    const originalUser = { ...users[userIndex] };
-    const optimisticUser = { ...originalUser, ...updates };
-    
-    set((state) => ({
-      users: state.users.map(user => 
-        user.id === id ? optimisticUser : user
-      ),
-      selectedUser: selectedUser?.id === id ? optimisticUser : selectedUser,
-    }));
-
-    try {
-      const updatedUser = await userService.updateUser(id, updates);
-      
-      set((state) => ({
-        users: state.users.map(user => 
-          user.id === id ? updatedUser : user
-        ),
-        selectedUser: selectedUser?.id === id ? updatedUser : selectedUser,
-      }));
-
-      return updatedUser;
-    } catch (error) {
-      // Rollback optimistic update
-      set((state) => ({
-        users: state.users.map(user => 
-          user.id === id ? originalUser : user
-        ),
-        selectedUser: selectedUser?.id === id ? originalUser : selectedUser,
-        error: error instanceof Error ? error.message : 'Failed to update user',
-      }));
-      throw error;
-    }
+  setPageSize(size: number, set: any, get: any): void {
+    set({ pageSize: size, page: 1 });
+    this.loadPage(1, set, get);
   },
 
-  deleteUser: async (id) => {
-    const { users, selectedUser } = get();
-    const userIndex = users.findIndex(user => user.id === id);
-    if (userIndex === -1) throw new Error('User not found');
-
-    // Optimistic removal
-    const removedUser = users[userIndex];
-    set((state) => ({
-      users: state.users.filter(user => user.id !== id),
-      totalCount: state.totalCount - 1,
-      selectedUser: selectedUser?.id === id ? null : selectedUser,
-    }));
-
-    try {
-      await userService.deleteUser(id);
-    } catch (error) {
-      // Rollback optimistic removal
-      set((state) => ({
-        users: [...state.users.slice(0, userIndex), removedUser, ...state.users.slice(userIndex)],
-        totalCount: state.totalCount + 1,
-        error: error instanceof Error ? error.message : 'Failed to delete user',
-      }));
-      throw error;
-    }
+  setFilters(filters: Record<string, any>, set: any, get: any): void {
+    set({ filters, page: 1 });
+    this.loadPage(1, set, get);
   },
 
-  setSelectedUser: (user) => set({ selectedUser: user }),
-  
-  setSearchQuery: (searchQuery) => set({ 
-    searchQuery, 
-    currentPage: 1 // Reset pagination
-  }),
-  
-  setStatusFilter: (statusFilter) => set({ 
-    statusFilter, 
-    currentPage: 1 // Reset pagination
-  }),
-  
-  setPage: (currentPage) => set({ currentPage }),
-  
-  clearError: () => set({ error: null }),
+  addItem(item: T, set: any, get: any): void {
+    const state = get();
+    set({
+      items: [item, ...state.items],
+      totalCount: state.totalCount + 1
+    });
+  },
 
-  reset: () => set({
-    users: [],
-    selectedUser: null,
-    loading: false,
-    error: null,
-    currentPage: 1,
-    searchQuery: '',
-    statusFilter: 'all',
-  }),
-}));
+  updateItem(id: string, updates: Partial<T>, set: any, get: any): void {
+    const state = get();
+    set({
+      items: state.items.map(item =>
+        item.id === id ? { ...item, ...updates } : item
+      )
+    });
+  },
+
+  removeItem(id: string, set: any, get: any): void {
+    const state = get();
+    set({
+      items: state.items.filter(item => item.id !== id),
+      totalCount: Math.max(0, state.totalCount - 1)
+    });
+  },
+
+  reset(set: any): void {
+    set({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      hasMore: false,
+      loading: false,
+      error: null
+    });
+  }
+});
 ```
 
-### Authentication Store
+## 🔐 Core Store Examples
+
+### AuthStore - Authentication State
 
 ```typescript
-// src/stores/useAuthStore.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { authService } from '@services/AuthService';
-
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'user' | 'moderator';
-  permissions: string[];
-}
-
-interface AuthStore {
-  // State
-  user: AuthUser | null;
+// src/core/auth/AuthStore.ts
+interface AuthState {
+  // User data
+  user: User | null;
+  isAuthenticated: boolean;
   token: string | null;
-  refreshToken: string | null;
-  loading: boolean;
-  error: string | null;
-  
-  // Computed getters
-  isAuthenticated: () => boolean;
-  isAdmin: () => boolean;
-  userPermissions: () => string[];
-  hasPermission: (permission: string) => boolean;
-  
+
+  // Loading states
+  loginLoading: boolean;
+  logoutLoading: boolean;
+  refreshLoading: boolean;
+
+  // Error states
+  loginError: string | null;
+  refreshError: string | null;
+
+  // Session management
+  lastActivity: Date | null;
+  sessionTimeout: number;
+
   // Actions
-  login: (email: string, password: string) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
-  refreshAuth: () => Promise<void>;
-  setUser: (user: AuthUser) => void;
-  clearError: () => void;
-  initialize: () => Promise<void>;
+  refreshToken: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
+  updateLastActivity: () => void;
+  clearErrors: () => void;
 }
 
-export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set, get) => ({
+export const useAuthStore = create<AuthState>()(
+  devtools(
+    subscribeWithSelector((set, get) => ({
       // Initial state
       user: null,
+      isAuthenticated: false,
       token: null,
-      refreshToken: null,
-      loading: false,
-      error: null,
+      loginLoading: false,
+      logoutLoading: false,
+      refreshLoading: false,
+      loginError: null,
+      refreshError: null,
+      lastActivity: null,
+      sessionTimeout: 30 * 60 * 1000, // 30 minutes
 
-      // Computed getters
-      isAuthenticated: () => {
-        const { token, user } = get();
-        return !!token && !!user;
-      },
-
-      isAdmin: () => {
-        const { user } = get();
-        return user?.role === 'admin';
-      },
-
-      userPermissions: () => {
-        const { user } = get();
-        return user?.permissions || [];
-      },
-
-      hasPermission: (permission: string) => {
-        const { userPermissions } = get();
-        return userPermissions().includes(permission);
-      },
-
-      // Actions
-      login: async (email: string, password: string) => {
-        set({ loading: true, error: null });
+      // Login action
+      login: async (credentials: LoginCredentials) => {
+        set({ loginLoading: true, loginError: null });
 
         try {
-          const response = await authService.login({ email, password });
-          
+          const result = await authService.login(credentials);
+
           set({
-            user: response.user,
-            token: response.token,
-            refreshToken: response.refreshToken,
-            loading: false,
+            user: result.user,
+            token: result.token,
+            isAuthenticated: true,
+            loginLoading: false,
+            lastActivity: new Date()
           });
 
-          // Setup auto-refresh
-          get().setupTokenRefresh();
+          // Emit login event
+          eventBus.emit('USER_LOGIN', {
+            user: result.user,
+            timestamp: new Date()
+          });
+
+          // Start session monitoring
+          sessionMonitor.startMonitoring();
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : 'Login failed',
-            loading: false,
+            loginError: error.message,
+            loginLoading: false
           });
-          throw error;
+
+          // Emit login failed event
+          eventBus.emit('USER_LOGIN_FAILED', {
+            error: error.message,
+            credentials: credentials.email
+          });
         }
       },
 
+      // Logout action
       logout: async () => {
-        const { refreshToken } = get();
-        
+        set({ logoutLoading: true });
+
         try {
-          if (refreshToken) {
-            await authService.logout(refreshToken);
-          }
+          await authService.logout();
         } catch (error) {
-          console.warn('Logout request failed:', error);
+          console.warn('Logout API call failed:', error);
         } finally {
           set({
             user: null,
             token: null,
-            refreshToken: null,
-            error: null,
+            isAuthenticated: false,
+            logoutLoading: false,
+            lastActivity: null,
+            loginError: null,
+            refreshError: null
           });
-          get().clearTokenRefresh();
+
+          // Emit logout event
+          eventBus.emit('USER_LOGOUT', {
+            timestamp: new Date()
+          });
+
+          // Stop session monitoring
+          sessionMonitor.stopMonitoring();
         }
       },
 
-      refreshAuth: async () => {
-        const { refreshToken } = get();
-        
-        if (!refreshToken) {
-          get().logout();
-          return;
-        }
+      // Refresh token action
+      refreshToken: async () => {
+        set({ refreshLoading: true, refreshError: null });
 
         try {
-          const response = await authService.refreshToken(refreshToken);
-          
+          const newToken = await authService.refreshToken();
+
           set({
-            token: response.token,
-            refreshToken: response.refreshToken,
+            token: newToken,
+            refreshLoading: false,
+            lastActivity: new Date()
           });
 
-          get().setupTokenRefresh();
+          // Emit token refresh event
+          eventBus.emit('TOKEN_REFRESHED', {
+            timestamp: new Date()
+          });
         } catch (error) {
-          console.error('Token refresh failed:', error);
+          set({
+            refreshError: error.message,
+            refreshLoading: false
+          });
+
+          // Auto-logout on refresh failure
           get().logout();
         }
       },
 
-      setUser: (user) => set({ user }),
-      
-      clearError: () => set({ error: null }),
+      // Update user data
+      updateUser: (updates: Partial<User>) => {
+        set(state => ({
+          user: state.user ? { ...state.user, ...updates } : null
+        }));
 
-      initialize: async () => {
-        const { token, refreshToken } = get();
-        
-        if (token && refreshToken) {
-          try {
-            const user = await authService.getCurrentUser();
-            set({ user });
-            get().setupTokenRefresh();
-          } catch (error) {
-            get().logout();
-          }
-        }
-      },
-
-      // Private methods (not exposed in interface)
-      setupTokenRefresh: () => {
-        const { token } = get();
-        if (!token) return;
-
-        const tokenExpiry = get().getTokenExpiry();
-        if (tokenExpiry) {
-          const refreshTime = tokenExpiry - Date.now() - (5 * 60 * 1000); // 5 minutes before expiry
-          if (refreshTime > 0) {
-            setTimeout(() => {
-              get().refreshAuth();
-            }, refreshTime);
-          }
-        }
-      },
-
-      clearTokenRefresh: () => {
-        // Implementation would clear any existing timeouts
-      },
-
-      getTokenExpiry: (): number | null => {
-        const { token } = get();
-        if (!token) return null;
-        
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          return payload.exp * 1000; // Convert to milliseconds
-        } catch {
-          return null;
-        }
-      },
-    }),
-    {
-      name: 'auth-store',
-      partialize: (state) => ({
-        token: state.token,
-        refreshToken: state.refreshToken,
-        user: state.user,
-      }),
-    }
-  )
-);
-```
-
-### UI Store for Global UI State
-
-```typescript
-// src/stores/useUIStore.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-export interface Notification {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  message?: string;
-  duration?: number;
-}
-
-interface UIStore {
-  // Layout state
-  sidebarCollapsed: boolean;
-  theme: 'light' | 'dark';
-  
-  // Loading states
-  loadingStates: Map<string, boolean>;
-  
-  // Notifications
-  notifications: Notification[];
-  
-  // Modals
-  openModals: Set<string>;
-  
-  // Navigation
-  breadcrumbs: Array<{ label: string; path?: string }>;
-  
-  // Computed getters
-  isLoading: () => boolean;
-  isLoadingKey: (key: string) => boolean;
-  activeNotifications: () => Notification[];
-  isModalOpen: (modalId: string) => boolean;
-  
-  // Actions
-  toggleSidebar: () => void;
-  setSidebarCollapsed: (collapsed: boolean) => void;
-  setTheme: (theme: 'light' | 'dark') => void;
-  setLoading: (key: string, loading: boolean) => void;
-  addNotification: (notification: Omit<Notification, 'id'>) => string;
-  removeNotification: (id: string) => void;
-  clearNotifications: () => void;
-  openModal: (modalId: string) => void;
-  closeModal: (modalId: string) => void;
-  setBreadcrumbs: (breadcrumbs: Array<{ label: string; path?: string }>) => void;
-  
-  // Helper methods
-  showSuccessNotification: (title: string, message?: string) => string;
-  showErrorNotification: (title: string, message?: string) => string;
-  showWarningNotification: (title: string, message?: string) => string;
-  showInfoNotification: (title: string, message?: string) => string;
-}
-
-export const useUIStore = create<UIStore>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      sidebarCollapsed: false,
-      theme: 'light',
-      loadingStates: new Map(),
-      notifications: [],
-      openModals: new Set(),
-      breadcrumbs: [],
-
-      // Computed getters
-      isLoading: () => {
-        const { loadingStates } = get();
-        return Array.from(loadingStates.values()).some(Boolean);
-      },
-
-      isLoadingKey: (key: string) => {
-        const { loadingStates } = get();
-        return loadingStates.get(key) || false;
-      },
-
-      activeNotifications: () => {
-        const { notifications } = get();
-        return notifications.slice(0, 5); // Show max 5 notifications
-      },
-
-      isModalOpen: (modalId: string) => {
-        const { openModals } = get();
-        return openModals.has(modalId);
-      },
-
-      // Layout actions
-      toggleSidebar: () => set((state) => ({ 
-        sidebarCollapsed: !state.sidebarCollapsed 
-      })),
-
-      setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-
-      setTheme: (theme) => {
-        set({ theme });
-        document.documentElement.setAttribute('data-theme', theme);
-      },
-
-      // Loading state management
-      setLoading: (key: string, loading: boolean) => {
-        set((state) => {
-          const newLoadingStates = new Map(state.loadingStates);
-          if (loading) {
-            newLoadingStates.set(key, true);
-          } else {
-            newLoadingStates.delete(key);
-          }
-          return { loadingStates: newLoadingStates };
+        // Emit user update event
+        eventBus.emit('USER_UPDATED', {
+          user: get().user,
+          changes: updates
         });
       },
 
-      // Notification management
-      addNotification: (notification) => {
-        const id = Date.now().toString();
-        const newNotification: Notification = {
-          id,
-          duration: 5000,
-          ...notification,
-        };
-
-        set((state) => ({
-          notifications: [...state.notifications, newNotification],
-        }));
-
-        // Auto-remove after duration
-        if (newNotification.duration && newNotification.duration > 0) {
-          setTimeout(() => {
-            get().removeNotification(id);
-          }, newNotification.duration);
-        }
-
-        return id;
+      // Update last activity
+      updateLastActivity: () => {
+        set({ lastActivity: new Date() });
       },
 
-      removeNotification: (id) => set((state) => ({
-        notifications: state.notifications.filter(n => n.id !== id),
-      })),
-
-      clearNotifications: () => set({ notifications: [] }),
-
-      // Modal management
-      openModal: (modalId) => set((state) => ({
-        openModals: new Set([...state.openModals, modalId]),
-      })),
-
-      closeModal: (modalId) => set((state) => {
-        const newOpenModals = new Set(state.openModals);
-        newOpenModals.delete(modalId);
-        return { openModals: newOpenModals };
-      }),
-
-      // Navigation
-      setBreadcrumbs: (breadcrumbs) => set({ breadcrumbs }),
-
-      // Helper methods
-      showSuccessNotification: (title, message) => 
-        get().addNotification({ type: 'success', title, message }),
-
-      showErrorNotification: (title, message) => 
-        get().addNotification({ type: 'error', title, message }),
-
-      showWarningNotification: (title, message) => 
-        get().addNotification({ type: 'warning', title, message }),
-
-      showInfoNotification: (title, message) => 
-        get().addNotification({ type: 'info', title, message }),
-    }),
+      // Clear errors
+      clearErrors: () => {
+        set({
+          loginError: null,
+          refreshError: null
+        });
+      }
+    })),
     {
+      name: 'auth-store',
+      partialize: (state) => ({
+        // Only persist non-sensitive data
+        sessionTimeout: state.sessionTimeout
+      })
+    }
+  )
+);
+
+// Subscribe to auth events to handle automatic token refresh
+useAuthStore.subscribe(
+  (state) => state.token,
+  (token) => {
+    if (token) {
+      // Set up automatic token refresh
+      tokenRefreshScheduler.schedule(token);
+    }
+  }
+);
+```
+
+### UIStore - Global UI State
+
+```typescript
+// src/core/stores/app/uiStore.ts
+interface UIState {
+  // Layout state
+  sidebarCollapsed: boolean;
+  sidebarMobile: boolean;
+  headerVisible: boolean;
+  fullscreen: boolean;
+
+  // Theme state
+  theme: 'light' | 'dark' | 'auto';
+  primaryColor: string;
+  compactMode: boolean;
+
+  // Modal state
+  modals: Record<string, {
+    open: boolean;
+    data?: any;
+    config?: ModalConfig;
+  }>;
+
+  // Drawer state
+  drawers: Record<string, {
+    open: boolean;
+    data?: any;
+    config?: DrawerConfig;
+  }>;
+
+  // Loading state
+  globalLoading: boolean;
+  loadingMessage: string | null;
+  loadingProgress?: number;
+
+  // Notification state
+  notifications: Notification[];
+
+  // Actions
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  setTheme: (theme: 'light' | 'dark' | 'auto') => void;
+  openModal: (id: string, data?: any, config?: ModalConfig) => void;
+  closeModal: (id: string) => void;
+  openDrawer: (id: string, data?: any, config?: DrawerConfig) => void;
+  closeDrawer: (id: string) => void;
+  setGlobalLoading: (loading: boolean, message?: string, progress?: number) => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp'>) => void;
+  removeNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+}
+
+export const useUIStore = create<UIState>()(
+  devtools(
+    persist((set, get) => ({
+      // Initial state
+      sidebarCollapsed: false,
+      sidebarMobile: false,
+      headerVisible: true,
+      fullscreen: false,
+      theme: 'light',
+      primaryColor: '#1890ff',
+      compactMode: false,
+      modals: {},
+      drawers: {},
+      globalLoading: false,
+      loadingMessage: null,
+      notifications: [],
+
+      // Layout actions
+      toggleSidebar: () => {
+        set(state => ({ sidebarCollapsed: !state.sidebarCollapsed }));
+      },
+
+      setSidebarCollapsed: (collapsed: boolean) => {
+        set({ sidebarCollapsed: collapsed });
+      },
+
+      // Theme actions
+      setTheme: (theme: 'light' | 'dark' | 'auto') => {
+        set({ theme });
+
+        // Apply theme to document
+        applyTheme(theme);
+
+        // Emit theme change event
+        eventBus.emit('THEME_CHANGED', { theme });
+      },
+
+      // Modal actions
+      openModal: (id: string, data?: any, config?: ModalConfig) => {
+        set(state => ({
+          modals: {
+            ...state.modals,
+            [id]: { open: true, data, config }
+          }
+        }));
+
+        // Emit modal open event
+        eventBus.emit('MODAL_OPENED', { modalId: id, data });
+      },
+
+      closeModal: (id: string) => {
+        set(state => ({
+          modals: {
+            ...state.modals,
+            [id]: { ...state.modals[id], open: false }
+          }
+        }));
+
+        // Emit modal close event
+        eventBus.emit('MODAL_CLOSED', { modalId: id });
+      },
+
+      // Drawer actions
+      openDrawer: (id: string, data?: any, config?: DrawerConfig) => {
+        set(state => ({
+          drawers: {
+            ...state.drawers,
+            [id]: { open: true, data, config }
+          }
+        }));
+      },
+
+      closeDrawer: (id: string) => {
+        set(state => ({
+          drawers: {
+            ...state.drawers,
+            [id]: { ...state.drawers[id], open: false }
+          }
+        }));
+      },
+
+      // Loading actions
+      setGlobalLoading: (loading: boolean, message?: string, progress?: number) => {
+        set({
+          globalLoading: loading,
+          loadingMessage: message || null,
+          loadingProgress: progress
+        });
+      },
+
+      // Notification actions
+      addNotification: (notificationData) => {
+        const notification: Notification = {
+          ...notificationData,
+          id: Date.now().toString() + Math.random().toString(36).substr(2),
+          timestamp: new Date()
+        };
+
+        set(state => ({
+          notifications: [notification, ...state.notifications.slice(0, 9)]
+        }));
+
+        // Auto-remove after delay
+        if (notification.autoRemove !== false) {
+          setTimeout(() => {
+            get().removeNotification(notification.id);
+          }, notification.duration || 5000);
+        }
+
+        // Emit notification event
+        eventBus.emit('NOTIFICATION_ADDED', { notification });
+      },
+
+      removeNotification: (id: string) => {
+        set(state => ({
+          notifications: state.notifications.filter(n => n.id !== id)
+        }));
+      },
+
+      clearAllNotifications: () => {
+        set({ notifications: [] });
+      }
+    }), {
       name: 'ui-store',
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
-      }),
-    }
+        primaryColor: state.primaryColor,
+        compactMode: state.compactMode
+      })
+    })
   )
 );
+
+// Helper function to apply theme
+const applyTheme = (theme: string) => {
+  document.documentElement.setAttribute('data-theme', theme);
+
+  if (theme === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  }
+};
 ```
 
-## 🔌 Middleware Integration
+## 🔌 Plugin Store Examples
 
-### DevTools Middleware
-
-```typescript
-// src/stores/useCounterStore.ts
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-
-interface CounterStore {
-  count: number;
-  increment: () => void;
-  decrement: () => void;
-}
-
-export const useCounterStore = create<CounterStore>()(
-  devtools(
-    (set) => ({
-      count: 0,
-      increment: () => set((state) => ({ count: state.count + 1 }), 'increment'),
-      decrement: () => set((state) => ({ count: state.count - 1 }), 'decrement'),
-    }),
-    { name: 'counter-store' }
-  )
-);
-```
-
-### Persist Middleware with Options
+### Task Management Store
 
 ```typescript
-// src/stores/useSettingsStore.ts
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-
-interface SettingsStore {
-  preferences: {
-    language: string;
-    notifications: boolean;
-    autoSave: boolean;
-  };
-  updatePreference: <K extends keyof SettingsStore['preferences']>(
-    key: K,
-    value: SettingsStore['preferences'][K]
-  ) => void;
-}
-
-export const useSettingsStore = create<SettingsStore>()(
-  persist(
-    (set) => ({
-      preferences: {
-        language: 'en',
-        notifications: true,
-        autoSave: true,
-      },
-      updatePreference: (key, value) =>
-        set((state) => ({
-          preferences: { ...state.preferences, [key]: value },
-        })),
-    }),
-    {
-      name: 'settings-store',
-      storage: createJSONStorage(() => sessionStorage), // Use sessionStorage instead of localStorage
-      partialize: (state) => ({ preferences: state.preferences }),
-      version: 1,
-      migrate: (persistedState, version) => {
-        if (version === 0) {
-          // Migration logic for version 0 to 1
-          return {
-            preferences: {
-              language: 'en',
-              notifications: true,
-              autoSave: true,
-              ...persistedState,
-            },
-          };
-        }
-        return persistedState as SettingsStore;
-      },
-    }
-  )
-);
-```
-
-### Immer Middleware for Complex State
-
-```typescript
-// src/stores/useTaskStore.ts
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-
+// src/plugins/TaskManagement/stores/taskStore.ts
 interface Task {
   id: string;
   title: string;
-  completed: boolean;
+  description?: string;
+  status: 'todo' | 'in_progress' | 'review' | 'done';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  assigneeId?: string;
+  projectId?: string;
+  dueDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
   tags: string[];
-  assignee?: {
-    id: string;
-    name: string;
-  };
+  attachments: Attachment[];
 }
 
-interface TaskStore {
-  tasks: Task[];
-  filters: {
-    completed: boolean | null;
-    assigneeId: string | null;
-    tags: string[];
-  };
-  addTask: (task: Omit<Task, 'id'>) => void;
-  toggleTask: (id: string) => void;
-  updateTaskAssignee: (taskId: string, assignee: Task['assignee']) => void;
-  addTagToTask: (taskId: string, tag: string) => void;
-  removeTagFromTask: (taskId: string, tag: string) => void;
-  setFilter: <K extends keyof TaskStore['filters']>(
-    key: K,
-    value: TaskStore['filters'][K]
-  ) => void;
+interface TaskFilters {
+  status?: string;
+  priority?: string;
+  assignee?: string;
+  project?: string;
+  search: string;
+  tags?: string[];
+  dueDateRange?: [Date, Date];
 }
 
-export const useTaskStore = create<TaskStore>()(
-  immer((set) => ({
-    tasks: [],
-    filters: {
-      completed: null,
-      assigneeId: null,
-      tags: [],
-    },
+interface TaskState extends PaginationState<Task> {
+  // Additional task-specific state
+  selectedTasks: string[];
+  bulkUpdateLoading: boolean;
+  taskStats: TaskStats | null;
 
-    addTask: (task) =>
-      set((state) => {
-        state.tasks.push({ ...task, id: Date.now().toString() });
-      }),
-
-    toggleTask: (id) =>
-      set((state) => {
-        const task = state.tasks.find((t) => t.id === id);
-        if (task) {
-          task.completed = !task.completed;
-        }
-      }),
-
-    updateTaskAssignee: (taskId, assignee) =>
-      set((state) => {
-        const task = state.tasks.find((t) => t.id === taskId);
-        if (task) {
-          task.assignee = assignee;
-        }
-      }),
-
-    addTagToTask: (taskId, tag) =>
-      set((state) => {
-        const task = state.tasks.find((t) => t.id === taskId);
-        if (task && !task.tags.includes(tag)) {
-          task.tags.push(tag);
-        }
-      }),
-
-    removeTagFromTask: (taskId, tag) =>
-      set((state) => {
-        const task = state.tasks.find((t) => t.id === taskId);
-        if (task) {
-          task.tags = task.tags.filter((t) => t !== tag);
-        }
-      }),
-
-    setFilter: (key, value) =>
-      set((state) => {
-        state.filters[key] = value;
-      }),
-  }))
-);
-```
-
-## ⚛️ React Integration
-
-### Basic Usage in Components
-
-```typescript
-// src/components/UserList/UserList.tsx
-import React, { useEffect } from 'react';
-import { useUserStore } from '@stores';
-
-export const UserList: React.FC = () => {
-  const {
-    users,
-    loading,
-    error,
-    filteredUsers,
-    paginatedUsers,
-    totalPages,
-    currentPage,
-    fetchUsers,
-    setPage,
-    setSearchQuery,
-    setStatusFilter,
-  } = useUserStore();
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  if (loading) {
-    return <div>Loading users...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
-
-  return (
-    <div>
-      {/* Search and filters */}
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Search users..."
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <select onChange={(e) => setStatusFilter(e.target.value as any)}>
-          <option value="all">All Users</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
-
-      {/* User list */}
-      <div className="user-list">
-        {paginatedUsers().map(user => (
-          <div key={user.id} className="user-item">
-            <h3>{user.name}</h3>
-            <p>{user.email}</p>
-            <span className={user.isActive ? 'active' : 'inactive'}>
-              {user.isActive ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      <div className="pagination">
-        {Array.from({ length: totalPages() }, (_, i) => i + 1).map(page => (
-          <button
-            key={page}
-            onClick={() => setPage(page)}
-            className={currentPage === page ? 'active' : ''}
-          >
-            {page}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-```
-
-### Selective Subscriptions
-
-```typescript
-// src/components/UserCount/UserCount.tsx
-import React from 'react';
-import { useUserStore } from '@stores';
-import { shallow } from 'zustand/shallow';
-
-// Only re-render when user count changes
-export const UserCount: React.FC = () => {
-  const userCount = useUserStore((state) => state.users.length);
-  
-  return <div>Total Users: {userCount}</div>;
-};
-
-// Multiple selective subscriptions
-export const UserStats: React.FC = () => {
-  const { userCount, activeCount } = useUserStore(
-    (state) => ({
-      userCount: state.users.length,
-      activeCount: state.users.filter(u => u.isActive).length,
-    }),
-    shallow // Prevent unnecessary re-renders
-  );
-
-  return (
-    <div>
-      <div>Total Users: {userCount}</div>
-      <div>Active Users: {activeCount}</div>
-    </div>
-  );
-};
-```
-
-### Custom Hooks for Store Logic
-
-```typescript
-// src/hooks/useAuth.ts
-import { useAuthStore } from '@stores';
-
-export const useAuth = () => {
-  const {
-    user,
-    isAuthenticated,
-    isAdmin,
-    hasPermission,
-    login,
-    logout,
-    loading,
-    error,
-  } = useAuthStore();
-
-  return {
-    user,
-    isAuthenticated: isAuthenticated(),
-    isAdmin: isAdmin(),
-    hasPermission,
-    login,
-    logout,
-    loading,
-    error,
-  };
-};
-
-// src/hooks/useNotifications.ts
-import { useUIStore } from '@stores';
-
-export const useNotifications = () => {
-  const {
-    activeNotifications,
-    showSuccessNotification,
-    showErrorNotification,
-    showWarningNotification,
-    showInfoNotification,
-    removeNotification,
-  } = useUIStore();
-
-  return {
-    notifications: activeNotifications(),
-    showSuccess: showSuccessNotification,
-    showError: showErrorNotification,
-    showWarning: showWarningNotification,
-    showInfo: showInfoNotification,
-    remove: removeNotification,
-  };
-};
-```
-
-### Using Zustand Outside React
-
-```typescript
-// src/services/apiClient.ts
-import { useAuthStore } from '@stores/useAuthStore';
-
-class ApiClient {
-  private baseURL = 'https://api.example.com';
-
-  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const { token } = useAuthStore.getState();
-    
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-    });
-
-    if (response.status === 401) {
-      // Token expired, trigger logout
-      useAuthStore.getState().logout();
-      throw new Error('Authentication required');
-    }
-
-    return response.json();
-  }
+  // Enhanced actions
+  loadTasks: (filters?: TaskFilters) => Promise<void>;
+  createTask: (task: CreateTaskRequest) => Promise<Task>;
+  updateTask: (id: string, updates: UpdateTaskRequest) => Promise<Task>;
+  deleteTask: (id: string) => Promise<void>;
+  bulkUpdateTasks: (taskIds: string[], updates: Partial<Task>) => Promise<void>;
+  assignTask: (taskId: string, assigneeId: string) => Promise<void>;
+  changeTaskStatus: (taskId: string, status: Task['status']) => Promise<void>;
+  loadTaskStats: () => Promise<void>;
+  selectTasks: (taskIds: string[]) => void;
+  clearSelection: () => void;
 }
 
-export const apiClient = new ApiClient();
-```
-
-## 🔄 Advanced Patterns
-
-### Store Composition with Slices
-
-```typescript
-// src/stores/slices/userSlice.ts
-import { StateCreator } from 'zustand';
-
-export interface UserSlice {
-  users: User[];
-  selectedUser: User | null;
-  fetchUsers: () => Promise<void>;
-  setSelectedUser: (user: User | null) => void;
-}
-
-export const createUserSlice: StateCreator<
-  UserSlice & TaskSlice & UISlice,
-  [],
-  [],
-  UserSlice
-> = (set, get) => ({
-  users: [],
-  selectedUser: null,
-  fetchUsers: async () => {
-    // Implementation
-  },
-  setSelectedUser: (user) => set({ selectedUser: user }),
-});
-
-// src/stores/slices/taskSlice.ts
-export interface TaskSlice {
-  tasks: Task[];
-  createTask: (task: Omit<Task, 'id'>) => void;
-}
-
-export const createTaskSlice: StateCreator<
-  UserSlice & TaskSlice & UISlice,
-  [],
-  [],
-  TaskSlice
-> = (set, get) => ({
-  tasks: [],
-  createTask: (task) => {
-    const newTask = { ...task, id: Date.now().toString() };
-    set((state) => ({ tasks: [...state.tasks, newTask] }));
-  },
-});
-
-// src/stores/useAppStore.ts
-import { create } from 'zustand';
-import { createUserSlice, UserSlice } from './slices/userSlice';
-import { createTaskSlice, TaskSlice } from './slices/taskSlice';
-
-export const useAppStore = create<UserSlice & TaskSlice>()((...a) => ({
-  ...createUserSlice(...a),
-  ...createTaskSlice(...a),
-}));
-```
-
-### Async State Management
-
-```typescript
-// src/stores/useAsyncStore.ts
-import { create } from 'zustand';
-
-interface AsyncState<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-}
-
-interface AsyncStore {
-  users: AsyncState<User[]>;
-  posts: AsyncState<Post[]>;
-  
-  fetchUsers: () => Promise<void>;
-  fetchPosts: () => Promise<void>;
-  
-  // Generic async action
-  executeAsync: <T>(
-    key: keyof AsyncStore,
-    asyncFn: () => Promise<T>
-  ) => Promise<T>;
-}
-
-export const useAsyncStore = create<AsyncStore>((set, get) => ({
-  users: { data: null, loading: false, error: null },
-  posts: { data: null, loading: false, error: null },
-
-  fetchUsers: () => get().executeAsync('users', userService.getUsers),
-  fetchPosts: () => get().executeAsync('posts', postService.getPosts),
-
-  executeAsync: async (key, asyncFn) => {
-    set((state) => ({
-      ...state,
-      [key]: { ...state[key], loading: true, error: null },
-    }));
-
-    try {
-      const data = await asyncFn();
-      set((state) => ({
-        ...state,
-        [key]: { data, loading: false, error: null },
-      }));
-      return data;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      set((state) => ({
-        ...state,
-        [key]: { ...state[key], loading: false, error: errorMessage },
-      }));
-      throw error;
-    }
-  },
-}));
-```
-
-### Store Reset Pattern
-
-```typescript
-// src/stores/useResetStore.ts
-import { create } from 'zustand';
-
-interface ResetStore {
-  count: number;
-  name: string;
-  items: string[];
-  
-  increment: () => void;
-  setName: (name: string) => void;
-  addItem: (item: string) => void;
-  
-  reset: () => void;
-  resetToInitial: (initialState: Partial<ResetStore>) => void;
-}
-
-const initialState = {
-  count: 0,
-  name: '',
-  items: [],
-};
-
-export const useResetStore = create<ResetStore>((set, get) => ({
-  ...initialState,
-
-  increment: () => set((state) => ({ count: state.count + 1 })),
-  setName: (name) => set({ name }),
-  addItem: (item) => set((state) => ({ items: [...state.items, item] })),
-
-  reset: () => set(initialState),
-  resetToInitial: (newInitialState) => set({ ...initialState, ...newInitialState }),
-}));
-```
-
-## 🧪 Testing Zustand Stores
-
-### Basic Store Testing
-
-```typescript
-// src/stores/__tests__/useCounterStore.test.ts
-import { renderHook, act } from '@testing-library/react';
-import { useCounterStore } from '../useCounterStore';
-
-describe('useCounterStore', () => {
-  beforeEach(() => {
-    useCounterStore.setState({ count: 0 });
-  });
-
-  it('increments count', () => {
-    const { result } = renderHook(() => useCounterStore());
-
-    expect(result.current.count).toBe(0);
-
-    act(() => {
-      result.current.increment();
-    });
-
-    expect(result.current.count).toBe(1);
-  });
-
-  it('decrements count', () => {
-    useCounterStore.setState({ count: 5 });
-    const { result } = renderHook(() => useCounterStore());
-
-    act(() => {
-      result.current.decrement();
-    });
-
-    expect(result.current.count).toBe(4);
-  });
-
-  it('resets count', () => {
-    useCounterStore.setState({ count: 10 });
-    const { result } = renderHook(() => useCounterStore());
-
-    act(() => {
-      result.current.reset();
-    });
-
-    expect(result.current.count).toBe(0);
-  });
-});
-```
-
-### Testing Async Actions
-
-```typescript
-// src/stores/__tests__/useUserStore.test.ts
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { useUserStore } from '../useUserStore';
-import { userService } from '@services/UserService';
-
-// Mock the service
-jest.mock('@services/UserService');
-const mockedUserService = jest.mocked(userService);
-
-describe('useUserStore', () => {
-  beforeEach(() => {
-    useUserStore.setState({
-      users: [],
-      loading: false,
-      error: null,
-    });
-    jest.clearAllMocks();
-  });
-
-  it('fetches users successfully', async () => {
-    const mockUsers = [
-      { id: '1', name: 'John', email: 'john@example.com', isActive: true },
-      { id: '2', name: 'Jane', email: 'jane@example.com', isActive: false },
-    ];
-
-    mockedUserService.getUsers.mockResolvedValue({
-      data: mockUsers,
-      total: 2,
-    });
-
-    const { result } = renderHook(() => useUserStore());
-
-    await act(async () => {
-      await result.current.fetchUsers();
-    });
-
-    expect(result.current.users).toEqual(mockUsers);
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error).toBeNull();
-  });
-
-  it('handles fetch error', async () => {
-    const errorMessage = 'Failed to fetch users';
-    mockedUserService.getUsers.mockRejectedValue(new Error(errorMessage));
-
-    const { result } = renderHook(() => useUserStore());
-
-    await act(async () => {
-      await result.current.fetchUsers();
-    });
-
-    expect(result.current.users).toEqual([]);
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error).toBe(errorMessage);
-  });
-
-  it('filters users correctly', () => {
-    const users = [
-      { id: '1', name: 'John Active', email: 'john@example.com', isActive: true },
-      { id: '2', name: 'Jane Inactive', email: 'jane@example.com', isActive: false },
-    ];
-
-    useUserStore.setState({ users });
-    const { result } = renderHook(() => useUserStore());
-
-    act(() => {
-      result.current.setStatusFilter('active');
-    });
-
-    const filtered = result.current.filteredUsers();
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0].name).toBe('John Active');
-  });
-});
-```
-
-### Testing Store Integration
-
-```typescript
-// src/components/__tests__/UserList.test.tsx
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { UserList } from '../UserList';
-import { useUserStore } from '@stores';
-
-// Create a test wrapper that initializes the store
-const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  React.useEffect(() => {
-    useUserStore.setState({
-      users: [
-        { id: '1', name: 'John', email: 'john@example.com', isActive: true },
-        { id: '2', name: 'Jane', email: 'jane@example.com', isActive: false },
-      ],
-      loading: false,
-      error: null,
-    });
-  }, []);
-
-  return <>{children}</>;
-};
-
-describe('UserList', () => {
-  it('renders users', async () => {
-    render(
-      <TestWrapper>
-        <UserList />
-      </TestWrapper>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('John')).toBeInTheDocument();
-      expect(screen.getByText('Jane')).toBeInTheDocument();
-    });
-  });
-
-  it('filters users by search query', async () => {
-    const user = userEvent.setup();
-    
-    render(
-      <TestWrapper>
-        <UserList />
-      </TestWrapper>
-    );
-
-    const searchInput = screen.getByPlaceholderText('Search users...');
-    await user.type(searchInput, 'John');
-
-    await waitFor(() => {
-      expect(screen.getByText('John')).toBeInTheDocument();
-      expect(screen.queryByText('Jane')).not.toBeInTheDocument();
-    });
-  });
-});
-```
-
-## 📈 Performance Optimization
-
-### Preventing Unnecessary Re-renders
-
-```typescript
-// src/components/OptimizedUserList.tsx
-import React from 'react';
-import { useUserStore } from '@stores';
-import { shallow } from 'zustand/shallow';
-
-// Bad: Will re-render on any store change
-const BadUserList = () => {
-  const store = useUserStore();
-  return <div>{store.users.length} users</div>;
-};
-
-// Good: Only re-renders when users array changes
-const GoodUserList = () => {
-  const users = useUserStore((state) => state.users);
-  return <div>{users.length} users</div>;
-};
-
-// Better: Only re-renders when user count changes
-const BetterUserList = () => {
-  const userCount = useUserStore((state) => state.users.length);
-  return <div>{userCount} users</div>;
-};
-
-// Best: Use shallow comparison for multiple values
-const BestUserList = () => {
-  const { userCount, loading } = useUserStore(
-    (state) => ({
-      userCount: state.users.length,
-      loading: state.loading,
-    }),
-    shallow
-  );
-
-  if (loading) return <div>Loading...</div>;
-  return <div>{userCount} users</div>;
-};
-```
-
-### Computed Values Pattern
-
-```typescript
-// src/stores/useOptimizedStore.ts
-import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
-
-interface OptimizedStore {
-  items: Item[];
-  filter: string;
-  sortBy: 'name' | 'date';
-  
-  // Computed values as functions to avoid unnecessary recalculations
-  filteredItems: () => Item[];
-  sortedItems: () => Item[];
-  itemStats: () => { total: number; active: number; completed: number };
-}
-
-export const useOptimizedStore = create<OptimizedStore>()(
-  subscribeWithSelector((set, get) => ({
-    items: [],
-    filter: '',
-    sortBy: 'name',
-
-    filteredItems: () => {
-      const { items, filter } = get();
-      if (!filter) return items;
-      return items.filter(item => 
-        item.name.toLowerCase().includes(filter.toLowerCase())
-      );
-    },
-
-    sortedItems: () => {
-      const { sortBy } = get();
-      const filtered = get().filteredItems();
-      return [...filtered].sort((a, b) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
-      });
-    },
-
-    itemStats: () => {
-      const items = get().filteredItems();
-      return {
-        total: items.length,
-        active: items.filter(item => item.status === 'active').length,
-        completed: items.filter(item => item.status === 'completed').length,
-      };
-    },
-  }))
-);
-
-// Usage with memoization
-const ItemList = () => {
-  const sortedItems = useOptimizedStore((state) => state.sortedItems());
-  
-  // Memoize expensive operations
-  const memoizedItems = React.useMemo(() => 
-    sortedItems.map(item => ({ ...item, processed: processItem(item) })),
-    [sortedItems]
-  );
-
-  return (
-    <div>
-      {memoizedItems.map(item => (
-        <ItemComponent key={item.id} item={item} />
-      ))}
-    </div>
-  );
-};
-```
-
-## 🛠️ Development Tools
-
-### Store DevTools Integration
-
-```typescript
-// src/stores/useDevStore.ts
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-
-interface DevStore {
-  count: number;
-  increment: () => void;
-  decrement: () => void;
-  reset: () => void;
-}
-
-export const useDevStore = create<DevStore>()(
+export const useTaskStore = create<TaskState>()(
   devtools(
-    (set, get) => ({
-      count: 0,
-      increment: () => set(
-        (state) => ({ count: state.count + 1 }),
-        'increment' // Action name in devtools
-      ),
-      decrement: () => set(
-        (state) => ({ count: state.count - 1 }),
-        'decrement'
-      ),
-      reset: () => set({ count: 0 }, 'reset'),
+    subscribeWithSelector((set, get) => {
+      // Create pagination methods
+      const paginationMethods = createPaginationMethods<Task>(
+        async (params) => {
+          const response = await taskService.getTasks(params);
+          return { items: response.tasks, total: response.total };
+        }
+      );
+
+      return {
+        // Pagination state
+        items: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+        loading: false,
+        error: null,
+        filters: {
+          search: '',
+          status: undefined,
+          priority: undefined,
+          assignee: undefined,
+          project: undefined,
+          tags: undefined,
+          dueDateRange: undefined
+        },
+
+        // Task-specific state
+        selectedTasks: [],
+        bulkUpdateLoading: false,
+        taskStats: null,
+
+        // Pagination actions
+        ...paginationMethods,
+
+        // Enhanced load tasks with filtering
+        loadTasks: async (filters?: TaskFilters) => {
+          if (filters) {
+            set({ filters: { ...get().filters, ...filters } });
+          }
+          await paginationMethods.loadPage(1, set, get);
+        },
+
+        // Create task
+        createTask: async (taskData: CreateTaskRequest) => {
+          try {
+            const newTask = await taskService.createTask(taskData);
+
+            // Add to store
+            paginationMethods.addItem(newTask, set, get);
+
+            // Emit event
+            eventBus.emit('TASK_CREATED', {
+              task: newTask,
+              creator: taskData.createdBy
+            });
+
+            // Refresh stats
+            get().loadTaskStats();
+
+            return newTask;
+          } catch (error) {
+            set({ error: error.message });
+            throw error;
+          }
+        },
+
+        // Update task
+        updateTask: async (id: string, updates: UpdateTaskRequest) => {
+          try {
+            const updatedTask = await taskService.updateTask(id, updates);
+
+            // Update in store
+            paginationMethods.updateItem(id, updatedTask, set, get);
+
+            // Emit event
+            eventBus.emit('TASK_UPDATED', {
+              task: updatedTask,
+              changes: updates
+            });
+
+            return updatedTask;
+          } catch (error) {
+            set({ error: error.message });
+            throw error;
+          }
+        },
+
+        // Delete task
+        deleteTask: async (id: string) => {
+          try {
+            await taskService.deleteTask(id);
+
+            // Remove from store
+            paginationMethods.removeItem(id, set, get);
+
+            // Clear from selection if selected
+            const state = get();
+            if (state.selectedTasks.includes(id)) {
+              set({
+                selectedTasks: state.selectedTasks.filter(taskId => taskId !== id)
+              });
+            }
+
+            // Emit event
+            eventBus.emit('TASK_DELETED', { taskId: id });
+
+            // Refresh stats
+            get().loadTaskStats();
+          } catch (error) {
+            set({ error: error.message });
+            throw error;
+          }
+        },
+
+        // Bulk update tasks
+        bulkUpdateTasks: async (taskIds: string[], updates: Partial<Task>) => {
+          set({ bulkUpdateLoading: true });
+
+          try {
+            const updatedTasks = await taskService.bulkUpdateTasks(taskIds, updates);
+
+            // Update all tasks in store
+            updatedTasks.forEach(task => {
+              paginationMethods.updateItem(task.id, task, set, get);
+            });
+
+            // Clear selection
+            set({ selectedTasks: [], bulkUpdateLoading: false });
+
+            // Emit event
+            eventBus.emit('TASKS_BULK_UPDATED', {
+              taskIds,
+              updates,
+              updatedTasks
+            });
+          } catch (error) {
+            set({ bulkUpdateLoading: false, error: error.message });
+            throw error;
+          }
+        },
+
+        // Assign task
+        assignTask: async (taskId: string, assigneeId: string) => {
+          await get().updateTask(taskId, { assigneeId });
+
+          // Emit specific assignment event
+          eventBus.emit('TASK_ASSIGNED', {
+            taskId,
+            assigneeId,
+            assignedBy: useAuthStore.getState().user?.id
+          });
+        },
+
+        // Change task status
+        changeTaskStatus: async (taskId: string, status: Task['status']) => {
+          const previousTask = get().items.find(task => task.id === taskId);
+          await get().updateTask(taskId, { status });
+
+          // Emit status change event
+          eventBus.emit('TASK_STATUS_CHANGED', {
+            taskId,
+            newStatus: status,
+            previousStatus: previousTask?.status
+          });
+        },
+
+        // Load task statistics
+        loadTaskStats: async () => {
+          try {
+            const stats = await taskService.getTaskStats(get().filters);
+            set({ taskStats: stats });
+          } catch (error) {
+            console.error('Failed to load task stats:', error);
+          }
+        },
+
+        // Task selection
+        selectTasks: (taskIds: string[]) => {
+          set({ selectedTasks: taskIds });
+        },
+
+        clearSelection: () => {
+          set({ selectedTasks: [] });
+        }
+      };
     }),
     {
-      name: 'dev-store', // Store name in devtools
-      enabled: process.env.NODE_ENV === 'development',
+      name: 'task-store',
+      partialize: (state) => ({
+        // Persist filters and pagination settings
+        filters: state.filters,
+        pageSize: state.pageSize
+      })
     }
   )
 );
-```
 
-### Custom Middleware for Logging
-
-```typescript
-// src/stores/middleware/logger.ts
-import { StateCreator, StoreMutatorIdentifier } from 'zustand';
-
-type Logger = <
-  T,
-  Mps extends [StoreMutatorIdentifier, unknown][] = [],
-  Mcs extends [StoreMutatorIdentifier, unknown][] = []
->(
-  f: StateCreator<T, Mps, Mcs>,
-  name?: string
-) => StateCreator<T, Mps, Mcs>;
-
-type LoggerImpl = <T>(
-  f: StateCreator<T, [], []>,
-  name?: string
-) => StateCreator<T, [], []>;
-
-const loggerImpl: LoggerImpl = (f, name) => (set, get, store) => {
-  const loggedSet: typeof set = (partial, replace) => {
-    console.log(`[${name || 'Store'}] Updating:`, partial);
-    const nextState = set(partial, replace);
-    console.log(`[${name || 'Store'}] New state:`, get());
-    return nextState;
-  };
-  
-  store.setState = loggedSet;
-  return f(loggedSet, get, store);
-};
-
-export const logger = loggerImpl as unknown as Logger;
-
-// Usage
-export const useLoggedStore = create<CounterStore>()(
-  logger(
-    (set) => ({
-      count: 0,
-      increment: () => set((state) => ({ count: state.count + 1 })),
-    }),
-    'counter-store'
-  )
+// Subscribe to auth events to clear store on logout
+useTaskStore.subscribe(
+  (state) => state,
+  () => {
+    eventBus.subscribe('USER_LOGOUT', () => {
+      useTaskStore.getState().reset();
+    });
+  }
 );
 ```
 
-## 📚 Best Practices
+### Real-time Updates Store
+
+```typescript
+// src/plugins/RealTimeUpdates/stores/realtimeStore.ts
+interface RealtimeState {
+  // Connection state
+  connected: boolean;
+  connecting: boolean;
+  connectionError: string | null;
+  lastConnected: Date | null;
+
+  // Subscriptions
+  subscriptions: Map<string, RealtimeSubscription>;
+  activeChannels: Set<string>;
+
+  // Message queue
+  messageQueue: RealtimeMessage[];
+  processingQueue: boolean;
+
+  // Actions
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  subscribe: (channel: string, callback: (data: any) => void) => string;
+  unsubscribe: (subscriptionId: string) => void;
+  sendMessage: (channel: string, data: any) => void;
+  processMessageQueue: () => Promise<void>;
+}
+
+export const useRealtimeStore = create<RealtimeState>((set, get) => ({
+  // Initial state
+  connected: false,
+  connecting: false,
+  connectionError: null,
+  lastConnected: null,
+  subscriptions: new Map(),
+  activeChannels: new Set(),
+  messageQueue: [],
+  processingQueue: false,
+
+  // Connect to WebSocket
+  connect: async () => {
+    const state = get();
+    if (state.connected || state.connecting) return;
+
+    set({ connecting: true, connectionError: null });
+
+    try {
+      const user = useAuthStore.getState().user;
+      if (!user) throw new Error('No authenticated user');
+
+      const ws = new WebSocket(`${process.env.REACT_APP_WS_URL}?userId=${user.id}`);
+
+      ws.onopen = () => {
+        set({
+          connected: true,
+          connecting: false,
+          lastConnected: new Date()
+        });
+
+        // Process any queued messages
+        get().processMessageQueue();
+
+        // Emit connection event
+        eventBus.emit('REALTIME_CONNECTED');
+      };
+
+      ws.onmessage = (event) => {
+        const message: RealtimeMessage = JSON.parse(event.data);
+
+        // Add to queue for processing
+        set(state => ({
+          messageQueue: [...state.messageQueue, message]
+        }));
+
+        // Process queue
+        get().processMessageQueue();
+      };
+
+      ws.onclose = () => {
+        set({ connected: false });
+
+        // Attempt to reconnect after delay
+        setTimeout(() => {
+          get().connect();
+        }, 5000);
+
+        // Emit disconnection event
+        eventBus.emit('REALTIME_DISCONNECTED');
+      };
+
+      ws.onerror = (error) => {
+        set({
+          connectionError: 'WebSocket connection failed',
+          connecting: false
+        });
+      };
+
+      // Store WebSocket instance
+      (window as any).realtimeWS = ws;
+    } catch (error) {
+      set({
+        connectionError: error.message,
+        connecting: false
+      });
+    }
+  },
+
+  // Disconnect from WebSocket
+  disconnect: () => {
+    const ws = (window as any).realtimeWS;
+    if (ws) {
+      ws.close();
+      delete (window as any).realtimeWS;
+    }
+
+    set({
+      connected: false,
+      connecting: false,
+      subscriptions: new Map(),
+      activeChannels: new Set()
+    });
+  },
+
+  // Subscribe to a channel
+  subscribe: (channel: string, callback: (data: any) => void) => {
+    const subscriptionId = `${channel}-${Date.now()}-${Math.random()}`;
+
+    set(state => {
+      const newSubscriptions = new Map(state.subscriptions);
+      newSubscriptions.set(subscriptionId, { channel, callback });
+
+      const newActiveChannels = new Set(state.activeChannels);
+      newActiveChannels.add(channel);
+
+      return {
+        subscriptions: newSubscriptions,
+        activeChannels: newActiveChannels
+      };
+    });
+
+    // Send subscription message to server
+    const ws = (window as any).realtimeWS;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        channel
+      }));
+    }
+
+    return subscriptionId;
+  },
+
+  // Unsubscribe from a channel
+  unsubscribe: (subscriptionId: string) => {
+    const state = get();
+    const subscription = state.subscriptions.get(subscriptionId);
+
+    if (subscription) {
+      const newSubscriptions = new Map(state.subscriptions);
+      newSubscriptions.delete(subscriptionId);
+
+      // Check if any other subscriptions use this channel
+      const channelStillInUse = Array.from(newSubscriptions.values())
+        .some(sub => sub.channel === subscription.channel);
+
+      const newActiveChannels = new Set(state.activeChannels);
+      if (!channelStillInUse) {
+        newActiveChannels.delete(subscription.channel);
+
+        // Send unsubscribe message to server
+        const ws = (window as any).realtimeWS;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'unsubscribe',
+            channel: subscription.channel
+          }));
+        }
+      }
+
+      set({
+        subscriptions: newSubscriptions,
+        activeChannels: newActiveChannels
+      });
+    }
+  },
+
+  // Send message to channel
+  sendMessage: (channel: string, data: any) => {
+    const ws = (window as any).realtimeWS;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'message',
+        channel,
+        data
+      }));
+    }
+  },
+
+  // Process message queue
+  processMessageQueue: async () => {
+    const state = get();
+    if (state.processingQueue || state.messageQueue.length === 0) return;
+
+    set({ processingQueue: true });
+
+    try {
+      const messages = [...state.messageQueue];
+      set({ messageQueue: [] });
+
+      for (const message of messages) {
+        // Find all subscribers for this channel
+        const subscribers = Array.from(state.subscriptions.values())
+          .filter(sub => sub.channel === message.channel);
+
+        // Call all subscriber callbacks
+        for (const subscriber of subscribers) {
+          try {
+            await subscriber.callback(message.data);
+          } catch (error) {
+            console.error('Error in realtime subscriber:', error);
+          }
+        }
+      }
+    } finally {
+      set({ processingQueue: false });
+    }
+  }
+}));
+
+// Auto-connect when auth state changes
+useAuthStore.subscribe(
+  (state) => state.isAuthenticated,
+  (isAuthenticated) => {
+    const realtimeStore = useRealtimeStore.getState();
+
+    if (isAuthenticated) {
+      realtimeStore.connect();
+    } else {
+      realtimeStore.disconnect();
+    }
+  }
+);
+```
+
+## 🔄 Store Integration Patterns
+
+### Cross-Store Communication
+
+```typescript
+// src/core/stores/integration/storeIntegration.ts
+export class StoreIntegration {
+  private subscriptions: (() => void)[] = [];
+
+  /**
+   * Initialize cross-store subscriptions
+   */
+  initialize(): void {
+    // Auth state changes affect other stores
+    this.subscriptions.push(
+      useAuthStore.subscribe(
+        (state) => state.user,
+        (user) => {
+          if (user) {
+            // Load user-specific data in other stores
+            useTaskStore.getState().loadTasks();
+            useProjectStore.getState().loadUserProjects(user.id);
+            useNotificationStore.getState().loadUnreadNotifications(user.id);
+          } else {
+            // Clear data when user logs out
+            useTaskStore.getState().reset();
+            useProjectStore.getState().reset();
+            useNotificationStore.getState().clearNotifications();
+          }
+        }
+      )
+    );
+
+    // Task changes affect project statistics
+    this.subscriptions.push(
+      useTaskStore.subscribe(
+        (state) => state.items,
+        (tasks) => {
+          const projectStore = useProjectStore.getState();
+          projectStore.updateProjectStats();
+        }
+      )
+    );
+
+    // Theme changes affect all UI components
+    this.subscriptions.push(
+      useUIStore.subscribe(
+        (state) => state.theme,
+        (theme) => {
+          applyThemeToComponents(theme);
+          updateChartThemes(theme);
+        }
+      )
+    );
+  }
+
+  /**
+   * Cleanup subscriptions
+   */
+  cleanup(): void {
+    this.subscriptions.forEach(unsubscribe => unsubscribe());
+    this.subscriptions = [];
+  }
+}
+
+// Initialize store integration
+export const storeIntegration = new StoreIntegration();
+```
+
+### Event-Store Integration
+
+```typescript
+// src/core/stores/integration/eventIntegration.ts
+export class EventStoreIntegration {
+  /**
+   * Initialize event-store integrations
+   */
+  initialize(): void {
+    // Listen to events and update stores accordingly
+    eventBus.subscribe('TASK_ASSIGNED', (event) => {
+      const taskStore = useTaskStore.getState();
+      taskStore.updateTask(event.taskId, { assigneeId: event.assigneeId });
+
+      // Update assignee's notification count
+      if (event.assigneeId === useAuthStore.getState().user?.id) {
+        const notificationStore = useNotificationStore.getState();
+        notificationStore.addNotification({
+          type: 'info',
+          title: 'Task Assigned',
+          message: 'You have been assigned a new task'
+        });
+      }
+    });
+
+    eventBus.subscribe('PROJECT_MEMBER_ADDED', (event) => {
+      const projectStore = useProjectStore.getState();
+      projectStore.addProjectMember(event.projectId, event.member);
+
+      // Grant file access
+      const fileStore = useFileStore.getState();
+      fileStore.grantProjectFileAccess(event.member.id, event.projectId);
+    });
+
+    eventBus.subscribe('USER_PERMISSIONS_CHANGED', (event) => {
+      const authStore = useAuthStore.getState();
+      if (event.userId === authStore.user?.id) {
+        authStore.updateUser({ permissions: event.newPermissions });
+      }
+    });
+  }
+}
+
+export const eventStoreIntegration = new EventStoreIntegration();
+```
+
+## 🚀 Performance Optimization
+
+### Store Selectors
+
+```typescript
+// Efficient selectors to prevent unnecessary re-renders
+export const useTaskSelectors = {
+  // Select only specific fields
+  useTaskCount: () => useTaskStore(state => state.totalCount),
+  useTaskLoading: () => useTaskStore(state => state.loading),
+  useSelectedTasks: () => useTaskStore(state => state.selectedTasks),
+
+  // Select with computed values
+  useCompletedTasksCount: () => useTaskStore(state =>
+    state.items.filter(task => task.status === 'done').length
+  ),
+
+  // Select specific task by ID
+  useTask: (taskId: string) => useTaskStore(state =>
+    state.items.find(task => task.id === taskId)
+  ),
+
+  // Select filtered tasks
+  useFilteredTasks: (filter: (task: Task) => boolean) => useTaskStore(state =>
+    state.items.filter(filter)
+  )
+};
+
+// Usage in components
+const TaskCounter: React.FC = () => {
+  const taskCount = useTaskSelectors.useTaskCount();
+  const completedCount = useTaskSelectors.useCompletedTasksCount();
+
+  return (
+    <div>
+      <span>Total: {taskCount}</span>
+      <span>Completed: {completedCount}</span>
+    </div>
+  );
+};
+```
+
+### Middleware Stack
+
+```typescript
+// src/core/stores/middleware/index.ts
+import { devtools } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+
+// Performance monitoring middleware
+const performanceMiddleware = (config) => (set, get, api) =>
+  config(
+    (...args) => {
+      const start = performance.now();
+      set(...args);
+      const end = performance.now();
+
+      if (end - start > 16) { // Warn if update takes more than 16ms
+        console.warn(`Slow store update: ${end - start}ms`);
+      }
+    },
+    get,
+    api
+  );
+
+// Logging middleware
+const loggingMiddleware = (config) => (set, get, api) =>
+  config(
+    (...args) => {
+      console.group('Store Update');
+      console.log('Previous State:', get());
+      set(...args);
+      console.log('New State:', get());
+      console.groupEnd();
+    },
+    get,
+    api
+  );
+
+// Create store with middleware stack
+export const createStoreWithMiddleware = <T>(
+  storeConfig: any,
+  options: {
+    name: string;
+    persist?: boolean;
+    devtools?: boolean;
+    performance?: boolean;
+    logging?: boolean;
+  }
+) => {
+  let store = storeConfig;
+
+  // Apply middleware in order
+  if (options.performance) {
+    store = performanceMiddleware(store);
+  }
+
+  if (options.logging && process.env.NODE_ENV === 'development') {
+    store = loggingMiddleware(store);
+  }
+
+  store = subscribeWithSelector(store);
+
+  if (options.persist) {
+    store = persist(store, {
+      name: options.name,
+      getStorage: () => localStorage
+    });
+  }
+
+  if (options.devtools) {
+    store = devtools(store, { name: options.name });
+  }
+
+  return store;
+};
+```
+
+## 📋 Best Practices
 
 ### 1. Store Organization
-- **One store per feature/domain**: Keep stores focused and cohesive
-- **Use TypeScript interfaces**: Define clear types for your state and actions
-- **Separate concerns**: Keep UI state separate from business logic
+- **Single Responsibility** - Each store manages one domain
+- **Clear Naming** - Use descriptive names for actions and state
+- **Type Safety** - Use TypeScript interfaces for all state
+- **Event Integration** - Emit events for important state changes
 
-### 2. State Design
-- **Store minimal state**: Derive everything possible with computed functions
-- **Normalize complex data**: Use maps/objects for quick lookups
-- **Avoid nested state**: Keep state structure flat when possible
+### 2. Performance
+- **Selectors** - Use selectors to prevent unnecessary re-renders
+- **Normalization** - Normalize complex nested data
+- **Debouncing** - Debounce frequent updates
+- **Lazy Loading** - Load data only when needed
 
-### 3. Actions and Updates
-- **Use immutable updates**: Zustand works best with immutable state changes
-- **Batch related updates**: Use single `set` call for related state changes
-- **Handle async operations properly**: Use try/catch and loading states
+### 3. Error Handling
+- **Error State** - Include error state in all async operations
+- **User Feedback** - Show meaningful error messages
+- **Recovery** - Provide retry mechanisms
+- **Logging** - Log errors for debugging
 
-### 4. Performance
-- **Use selective subscriptions**: Subscribe only to the state you need
-- **Leverage shallow comparison**: Use `shallow` for multiple primitive values
-- **Memoize expensive computations**: Use computed functions and React.useMemo
-- **Split large stores**: Consider store composition for large applications
-
-### 5. TypeScript Integration
-- **Define proper interfaces**: Create clear types for your store state
-- **Use strict type checking**: Enable strict mode in TypeScript
-- **Type your selectors**: Use proper typing for store selectors
-
-### 6. Testing
-- **Test store logic separately**: Unit test your stores independently
-- **Mock external dependencies**: Mock API calls and services
-- **Test integration**: Test component-store interactions
-
-### 7. Middleware Usage
-- **Use devtools in development**: Enable Redux DevTools for debugging
-- **Persist important state**: Use persist middleware for user preferences
-- **Add logging in development**: Use logger middleware for debugging
+### 4. Testing
+- **Store Tests** - Test all store actions and state changes
+- **Integration Tests** - Test store interactions
+- **Mock Data** - Use consistent mock data
+- **Async Testing** - Properly test async operations
 
 ---
 
-This comprehensive guide provides the foundation for effective state management with Zustand in your AI-First React applications. Zustand's simplicity and flexibility make it an excellent choice for modern React development.
+This state management system provides a robust, scalable foundation for managing complex application state while maintaining performance and developer experience.
+
+## 📚 Next Steps
+
+Continue exploring the framework:
+
+1. **[Event Bus](./event-bus.md)** - Master event-driven communication
+2. **[Testing](./testing.md)** - Comprehensive testing strategies
+3. **[Plugin Development](./plugin-development.md)** - Build custom plugins
+4. **[Performance](./performance.md)** - Optimization techniques
+
+**Master state management for scalable applications!** 🚀

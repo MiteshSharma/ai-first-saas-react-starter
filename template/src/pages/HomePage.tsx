@@ -1,10 +1,11 @@
 import React from 'react';
 import { Button, Card, Space, Typography, Divider } from 'antd';
 import { Link } from 'react-router-dom';
-import { TestComponent } from '../components/TestComponent';
-import { useTestStore } from '../hooks/useTestStore';
-import { useAuthStore } from '../auth/AuthStore';
-import { testUtilFunction } from '../utils/testUtils';
+import { TestComponent } from '../core/components/TestComponent';
+import { useTestStore } from '../core/hooks/useTestStore';
+import { useAuthStore } from '../core/auth/AuthStore';
+import { testUtilFunction } from '../core/utils/testUtils';
+import { AnalyticsWidget } from '../plugins/analytics/AnalyticsWidget';
 
 const { Title, Text } = Typography;
 
@@ -60,9 +61,12 @@ const HomePage: React.FC = () => {
           </div>
         </Card>
       )}
-      
+
       <Divider />
-      
+
+      {/* Plugin Demo Section */}
+      <AnalyticsWidget />
+
       <Card title="Framework Test">
         <Button type='primary' onClick={(): void => testStore.increment()}>
           Count: {testStore.count}

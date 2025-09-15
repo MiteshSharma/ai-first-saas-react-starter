@@ -1,1056 +1,1061 @@
-# Testing Strategy
+# Testing Guide
 
-The AI-First React Framework provides a comprehensive testing strategy with Jest, React Testing Library, and best practices for unit, integration, and end-to-end testing.
+This guide covers the comprehensive testing strategy for the AI-First SaaS React Starter framework, including unit testing, component testing, plugin testing, and end-to-end testing.
 
-## 🧪 Testing Philosophy
+## Table of Contents
 
-### Testing Pyramid
+- [Testing Philosophy](#testing-philosophy)
+- [Test Structure](#test-structure)
+- [Unit Testing](#unit-testing)
+- [Component Testing](#component-testing)
+- [Plugin Testing](#plugin-testing)
+- [Event Testing](#event-testing)
+- [API Testing](#api-testing)
+- [E2E Testing](#e2e-testing)
+- [Test Utilities](#test-utilities)
+- [Mocking Strategies](#mocking-strategies)
+- [Coverage Requirements](#coverage-requirements)
+- [CI/CD Integration](#cicd-integration)
+- [Best Practices](#best-practices)
+
+## Testing Philosophy
+
+Our testing strategy follows a pyramid approach:
+
 ```
-        /\
-       /  \
-      / E2E \
-     /______\
-    /        \
-   /Integration\
-  /_____________\
- /               \
-/  Unit Tests     \
-/__________________\
+    /\     E2E Tests (Few)
+   /  \    - User workflows
+  /    \   - Critical paths
+ /______\  - Plugin integration
+/        \ Integration Tests (Some)
+|        | - API endpoints
+|        | - Event flows
+|        | - Store interactions
+|________| Unit Tests (Many)
+           - Pure functions
+           - Components
+           - Services
+           - Utilities
 ```
 
-1. **Unit Tests (70%)**: Fast, isolated component and function tests
-2. **Integration Tests (20%)**: Component interaction and store integration
-3. **End-to-End Tests (10%)**: Full user workflow testing
+### Core Principles
 
-## ⚙️ Test Configuration
+1. **Test Pyramid**: Many unit tests, some integration tests, few E2E tests
+2. **Plugin Isolation**: Each plugin should be testable in isolation
+3. **Event-Driven Testing**: Test event flows and reactions
+4. **Mock External Dependencies**: Use mocks for APIs, storage, and external services
+5. **Test Behavior, Not Implementation**: Focus on what the code does, not how
+
+## Test Structure
+
+```
+src/
+├── plugins/
+│   └── UserManagement/
+│       ├── __tests__/
+│       │   ├── components/
+│       │   │   ├── UserList.test.tsx
+│       │   │   └── UserForm.test.tsx
+│       │   ├── services/
+│       │   │   └── userService.test.ts
+│       │   ├── stores/
+│       │   │   └── userStore.test.ts
+│       │   └── integration/
+│       │       └── userWorkflow.test.tsx
+├── core/
+│   ├── __tests__/
+│   │   ├── auth/
+│   │   ├── events/
+│   │   ├── plugins/
+│   │   └── stores/
+└── utils/
+    └── test/
+        ├── setup.ts
+        ├── helpers.tsx
+        ├── mocks.ts
+        └── factories.ts
+```
+
+## Unit Testing
+
+### Testing Core Services
+
+```typescript
+// src/core/auth/__tests__/authService.test.ts
+import { authService } from '../authService';
+import { apiService } from '../../api/apiService';
+import { eventBus } from '../../events/eventBus';
+
+jest.mock('../../api/apiService');
+jest.mock('../../events/eventBus');
+
+const mockApiService = apiService as jest.Mocked<typeof apiService>;
+const mockEventBus = eventBus as jest.Mocked<typeof eventBus>;
+
+describe('AuthService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('login', () => {
+    it('should authenticate user and emit login event', async () => {
+      // Arrange
+      const credentials = { email: 'test@example.com', password: 'password' };
+      const mockUser = { id: '1', email: 'test@example.com', name: 'Test User' };
+
+      mockApiService.post.mockResolvedValue({
+        success: true,
+        data: { user: mockUser, token: 'jwt-token' }
+      });
+
+      // Act
+      const result = await authService.login(credentials);
+
+      // Assert
+      expect(mockApiService.post).toHaveBeenCalledWith('/auth/login', credentials);
+      expect(mockEventBus.emit).toHaveBeenCalledWith('auth:login', mockUser);
+      expect(result.success).toBe(true);
+      expect(result.data.user).toEqual(mockUser);
+    });
+
+    it('should handle login failure', async () => {
+      // Arrange
+      const credentials = { email: 'test@example.com', password: 'wrong' };
+
+      mockApiService.post.mockResolvedValue({
+        success: false,
+        error: 'Invalid credentials'
+      });
+
+      // Act
+      const result = await authService.login(credentials);
+
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid credentials');
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith('auth:login', expect.anything());
+    });
+  });
+});
+```
+
+### Testing Zustand Stores
+
+```typescript
+// src/core/stores/base/__tests__/baseStore.test.ts
+import { renderHook, act } from '@testing-library/react';
+import { createBaseStore } from '../createBaseStore';
+
+interface TestItem {
+  id: string;
+  name: string;
+}
+
+const useTestStore = createBaseStore<TestItem>('test');
+
+describe('BaseStore', () => {
+  beforeEach(() => {
+    act(() => {
+      useTestStore.getState().reset();
+    });
+  });
+
+  it('should initialize with empty state', () => {
+    const { result } = renderHook(() => useTestStore());
+
+    expect(result.current.items).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('should handle fetchAll lifecycle', async () => {
+    const mockItems: TestItem[] = [
+      { id: '1', name: 'Item 1' },
+      { id: '2', name: 'Item 2' }
+    ];
+
+    const { result } = renderHook(() => useTestStore());
+
+    // Start loading
+    act(() => {
+      result.current.setLoading(true);
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    // Set items
+    act(() => {
+      result.current.setItems(mockItems);
+      result.current.setLoading(false);
+    });
+
+    expect(result.current.items).toEqual(mockItems);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('should handle error states', () => {
+    const { result } = renderHook(() => useTestStore());
+
+    act(() => {
+      result.current.setError('Test error');
+    });
+
+    expect(result.current.error).toBe('Test error');
+  });
+});
+```
+
+## Component Testing
+
+### Testing React Components
+
+```typescript
+// src/plugins/UserManagement/__tests__/components/UserList.test.tsx
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { UserList } from '../../components/UserList';
+import { TestWrapper } from '../../../../utils/test/helpers';
+import { userFactory } from '../../../../utils/test/factories';
+
+const mockUsers = [
+  userFactory({ id: '1', name: 'John Doe', email: 'john@example.com' }),
+  userFactory({ id: '2', name: 'Jane Smith', email: 'jane@example.com' })
+];
+
+jest.mock('../../stores/userStore', () => ({
+  useUserStore: () => ({
+    users: mockUsers,
+    loading: false,
+    error: null,
+    fetchUsers: jest.fn(),
+    deleteUser: jest.fn()
+  })
+}));
+
+describe('UserList', () => {
+  it('should render user list', () => {
+    render(
+      <TestWrapper>
+        <UserList />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('jane@example.com')).toBeInTheDocument();
+  });
+
+  it('should handle user deletion', async () => {
+    const mockDeleteUser = jest.fn();
+
+    jest.mocked(require('../../stores/userStore').useUserStore).mockReturnValue({
+      users: mockUsers,
+      loading: false,
+      error: null,
+      fetchUsers: jest.fn(),
+      deleteUser: mockDeleteUser
+    });
+
+    render(
+      <TestWrapper>
+        <UserList />
+      </TestWrapper>
+    );
+
+    const deleteButtons = screen.getAllByLabelText('Delete user');
+    fireEvent.click(deleteButtons[0]);
+
+    // Confirm deletion
+    const confirmButton = screen.getByText('Yes, delete');
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(mockDeleteUser).toHaveBeenCalledWith('1');
+    });
+  });
+
+  it('should show loading state', () => {
+    jest.mocked(require('../../stores/userStore').useUserStore).mockReturnValue({
+      users: [],
+      loading: true,
+      error: null,
+      fetchUsers: jest.fn(),
+      deleteUser: jest.fn()
+    });
+
+    render(
+      <TestWrapper>
+        <UserList />
+      </TestWrapper>
+    );
+
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+  });
+});
+```
+
+### Testing Forms
+
+```typescript
+// src/plugins/UserManagement/__tests__/components/UserForm.test.tsx
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { UserForm } from '../../components/UserForm';
+import { TestWrapper } from '../../../../utils/test/helpers';
+
+const mockOnSubmit = jest.fn();
+const mockOnCancel = jest.fn();
+
+describe('UserForm', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should submit form with valid data', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestWrapper>
+        <UserForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+      </TestWrapper>
+    );
+
+    // Fill form
+    await user.type(screen.getByLabelText('Name'), 'John Doe');
+    await user.type(screen.getByLabelText('Email'), 'john@example.com');
+    await user.selectOptions(screen.getByLabelText('Role'), 'admin');
+
+    // Submit
+    fireEvent.click(screen.getByText('Save User'));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith({
+        name: 'John Doe',
+        email: 'john@example.com',
+        role: 'admin'
+      });
+    });
+  });
+
+  it('should show validation errors', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestWrapper>
+        <UserForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+      </TestWrapper>
+    );
+
+    // Submit empty form
+    fireEvent.click(screen.getByText('Save User'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Name is required')).toBeInTheDocument();
+      expect(screen.getByText('Email is required')).toBeInTheDocument();
+    });
+
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+});
+```
+
+## Plugin Testing
+
+### Plugin Integration Tests
+
+```typescript
+// src/plugins/UserManagement/__tests__/integration/userWorkflow.test.tsx
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { UserManagementPlugin } from '../../UserManagementPlugin';
+import { TestWrapper } from '../../../../utils/test/helpers';
+import { setupPluginTest } from '../../../../utils/test/pluginHelpers';
+
+describe('User Management Workflow', () => {
+  beforeEach(async () => {
+    await setupPluginTest();
+  });
+
+  it('should complete full CRUD workflow', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestWrapper>
+        <UserManagementPlugin />
+      </TestWrapper>
+    );
+
+    // Create user
+    fireEvent.click(screen.getByText('Add User'));
+
+    await user.type(screen.getByLabelText('Name'), 'Test User');
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+
+    fireEvent.click(screen.getByText('Save User'));
+
+    // Verify user created
+    await waitFor(() => {
+      expect(screen.getByText('Test User')).toBeInTheDocument();
+    });
+
+    // Edit user
+    fireEvent.click(screen.getByLabelText('Edit user'));
+
+    await user.clear(screen.getByLabelText('Name'));
+    await user.type(screen.getByLabelText('Name'), 'Updated User');
+
+    fireEvent.click(screen.getByText('Save User'));
+
+    // Verify user updated
+    await waitFor(() => {
+      expect(screen.getByText('Updated User')).toBeInTheDocument();
+      expect(screen.queryByText('Test User')).not.toBeInTheDocument();
+    });
+
+    // Delete user
+    fireEvent.click(screen.getByLabelText('Delete user'));
+    fireEvent.click(screen.getByText('Yes, delete'));
+
+    // Verify user deleted
+    await waitFor(() => {
+      expect(screen.queryByText('Updated User')).not.toBeInTheDocument();
+    });
+  });
+});
+```
+
+### Plugin Lifecycle Testing
+
+```typescript
+// src/core/plugins/__tests__/pluginManager.test.ts
+import { PluginManager } from '../PluginManager';
+import { eventBus } from '../../events/eventBus';
+import { UserManagementPlugin } from '../../../plugins/UserManagement/UserManagementPlugin';
+
+jest.mock('../../events/eventBus');
+
+describe('PluginManager', () => {
+  let pluginManager: PluginManager;
+
+  beforeEach(() => {
+    pluginManager = new PluginManager();
+    jest.clearAllMocks();
+  });
+
+  it('should install and activate plugin', async () => {
+    // Install
+    await pluginManager.install('user-management', UserManagementPlugin);
+
+    expect(eventBus.emit).toHaveBeenCalledWith('plugin:installed', {
+      id: 'user-management',
+      name: 'User Management'
+    });
+
+    // Activate
+    await pluginManager.activate('user-management');
+
+    expect(eventBus.emit).toHaveBeenCalledWith('plugin:activated', {
+      id: 'user-management'
+    });
+
+    expect(pluginManager.isActive('user-management')).toBe(true);
+  });
+
+  it('should deactivate and uninstall plugin', async () => {
+    // Setup
+    await pluginManager.install('user-management', UserManagementPlugin);
+    await pluginManager.activate('user-management');
+
+    // Deactivate
+    await pluginManager.deactivate('user-management');
+
+    expect(eventBus.emit).toHaveBeenCalledWith('plugin:deactivated', {
+      id: 'user-management'
+    });
+
+    expect(pluginManager.isActive('user-management')).toBe(false);
+
+    // Uninstall
+    await pluginManager.uninstall('user-management');
+
+    expect(eventBus.emit).toHaveBeenCalledWith('plugin:uninstalled', {
+      id: 'user-management'
+    });
+
+    expect(pluginManager.isInstalled('user-management')).toBe(false);
+  });
+});
+```
+
+## Event Testing
+
+### Testing Event Flows
+
+```typescript
+// src/core/events/__tests__/eventBus.test.ts
+import { EventBus } from '../EventBus';
+
+describe('EventBus', () => {
+  let eventBus: EventBus;
+
+  beforeEach(() => {
+    eventBus = new EventBus();
+  });
+
+  it('should emit and receive events', () => {
+    const handler = jest.fn();
+
+    eventBus.on('test:event', handler);
+    eventBus.emit('test:event', { data: 'test' });
+
+    expect(handler).toHaveBeenCalledWith({ data: 'test' });
+  });
+
+  it('should support multiple handlers', () => {
+    const handler1 = jest.fn();
+    const handler2 = jest.fn();
+
+    eventBus.on('test:event', handler1);
+    eventBus.on('test:event', handler2);
+    eventBus.emit('test:event', { data: 'test' });
+
+    expect(handler1).toHaveBeenCalledWith({ data: 'test' });
+    expect(handler2).toHaveBeenCalledWith({ data: 'test' });
+  });
+
+  it('should unsubscribe handlers', () => {
+    const handler = jest.fn();
+
+    const unsubscribe = eventBus.on('test:event', handler);
+    unsubscribe();
+    eventBus.emit('test:event', { data: 'test' });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+```
+
+### Testing Event Middleware
+
+```typescript
+// src/core/events/__tests__/eventMiddleware.test.ts
+import { EventBus } from '../EventBus';
+import { createLoggingMiddleware } from '../middleware/loggingMiddleware';
+
+describe('Event Middleware', () => {
+  let eventBus: EventBus;
+  let consoleLogSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    eventBus = new EventBus();
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+  });
+
+  it('should log events through middleware', () => {
+    const loggingMiddleware = createLoggingMiddleware();
+    eventBus.use(loggingMiddleware);
+
+    eventBus.emit('test:event', { data: 'test' });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '[Event]',
+      'test:event',
+      { data: 'test' }
+    );
+  });
+});
+```
+
+## API Testing
+
+### Testing API Services
+
+```typescript
+// src/core/api/__tests__/apiService.test.ts
+import { apiService } from '../apiService';
+import { authService } from '../../auth/authService';
+
+// Mock fetch
+global.fetch = jest.fn();
+const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
+
+jest.mock('../../auth/authService');
+const mockAuthService = authService as jest.Mocked<typeof authService>;
+
+describe('ApiService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthService.getToken.mockReturnValue('mock-token');
+  });
+
+  it('should make GET request with auth header', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: 'test' })
+    } as Response);
+
+    const result = await apiService.get('/test');
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/test', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mock-token'
+      }
+    });
+
+    expect(result).toEqual({ success: true, data: { data: 'test' } });
+  });
+
+  it('should handle API errors', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve({ error: 'Bad request' })
+    } as Response);
+
+    const result = await apiService.get('/test');
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Bad request',
+      status: 400
+    });
+  });
+});
+```
+
+## E2E Testing
+
+### Cypress Configuration
+
+```typescript
+// cypress.config.ts
+import { defineConfig } from 'cypress';
+
+export default defineConfig({
+  e2e: {
+    baseUrl: 'http://localhost:3000',
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    video: false,
+    screenshotOnRunFailure: false,
+    setupNodeEvents(on, config) {
+      // implement node event listeners here
+    },
+  },
+  env: {
+    REACT_APP_USE_MOCK_API: 'true'
+  }
+});
+```
+
+### E2E Test Examples
+
+```typescript
+// cypress/e2e/user-management.cy.ts
+describe('User Management', () => {
+  beforeEach(() => {
+    cy.visit('/');
+    cy.login(); // Custom command
+  });
+
+  it('should create a new user', () => {
+    cy.visit('/users');
+
+    cy.get('[data-testid="add-user-button"]').click();
+
+    cy.get('[data-testid="user-name-input"]').type('John Doe');
+    cy.get('[data-testid="user-email-input"]').type('john@example.com');
+    cy.get('[data-testid="user-role-select"]').select('admin');
+
+    cy.get('[data-testid="save-user-button"]').click();
+
+    cy.get('[data-testid="user-list"]').should('contain', 'John Doe');
+    cy.get('[data-testid="success-message"]').should('be.visible');
+  });
+
+  it('should edit existing user', () => {
+    cy.visit('/users');
+
+    cy.get('[data-testid="user-row"]').first().find('[data-testid="edit-button"]').click();
+
+    cy.get('[data-testid="user-name-input"]').clear().type('Jane Smith');
+    cy.get('[data-testid="save-user-button"]').click();
+
+    cy.get('[data-testid="user-list"]').should('contain', 'Jane Smith');
+  });
+});
+```
+
+### Custom Cypress Commands
+
+```typescript
+// cypress/support/commands.ts
+declare global {
+  namespace Cypress {
+    interface Chainable {
+      login(): Chainable<void>;
+      createUser(userData: any): Chainable<void>;
+    }
+  }
+}
+
+Cypress.Commands.add('login', () => {
+  cy.window().then((win) => {
+    win.localStorage.setItem('auth-token', 'mock-jwt-token');
+    win.localStorage.setItem('user', JSON.stringify({
+      id: '1',
+      email: 'test@example.com',
+      name: 'Test User'
+    }));
+  });
+});
+
+Cypress.Commands.add('createUser', (userData) => {
+  cy.request('POST', '/api/users', userData);
+});
+```
+
+## Test Utilities
+
+### Test Wrapper
+
+```typescript
+// src/utils/test/helpers.tsx
+import React, { ReactNode } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { ConfigProvider } from 'antd';
+import { EventBusProvider } from '../../core/events/EventBusContext';
+import { AuthProvider } from '../../core/auth/AuthContext';
+
+interface TestWrapperProps {
+  children: ReactNode;
+}
+
+export function TestWrapper({ children }: TestWrapperProps) {
+  return (
+    <BrowserRouter>
+      <ConfigProvider>
+        <EventBusProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </EventBusProvider>
+      </ConfigProvider>
+    </BrowserRouter>
+  );
+}
+
+export function renderWithProviders(ui: ReactNode) {
+  return render(<TestWrapper>{ui}</TestWrapper>);
+}
+```
+
+### Factory Functions
+
+```typescript
+// src/utils/test/factories.ts
+export function userFactory(overrides: Partial<User> = {}): User {
+  return {
+    id: Math.random().toString(36).substr(2, 9),
+    name: 'Test User',
+    email: 'test@example.com',
+    role: 'user',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides
+  };
+}
+
+export function pluginFactory(overrides: Partial<Plugin> = {}): Plugin {
+  return {
+    id: Math.random().toString(36).substr(2, 9),
+    name: 'Test Plugin',
+    version: '1.0.0',
+    description: 'A test plugin',
+    enabled: true,
+    ...overrides
+  };
+}
+```
+
+### Plugin Test Helpers
+
+```typescript
+// src/utils/test/pluginHelpers.ts
+import { PluginManager } from '../../core/plugins/PluginManager';
+import { eventBus } from '../../core/events/eventBus';
+
+export async function setupPluginTest() {
+  // Reset plugin manager
+  const pluginManager = PluginManager.getInstance();
+  await pluginManager.reset();
+
+  // Clear event listeners
+  eventBus.removeAllListeners();
+
+  // Setup mock API responses
+  setupMockApi();
+}
+
+export function setupMockApi() {
+  global.fetch = jest.fn().mockImplementation((url: string, options: any) => {
+    // Mock different API endpoints
+    if (url.includes('/api/users')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: [] })
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({})
+    });
+  });
+}
+```
+
+## Mocking Strategies
+
+### API Mocking
+
+```typescript
+// src/utils/test/mocks.ts
+import { rest } from 'msw';
+import { setupServer } from 'msw/node';
+
+export const handlers = [
+  rest.get('/api/users', (req, res, ctx) => {
+    return res(ctx.json({
+      data: [
+        { id: '1', name: 'John Doe', email: 'john@example.com' },
+        { id: '2', name: 'Jane Smith', email: 'jane@example.com' }
+      ]
+    }));
+  }),
+
+  rest.post('/api/users', (req, res, ctx) => {
+    return res(ctx.json({
+      data: { id: '3', ...req.body }
+    }));
+  }),
+
+  rest.delete('/api/users/:id', (req, res, ctx) => {
+    return res(ctx.json({ success: true }));
+  })
+];
+
+export const server = setupServer(...handlers);
+```
+
+### Store Mocking
+
+```typescript
+// src/utils/test/storeMocks.ts
+export function createMockStore<T>(initialState: Partial<T> = {}) {
+  return {
+    ...initialState,
+    loading: false,
+    error: null,
+    setLoading: jest.fn(),
+    setError: jest.fn(),
+    reset: jest.fn()
+  };
+}
+
+export const mockUserStore = createMockStore({
+  users: [],
+  currentUser: null,
+  fetchUsers: jest.fn(),
+  createUser: jest.fn(),
+  updateUser: jest.fn(),
+  deleteUser: jest.fn()
+});
+```
+
+## Coverage Requirements
 
 ### Jest Configuration
+
 ```javascript
 // jest.config.js
 module.exports = {
-  testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
-  moduleNameMapping: {
-    '^@components/(.*)$': '<rootDir>/src/components/$1',
-    '^@stores/(.*)$': '<rootDir>/src/stores/$1',
-    '^@services/(.*)$': '<rootDir>/src/services/$1',
-    '^@utils/(.*)$': '<rootDir>/src/utils/$1',
-  },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/index.tsx',
-    '!src/reportWebVitals.ts',
+    '!src/reportWebVitals.ts'
   ],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
     },
+    'src/core/': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    }
   },
+  setupFilesAfterEnv: ['<rootDir>/src/utils/test/setup.ts']
 };
 ```
 
-### Setup File
+### Test Setup
+
 ```typescript
-// src/setupTests.ts
+// src/utils/test/setup.ts
 import '@testing-library/jest-dom';
-import { configure } from '@testing-library/react';
+import { server } from './mocks';
 
-// Configure testing library
-configure({ testIdAttribute: 'data-testid' });
+// MSW setup
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
-// Mock environment variables
-process.env.REACT_APP_API_URL = 'http://localhost:3001';
-
-// Mock modules
-jest.mock('@services/apiClient', () => ({
-  apiClient: {
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-  },
+// Mock IntersectionObserver
+global.IntersectionObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn()
 }));
 
-// Global test utilities
-global.mockConsole = () => {
-  const originalConsole = console;
-  beforeEach(() => {
-    console.error = jest.fn();
-    console.warn = jest.fn();
-  });
-  afterEach(() => {
-    console.error = originalConsole.error;
-    console.warn = originalConsole.warn;
-  });
-};
+// Mock ResizeObserver
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn()
+}));
 ```
 
-## 🎨 Component Testing
+## CI/CD Integration
 
-### Basic Component Test
-```typescript
-// UserProfile.test.tsx
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { UserProfile } from './UserProfile';
+### GitHub Actions
 
-const mockUser = {
-  id: '1',
-  name: 'John Doe',
-  email: 'john@example.com',
-  avatar: 'https://example.com/avatar.jpg',
-};
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
 
-describe('UserProfile', () => {
-  it('renders user information correctly', () => {
-    render(<UserProfile user={mockUser} />);
-    
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('john@example.com')).toBeInTheDocument();
-    expect(screen.getByRole('img')).toHaveAttribute('src', mockUser.avatar);
-  });
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
 
-  it('handles edit button click', () => {
-    const mockOnEdit = jest.fn();
-    render(<UserProfile user={mockUser} onEdit={mockOnEdit} />);
-    
-    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
-    
-    expect(mockOnEdit).toHaveBeenCalledWith(mockUser);
-  });
+jobs:
+  test:
+    runs-on: ubuntu-latest
 
-  it('shows loading state', () => {
-    render(<UserProfile user={mockUser} loading={true} />);
-    
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
-  });
-});
-```
+    steps:
+      - uses: actions/checkout@v3
 
-### Component with Zustand Store
-```typescript
-// UserList.test.tsx
-import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
-import { useUserStore } from '@stores/useUserStore';
-import { UserList } from './UserList';
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-// Mock the Zustand store
-jest.mock('@stores/useUserStore');
-const mockUseUserStore = useUserStore as jest.MockedFunction<typeof useUserStore>;
+      - name: Install dependencies
+        run: npm ci
 
-describe('UserList', () => {
-  const mockStore = {
-    users: [],
-    loading: false,
-    error: null,
-    fetchUsers: jest.fn(),
-    deleteUser: jest.fn(),
-    clearError: jest.fn(),
-  };
+      - name: Run unit tests
+        run: npm run test:coverage
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseUserStore.mockReturnValue(mockStore);
-  });
+      - name: Run E2E tests
+        run: npm run test:e2e
 
-  it('displays users when loaded', async () => {
-    mockUseUserStore.mockReturnValue({
-      ...mockStore,
-      users: [mockUser],
-    });
-    
-    render(<UserList />);
-
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
-  });
-
-  it('shows loading state', () => {
-    mockUseUserStore.mockReturnValue({
-      ...mockStore,
-      loading: true,
-    });
-    
-    render(<UserList />);
-
-    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
-  });
-
-  it('displays error message when error occurs', () => {
-    mockUseUserStore.mockReturnValue({
-      ...mockStore,
-      error: 'Failed to load users',
-    });
-    
-    render(<UserList />);
-
-    expect(screen.getByText('Failed to load users')).toBeInTheDocument();
-  });
-});
-```
-
-## 🗄️ Store Testing
-
-### Zustand Store Tests
-```typescript
-// useUserStore.test.ts
-import { act, renderHook } from '@testing-library/react';
-import { useUserStore } from './useUserStore';
-import { userService } from '@services/UserService';
-
-jest.mock('@services/UserService');
-const mockUserService = userService as jest.Mocked<typeof userService>;
-
-// Helper to create a fresh store instance for each test
-const createStoreWrapper = () => {
-  const { result } = renderHook(() => useUserStore());
-  return result;
-};
-
-describe('useUserStore', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    // Reset store state before each test
-    useUserStore.setState({
-      users: [],
-      loading: false,
-      error: null,
-    });
-  });
-
-  describe('fetchUsers', () => {
-    it('loads users successfully', async () => {
-      const mockUsers = [{ id: '1', name: 'John' }];
-      mockUserService.getUsers.mockResolvedValue(mockUsers);
-      
-      const store = createStoreWrapper();
-
-      await act(async () => {
-        await store.current.fetchUsers();
-      });
-
-      expect(store.current.users).toEqual(mockUsers);
-      expect(store.current.loading).toBe(false);
-      expect(store.current.error).toBeNull();
-    });
-
-    it('handles fetch error', async () => {
-      const error = new Error('Network error');
-      mockUserService.getUsers.mockRejectedValue(error);
-      
-      const store = createStoreWrapper();
-
-      await act(async () => {
-        await store.current.fetchUsers();
-      });
-
-      expect(store.current.users).toEqual([]);
-      expect(store.current.loading).toBe(false);
-      expect(store.current.error).toBe('Network error');
-    });
-
-    it('sets loading state during fetch', async () => {
-      let resolvePromise: (value: any) => void;
-      const promise = new Promise((resolve) => {
-        resolvePromise = resolve;
-      });
-      
-      mockUserService.getUsers.mockReturnValue(promise);
-      
-      const store = createStoreWrapper();
-
-      act(() => {
-        store.current.fetchUsers();
-      });
-
-      expect(store.current.loading).toBe(true);
-      
-      // Resolve the promise
-      act(() => {
-        resolvePromise([]);
-      });
-    });
-  });
-
-  describe('selectors and computed values', () => {
-    it('calculates active users correctly', () => {
-      const store = createStoreWrapper();
-      
-      act(() => {
-        useUserStore.setState({
-          users: [
-            { id: '1', name: 'John', isActive: true },
-            { id: '2', name: 'Jane', isActive: false },
-            { id: '3', name: 'Bob', isActive: true },
-          ],
-        });
-      });
-
-      const activeUsers = store.current.users.filter(user => user.isActive);
-      expect(activeUsers).toHaveLength(2);
-      expect(activeUsers[0].name).toBe('John');
-    });
-
-    it('returns user count', () => {
-      const store = createStoreWrapper();
-      
-      act(() => {
-        useUserStore.setState({
-          users: [{ id: '1', name: 'John' }, { id: '2', name: 'Jane' }],
-        });
-      });
-
-      expect(store.current.users.length).toBe(2);
-    });
-  });
-
-  describe('actions', () => {
-    it('adds user successfully', async () => {
-      const newUser = { id: '1', name: 'John', email: 'john@example.com' };
-      mockUserService.createUser.mockResolvedValue(newUser);
-      
-      const store = createStoreWrapper();
-
-      await act(async () => {
-        await store.current.addUser({ name: 'John', email: 'john@example.com' });
-      });
-
-      expect(store.current.users).toContainEqual(newUser);
-    });
-
-    it('removes user successfully', async () => {
-      const store = createStoreWrapper();
-      
-      act(() => {
-        useUserStore.setState({
-          users: [{ id: '1', name: 'John' }, { id: '2', name: 'Jane' }],
-        });
-      });
-
-      await act(async () => {
-        await store.current.removeUser('1');
-      });
-
-      expect(store.current.users).toHaveLength(1);
-      expect(store.current.users[0].id).toBe('2');
-    });
-  });
-});
-```
-
-### Testing Store with Subscriptions
-```typescript
-// useUserStore.subscription.test.ts
-import { renderHook } from '@testing-library/react';
-import { useUserStore } from './useUserStore';
-
-describe('useUserStore subscriptions', () => {
-  it('notifies subscribers when state changes', () => {
-    const { result } = renderHook(() => useUserStore());
-    const callback = jest.fn();
-    
-    // Subscribe to state changes
-    const unsubscribe = useUserStore.subscribe(callback);
-    
-    // Change state
-    useUserStore.setState({ loading: true });
-    
-    expect(callback).toHaveBeenCalled();
-    
-    unsubscribe();
-  });
-
-  it('allows selective subscriptions', () => {
-    const { result } = renderHook(() => 
-      useUserStore(state => ({ users: state.users, loading: state.loading }))
-    );
-    
-    expect(result.current.users).toEqual([]);
-    expect(result.current.loading).toBe(false);
-  });
-});
-```
-
-## 🌐 Service Testing
-
-### API Service Tests
-```typescript
-// UserService.test.ts
-import { UserService } from './UserService';
-import { apiClient } from './apiClient';
-
-jest.mock('./apiClient');
-const mockApiClient = apiClient as jest.Mocked<typeof apiClient>;
-
-describe('UserService', () => {
-  let service: UserService;
-
-  beforeEach(() => {
-    service = new UserService();
-    jest.clearAllMocks();
-  });
-
-  describe('getUsers', () => {
-    it('fetches users successfully', async () => {
-      const mockUsers = [{ id: '1', name: 'John' }];
-      mockApiClient.get.mockResolvedValue({ data: mockUsers });
-
-      const result = await service.getUsers();
-
-      expect(mockApiClient.get).toHaveBeenCalledWith('/users');
-      expect(result).toEqual(mockUsers);
-    });
-
-    it('handles API error', async () => {
-      mockApiClient.get.mockRejectedValue(new Error('API Error'));
-
-      await expect(service.getUsers()).rejects.toThrow('Failed to fetch users');
-    });
-  });
-
-  describe('createUser', () => {
-    it('creates user with validation', async () => {
-      const userData = { name: 'John', email: 'john@example.com' };
-      const createdUser = { id: '1', ...userData };
-      
-      mockApiClient.post.mockResolvedValue({ data: createdUser });
-
-      const result = await service.createUser(userData);
-
-      expect(mockApiClient.post).toHaveBeenCalledWith('/users', userData);
-      expect(result).toEqual(createdUser);
-    });
-
-    it('validates input data', async () => {
-      const invalidData = { name: '', email: 'invalid-email' };
-
-      await expect(service.createUser(invalidData)).rejects.toThrow();
-    });
-  });
-});
-```
-
-## 🔗 Integration Testing
-
-### Component + Store Integration
-```typescript
-// UserManagement.integration.test.tsx
-import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { UserManagement } from './UserManagement';
-import { useUserStore } from '@stores/useUserStore';
-import { userService } from '@services/UserService';
-
-jest.mock('@services/UserService');
-const mockUserService = userService as jest.Mocked<typeof userService>;
-
-// Mock the store hook
-jest.mock('@stores/useUserStore');
-const mockUseUserStore = useUserStore as jest.MockedFunction<typeof useUserStore>;
-
-describe('UserManagement Integration', () => {
-  const mockStore = {
-    users: [],
-    loading: false,
-    error: null,
-    fetchUsers: jest.fn(),
-    addUser: jest.fn(),
-    removeUser: jest.fn(),
-    updateUser: jest.fn(),
-    clearError: jest.fn(),
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseUserStore.mockReturnValue(mockStore);
-  });
-
-  it('loads and displays users on mount', async () => {
-    const mockUsers = [
-      { id: '1', name: 'John Doe', email: 'john@example.com' },
-      { id: '2', name: 'Jane Smith', email: 'jane@example.com' },
-    ];
-    
-    mockUserService.getUsers.mockResolvedValue(mockUsers);
-    mockUseUserStore.mockReturnValue({
-      ...mockStore,
-      users: mockUsers,
-    });
-
-    render(<UserManagement />);
-
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('Jane Smith')).toBeInTheDocument();
-  });
-
-  it('handles user deletion flow', async () => {
-    const initialUsers = [{ id: '1', name: 'John Doe' }];
-    mockUseUserStore.mockReturnValue({
-      ...mockStore,
-      users: initialUsers,
-    });
-    
-    mockUserService.deleteUser.mockResolvedValue(undefined);
-
-    render(<UserManagement />);
-
-    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
-    
-    // Confirm deletion in modal
-    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
-
-    await waitFor(() => {
-      expect(mockStore.removeUser).toHaveBeenCalledWith('1');
-    });
-  });
-
-  it('shows error state on fetch failure', async () => {
-    mockUseUserStore.mockReturnValue({
-      ...mockStore,
-      error: 'Network error',
-    });
-
-    render(<UserManagement />);
-
-    expect(screen.getByText(/error.*network error/i)).toBeInTheDocument();
-  });
-
-  it('handles user creation', async () => {
-    const newUserData = { name: 'New User', email: 'new@example.com' };
-    const createdUser = { id: '3', ...newUserData };
-    
-    mockUserService.createUser.mockResolvedValue(createdUser);
-    mockUseUserStore.mockReturnValue(mockStore);
-
-    render(<UserManagement />);
-
-    // Open create user modal
-    fireEvent.click(screen.getByRole('button', { name: /add user/i }));
-    
-    // Fill form
-    fireEvent.change(screen.getByLabelText(/name/i), { 
-      target: { value: newUserData.name } 
-    });
-    fireEvent.change(screen.getByLabelText(/email/i), { 
-      target: { value: newUserData.email } 
-    });
-    
-    // Submit form
-    fireEvent.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(mockStore.addUser).toHaveBeenCalledWith(newUserData);
-    });
-  });
-});
-```
-
-### Testing Async Actions
-```typescript
-// useUserStore.async.test.ts
-import { renderHook, act } from '@testing-library/react';
-import { useUserStore } from './useUserStore';
-import { userService } from '@services/UserService';
-
-jest.mock('@services/UserService');
-const mockUserService = userService as jest.Mocked<typeof userService>;
-
-describe('useUserStore async actions', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    useUserStore.setState({ users: [], loading: false, error: null });
-  });
-
-  it('handles concurrent requests properly', async () => {
-    const { result } = renderHook(() => useUserStore());
-    
-    // Mock delayed responses
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    mockUserService.getUsers
-      .mockImplementationOnce(() => delay(100).then(() => [{ id: '1', name: 'First' }]))
-      .mockImplementationOnce(() => delay(50).then(() => [{ id: '2', name: 'Second' }]));
-
-    // Start two concurrent requests
-    const promise1 = act(() => result.current.fetchUsers());
-    const promise2 = act(() => result.current.fetchUsers());
-
-    await Promise.all([promise1, promise2]);
-
-    // Should have the result from the last completed request
-    expect(result.current.users).toHaveLength(1);
-    expect(result.current.loading).toBe(false);
-  });
-
-  it('handles request cancellation', async () => {
-    const { result } = renderHook(() => useUserStore());
-    
-    // Create a promise that won't resolve immediately
-    let rejectPromise: (reason: any) => void;
-    const promise = new Promise((_, reject) => {
-      rejectPromise = reject;
-    });
-    
-    mockUserService.getUsers.mockReturnValue(promise);
-    
-    // Start request
-    act(() => {
-      result.current.fetchUsers();
-    });
-    
-    expect(result.current.loading).toBe(true);
-    
-    // Simulate cancellation (component unmount, etc.)
-    act(() => {
-      rejectPromise(new Error('Request cancelled'));
-    });
-    
-    // Should handle cancellation gracefully
-    expect(result.current.loading).toBe(false);
-  });
-});
-```
-
-## 🎭 Custom Testing Utilities
-
-### Test Utilities
-```typescript
-// src/test-utils/index.tsx
-import React from 'react';
-import { render, RenderOptions } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { RootStore } from '@stores/RootStore';
-
-// Zustand store test wrapper
-interface StoreWrapperProps {
-  children: React.ReactNode;
-  initialState?: Partial<any>;
-}
-
-// Helper to create isolated store instances for testing
-const StoreWrapper: React.FC<StoreWrapperProps> = ({ 
-  children, 
-  initialState = {} 
-}) => {
-  // Reset store state for testing
-  React.useEffect(() => {
-    Object.keys(initialState).forEach(key => {
-      // Apply initial state to all stores that need it
-      if (useUserStore.getState) {
-        useUserStore.setState(initialState);
-      }
-    });
-  }, [initialState]);
-
-  return (
-    <div data-testid="store-wrapper">
-      {children}
-    </div>
-  );
-};
-
-// Router wrapper
-const RouterWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{children}</BrowserRouter>
-);
-
-// Combined wrapper
-const AllProviders: React.FC<{ 
-  children: React.ReactNode; 
-  initialState?: Partial<any> 
-}> = ({ children, initialState }) => (
-  <RouterWrapper>
-    <StoreWrapper initialState={initialState}>
-      {children}
-    </StoreWrapper>
-  </RouterWrapper>
-);
-
-// Custom render function with Zustand support
-const customRender = (
-  ui: React.ReactElement,
-  options?: RenderOptions & { initialState?: Partial<any> }
-) => {
-  const { initialState, ...renderOptions } = options || {};
-  
-  return render(ui, {
-    wrapper: ({ children }) => (
-      <AllProviders initialState={initialState}>{children}</AllProviders>
-    ),
-    ...renderOptions,
-  });
-};
-
-// Helper for testing components with specific store states
-export const renderWithStore = (
-  ui: React.ReactElement,
-  initialState?: Partial<any>
-) => {
-  return customRender(ui, { initialState });
-};
-
-// Re-export everything
-export * from '@testing-library/react';
-export { customRender as render };
-```
-
-### Mock Factories
-```typescript
-// src/test-utils/mockFactories.ts
-export const createMockUser = (overrides = {}) => ({
-  id: '1',
-  name: 'John Doe',
-  email: 'john@example.com',
-  isActive: true,
-  createdAt: new Date().toISOString(),
-  ...overrides,
-});
-
-export const createMockUserStore = () => ({
-  users: [],
-  loading: false,
-  error: null,
-  fetchUsers: jest.fn(),
-  addUser: jest.fn(),
-  updateUser: jest.fn(),
-  removeUser: jest.fn(),
-  clearError: jest.fn(),
-  // Selectors
-  getActiveUsers: jest.fn(() => []),
-  getUserById: jest.fn((id: string) => null),
-});
-
-export const createMockAuthStore = () => ({
-  user: null,
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
-  login: jest.fn(),
-  logout: jest.fn(),
-  refreshToken: jest.fn(),
-  clearError: jest.fn(),
-});
-
-// Helper to mock multiple stores
-export const createMockStores = () => ({
-  userStore: createMockUserStore(),
-  authStore: createMockAuthStore(),
-});
-
-// Helper to setup store mocks
-export const setupStoreMocks = () => {
-  const mocks = createMockStores();
-  
-  jest.mock('@stores/useUserStore', () => ({
-    useUserStore: jest.fn(() => mocks.userStore),
-  }));
-  
-  jest.mock('@stores/useAuthStore', () => ({
-    useAuthStore: jest.fn(() => mocks.authStore),
-  }));
-  
-  return mocks;
-};
-
-export const createMockApiResponse = (data: any, status = 200) => ({
-  data,
-  status,
-  statusText: 'OK',
-  headers: {},
-  config: {},
-});
-```
-
-## 🚀 E2E Testing with Playwright
-
-### Playwright Configuration
-```typescript
-// playwright.config.ts
-import { defineConfig, devices } from '@playwright/test';
-
-export default defineConfig({
-  testDir: './e2e',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
-  
-  use: {
-    baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-  },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-  ],
-
-  webServer: {
-    command: 'npm start',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
-});
-```
-
-### E2E Test Example
-```typescript
-// e2e/user-management.spec.ts
-import { test, expect } from '@playwright/test';
-
-test.describe('User Management', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/users');
-  });
-
-  test('should display user list', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
-    await expect(page.getByTestId('user-list')).toBeVisible();
-  });
-
-  test('should create new user', async ({ page }) => {
-    await page.getByRole('button', { name: 'Add User' }).click();
-    
-    await page.getByLabel('Name').fill('John Doe');
-    await page.getByLabel('Email').fill('john@example.com');
-    
-    await page.getByRole('button', { name: 'Save' }).click();
-    
-    await expect(page.getByText('User created successfully')).toBeVisible();
-    await expect(page.getByText('John Doe')).toBeVisible();
-  });
-
-  test('should handle validation errors', async ({ page }) => {
-    await page.getByRole('button', { name: 'Add User' }).click();
-    await page.getByRole('button', { name: 'Save' }).click();
-    
-    await expect(page.getByText('Name is required')).toBeVisible();
-    await expect(page.getByText('Email is required')).toBeVisible();
-  });
-});
-```
-
-## 📊 Testing Metrics & Reports
-
-### Coverage Reports
-```bash
-# Generate coverage report
-npm run test:coverage
-
-# View coverage report
-open coverage/lcov-report/index.html
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
 ```
 
 ### Test Scripts
+
 ```json
 {
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:ci": "jest --ci --coverage --watchAll=false",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:ci": "jest --coverage --watchAll=false",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open"
   }
 }
 ```
 
-## 🎯 Zustand-Specific Testing Best Practices
+## Best Practices
 
-### Testing Store Persistence
+### Testing Guidelines
+
+1. **Test Structure**: Follow AAA pattern (Arrange, Act, Assert)
+2. **Test Names**: Use descriptive names that explain the scenario
+3. **One Assertion**: Focus on one behavior per test
+4. **Mock Dependencies**: Mock external dependencies and side effects
+5. **Test Data**: Use factories for consistent test data
+6. **Cleanup**: Always cleanup after tests to avoid side effects
+
+### Common Patterns
+
 ```typescript
-// useUserStore.persistence.test.ts
-import { useUserStore } from './useUserStore';
-
-// Mock localStorage
-const localStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
-global.localStorage = localStorageMock as any;
-
-describe('useUserStore persistence', () => {
+describe('Component/Service Name', () => {
+  // Setup and teardown
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Setup common test state
   });
 
-  it('persists user data to localStorage', () => {
-    const users = [{ id: '1', name: 'John' }];
-    
-    useUserStore.setState({ users });
-    
-    // Verify that the state was persisted
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      'user-store',
-      JSON.stringify({ users })
-    );
+  afterEach(() => {
+    // Cleanup
   });
 
-  it('loads persisted data on initialization', () => {
-    const persistedData = { users: [{ id: '1', name: 'John' }] };
-    localStorageMock.getItem.mockReturnValue(JSON.stringify(persistedData));
-    
-    // Re-initialize the store
-    const { result } = renderHook(() => useUserStore());
-    
-    expect(result.current.users).toEqual(persistedData.users);
-  });
-});
-```
+  describe('specific functionality', () => {
+    it('should do something when condition is met', () => {
+      // Arrange
+      const input = 'test input';
+      const expected = 'expected output';
 
-### Testing Store Slices and Composition
-```typescript
-// storeSlices.test.ts
-import { createUserSlice } from '@stores/slices/userSlice';
-import { createAuthSlice } from '@stores/slices/authSlice';
-import { StateCreator } from 'zustand';
+      // Act
+      const result = functionUnderTest(input);
 
-describe('Store slices', () => {
-  it('creates user slice with correct initial state', () => {
-    const mockSet = jest.fn();
-    const mockGet = jest.fn();
-    
-    const userSlice = createUserSlice(mockSet as any, mockGet as any, {} as any);
-    
-    expect(userSlice.users).toEqual([]);
-    expect(userSlice.loading).toBe(false);
-    expect(typeof userSlice.fetchUsers).toBe('function');
-  });
-
-  it('composes multiple slices correctly', () => {
-    const mockSet = jest.fn();
-    const mockGet = jest.fn();
-    
-    const userSlice = createUserSlice(mockSet as any, mockGet as any, {} as any);
-    const authSlice = createAuthSlice(mockSet as any, mockGet as any, {} as any);
-    
-    const combinedState = { ...userSlice, ...authSlice };
-    
-    expect(combinedState).toHaveProperty('users');
-    expect(combinedState).toHaveProperty('user');
-    expect(combinedState).toHaveProperty('fetchUsers');
-    expect(combinedState).toHaveProperty('login');
-  });
-});
-```
-
-### Testing Store Middleware
-```typescript
-// storeMiddleware.test.ts
-import { useUserStore } from './useUserStore';
-import { act, renderHook } from '@testing-library/react';
-
-describe('Store middleware', () => {
-  it('logs state changes in development', () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-    
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    
-    const { result } = renderHook(() => useUserStore());
-    
-    act(() => {
-      useUserStore.setState({ loading: true });
-    });
-    
-    expect(consoleSpy).toHaveBeenCalled();
-    
-    consoleSpy.mockRestore();
-    process.env.NODE_ENV = originalEnv;
-  });
-
-  it('validates state updates with middleware', () => {\n    const { result } = renderHook(() => useUserStore());
-    
-    // This should work
-    act(() => {
-      useUserStore.setState({ users: [{ id: '1', name: 'John' }] });
-    });
-    
-    expect(result.current.users).toHaveLength(1);
-    
-    // This should be validated and potentially rejected
-    act(() => {
-      try {
-        useUserStore.setState({ users: 'invalid' as any });
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+      // Assert
+      expect(result).toBe(expected);
     });
   });
 });
 ```
 
 ### Performance Testing
+
 ```typescript
-// storePerformance.test.ts
-import { renderHook } from '@testing-library/react';
-import { useUserStore } from './useUserStore';
+// Performance test example
+it('should handle large datasets efficiently', () => {
+  const largeDataset = Array.from({ length: 10000 }, (_, i) => ({
+    id: i.toString(),
+    name: `Item ${i}`
+  }));
 
-describe('Store performance', () => {
-  it('does not cause unnecessary re-renders', () => {
-    const renderSpy = jest.fn();
-    
-    const TestComponent = () => {
-      renderSpy();
-      const users = useUserStore(state => state.users);
-      return users.length;
-    };
-    
-    const { rerender } = render(<TestComponent />);
-    
-    // Change unrelated state
-    act(() => {
-      useUserStore.setState({ loading: true });
-    });
-    
-    rerender(<TestComponent />);
-    
-    // Should not cause extra renders since we're only selecting users
-    expect(renderSpy).toHaveBeenCalledTimes(2);
-  });
+  const start = performance.now();
 
-  it('selectors work correctly', () => {
-    const { result: fullStore } = renderHook(() => useUserStore());
-    const { result: usersOnly } = renderHook(() => 
-      useUserStore(state => state.users)
-    );
-    const { result: activeUsers } = renderHook(() => 
-      useUserStore(state => state.users.filter(u => u.isActive))
-    );
-    
-    act(() => {
-      useUserStore.setState({ 
-        users: [
-          { id: '1', name: 'John', isActive: true },
-          { id: '2', name: 'Jane', isActive: false }
-        ]
-      });
-    });
-    
-    expect(fullStore.current.users).toHaveLength(2);
-    expect(usersOnly.current).toHaveLength(2);
-    expect(activeUsers.current).toHaveLength(1);
-  });
+  const result = processLargeDataset(largeDataset);
+
+  const end = performance.now();
+  const duration = end - start;
+
+  expect(duration).toBeLessThan(100); // Should complete in under 100ms
+  expect(result).toHaveLength(10000);
 });
 ```
 
----
-
-This comprehensive testing strategy ensures code quality and reliability across your AI-First React applications with robust Zustand state management testing.
+This comprehensive testing guide ensures that all aspects of the AI-First SaaS React Starter framework are thoroughly tested, from individual components to complete user workflows.

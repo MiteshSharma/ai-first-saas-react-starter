@@ -8,6 +8,8 @@ const { generateStore } = require('../generators/store-generator');
 const { generateService } = require('../generators/service-generator');
 const { generatePage } = require('../generators/page-generator');
 const { generateEndpoints } = require('../generators/endpoint-generator');
+const { PluginGenerator } = require('../generators/plugin-generator');
+const { generateEventBus, generateStoreExtension, generateAPIHelper, generateHook } = require('../generators/core-generators');
 
 /**
  * AI-First SaaS React Starter CLI
@@ -178,6 +180,9 @@ class AIFirstCLI {
     console.log('   ai-first g store UserStore --api true');
     console.log('   ai-first g endpoints ProductService --workspace true');
     console.log('   ai-first g page UsersPage --store true --service true');
+    console.log('   ai-first g plugin UserManagement --type feature --hasStore true');
+    console.log('   ai-first g eventbus UserEvents');
+    console.log('   ai-first g hook useUserData');
   }
 
   async generate(args) {
@@ -187,7 +192,7 @@ class AIFirstCLI {
     if (!type || !name) {
       console.error('❌ Generator type and name are required');
       console.log('Usage: ai-first generate <type> <name>');
-      console.log('Types: component, store, service, page');
+      console.log('Types: component, store, service, page, plugin, eventbus, hook, apihelper');
       return;
     }
 
@@ -211,6 +216,26 @@ class AIFirstCLI {
       case 'endpoints':
       case 'e':
         await this.generateEndpoints(name, args.slice(2));
+        break;
+      case 'plugin':
+      case 'pl':
+        await this.generatePlugin(name, args.slice(2));
+        break;
+      case 'eventbus':
+      case 'eb':
+        await this.generateEventBus(name, args.slice(2));
+        break;
+      case 'storeext':
+      case 'se':
+        await this.generateStoreExtension(name, args.slice(2));
+        break;
+      case 'apihelper':
+      case 'ah':
+        await this.generateAPIHelper(name, args.slice(2));
+        break;
+      case 'hook':
+      case 'h':
+        await this.generateHook(name, args.slice(2));
         break;
       default:
         throw new Error(`Unknown generator type: ${type}`);
@@ -326,6 +351,130 @@ class AIFirstCLI {
       hasAuth: config.auth,
       hasTenant: config.tenant,
       hasWorkspace: config.workspace
+    });
+  }
+
+  async generatePlugin(name, options) {
+    const config = this.parseOptions(options, {
+      description: `${name} plugin for the application`,
+      type: 'feature',
+      hasStore: false,
+      hasRoutes: false,
+      hasComponents: true
+    });
+
+    const generator = new PluginGenerator();
+    await generator.generate({
+      name,
+      description: config.description,
+      type: config.type,
+      hasStore: config.hasStore,
+      hasRoutes: config.hasRoutes,
+      hasComponents: config.hasComponents
+    });
+  }
+
+  async generateEventBus(name, options) {
+    const config = this.parseOptions(options, {
+      description: `Event bus extension for ${name}`,
+      events: [],
+      handlers: []
+    });
+
+    await generateEventBus({
+      name,
+      description: config.description,
+      events: config.events || [
+        { name: 'INITIALIZED', properties: [{ name: 'timestamp', type: 'Date', optional: false }] },
+        { name: 'UPDATED', properties: [{ name: 'data', type: 'any', optional: false }] }
+      ],
+      handlers: config.handlers || [
+        { event: 'INITIALIZED', implementation: '// Handle initialization' },
+        { event: 'UPDATED', implementation: '// Handle updates' }
+      ]
+    });
+  }
+
+  async generateStoreExtension(name, options) {
+    const config = this.parseOptions(options, {
+      description: `Store extension for ${name}`,
+      eventIntegration: true
+    });
+
+    await generateStoreExtension({
+      name,
+      description: config.description,
+      properties: [
+        { name: 'items', type: 'any[]', defaultValue: '[]' },
+        { name: 'selectedItem', type: 'any | null', defaultValue: 'null' }
+      ],
+      computed: [
+        { name: 'itemCount', type: 'number', implementation: 'return get().items.length;' }
+      ],
+      actions: [
+        { name: 'addItem', parameters: 'item: any', returnType: 'void', implementation: 'set(state => ({ items: [...state.items, item] }));' },
+        { name: 'selectItem', parameters: 'item: any', returnType: 'void', implementation: 'set({ selectedItem: item });' }
+      ],
+      eventIntegration: config.eventIntegration
+    });
+  }
+
+  async generateAPIHelper(name, options) {
+    const config = this.parseOptions(options, {
+      description: `API helper for ${name}`,
+      withAuth: true,
+      withTenant: false
+    });
+
+    await generateAPIHelper({
+      name,
+      description: config.description,
+      endpoints: [
+        { name: 'getAll', method: 'get', path: '', description: `Get all ${name.toLowerCase()} items` },
+        { name: 'getById', method: 'get', path: '/:id', description: `Get ${name.toLowerCase()} by ID`, parameters: 'id: string' },
+        { name: 'create', method: 'post', path: '', description: `Create new ${name.toLowerCase()}`, parameters: 'data: any', hasBody: true },
+        { name: 'update', method: 'put', path: '/:id', description: `Update ${name.toLowerCase()}`, parameters: 'id: string, data: any', hasBody: true },
+        { name: 'delete', method: 'delete', path: '/:id', description: `Delete ${name.toLowerCase()}`, parameters: 'id: string' }
+      ],
+      withAuth: config.withAuth,
+      withTenant: config.withTenant
+    });
+  }
+
+  async generateHook(name, options) {
+    const config = this.parseOptions(options, {
+      description: `Custom hook for ${name}`,
+      dependencies: [],
+      returnType: 'void'
+    });
+
+    await generateHook({
+      name,
+      description: config.description,
+      dependencies: config.dependencies || [],
+      returnType: config.returnType,
+      parameters: [
+        { name: 'options', type: 'any', optional: true }
+      ],
+      implementation: `
+  // Add hook implementation here
+  const [data, setData] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Fetch data logic
+      setData(null); // Replace with actual data
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);`
     });
   }
 
@@ -462,6 +611,11 @@ GENERATORS:
   service <name>                 Generate an API service with Zod validation
   page <name>                    Generate a complete page with routing
   endpoints <name>               Generate API endpoints for urlHelper/backendHelper
+  plugin <name>                  Generate a complete plugin with optional features
+  eventbus <name>                Generate event bus extensions with events and handlers
+  storeext <name>                Generate extended store with event integration
+  apihelper <name>               Generate API helper with CRUD operations
+  hook <name>                    Generate custom React hook
 
 EXAMPLES:
   ai-first create-app my-saas-app --with-auth --with-tenant
@@ -470,6 +624,11 @@ EXAMPLES:
   ai-first g service UserService --zod true
   ai-first g page UsersPage --store true --service true
   ai-first g endpoints ProductService --workspace true --tenant false
+  ai-first g plugin UserManagement --type feature --hasStore true --hasRoutes true
+  ai-first g eventbus UserEvents --events [] --handlers []
+  ai-first g storeext ProductStore --eventIntegration true
+  ai-first g apihelper UserAPI --withAuth true --withTenant false
+  ai-first g hook useUserData --dependencies [] --returnType object
 
 OPTIONS:
   --description "text"           Custom description
@@ -484,6 +643,15 @@ OPTIONS:
   --auth true/false             Include authentication (endpoints)
   --tenant true/false           Include tenant scoping (endpoints)
   --workspace true/false        Include workspace scoping (endpoints)
+  --type feature/core           Plugin type (plugin)
+  --hasStore true/false         Include store in plugin (plugin)
+  --hasRoutes true/false        Include routes in plugin (plugin)
+  --hasComponents true/false    Include components in plugin (plugin)
+  --eventIntegration true/false Event bus integration (storeext)
+  --withAuth true/false         Include auth headers (apihelper)
+  --withTenant true/false       Include tenant headers (apihelper)
+  --dependencies []             Hook dependencies (hook)
+  --returnType type             Hook return type (hook)
 
 For more information, visit: https://github.com/MiteshSharma/ai-first-saas-react-starter
     `);

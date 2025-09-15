@@ -26,9 +26,9 @@ import {
   FolderOutlined,
   SecurityScanOutlined
 } from '@ant-design/icons';
-import { apiHelper } from '../helpers/apiHelper';
-import { useTenantStore } from '../store/tenant/tenantStore';
-import { TenantSwitcher } from '../components/tenant/TenantSwitcher';
+import { apiHelper } from '../core/api/apiHelper';
+import { useTenantStore } from '../core/stores/tenant/tenantStore';
+import { TenantSwitcher } from '../core/components/layout/tenant/TenantSwitcher';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -104,7 +104,7 @@ export const TenantIsolationTestPage: React.FC = () => {
     }
 
     await runTest('Tenant Isolation Validation', async () => {
-      const response = await apiHelper.get('/api/test/tenant-isolation');
+      const response = await apiHelper.get('/test/tenant-isolation');
       return response.data;
     }, tenantId);
   };
@@ -117,21 +117,24 @@ export const TenantIsolationTestPage: React.FC = () => {
     }
 
     await runTest('Data Sources Isolation', async () => {
-      const response = await apiHelper.get('/api/data-sources');
+      const response = await apiHelper.get('/data-sources');
       
+      // Cast response.data to proper type
+      const responseData = response.data as { data: any[]; meta?: any };
+
       // Store data for comparison
       setIsolationData(prev => ({
         ...prev,
         [tenantId]: {
           ...prev[tenantId],
-          dataSources: response.data.data
+          dataSources: responseData.data
         }
       }));
 
       return {
         tenantId,
-        dataSources: response.data.data,
-        meta: response.data.meta
+        dataSources: responseData.data,
+        meta: responseData.meta
       };
     }, tenantId);
   };
@@ -144,21 +147,24 @@ export const TenantIsolationTestPage: React.FC = () => {
     }
 
     await runTest('Charts Isolation', async () => {
-      const response = await apiHelper.get('/api/charts');
+      const response = await apiHelper.get('/charts');
       
+      // Cast response.data to proper type
+      const responseData = response.data as { data: any[]; meta?: any };
+
       // Store data for comparison
       setIsolationData(prev => ({
         ...prev,
         [tenantId]: {
           ...prev[tenantId],
-          charts: response.data.data
+          charts: responseData.data
         }
       }));
 
       return {
         tenantId,
-        charts: response.data.data,
-        meta: response.data.meta
+        charts: responseData.data,
+        meta: responseData.meta
       };
     }, tenantId);
   };
@@ -180,24 +186,28 @@ export const TenantIsolationTestPage: React.FC = () => {
       
       // Test that data changes after switch
       const [dataSources, charts] = await Promise.all([
-        apiHelper.get('/api/data-sources'),
-        apiHelper.get('/api/charts')
+        apiHelper.get('/data-sources'),
+        apiHelper.get('/charts')
       ]);
+
+      // Cast response data to proper types
+      const dataSourcesData = dataSources.data as { data: any[]; meta?: any };
+      const chartsData = charts.data as { data: any[]; meta?: any };
 
       // Store switched tenant data
       setIsolationData(prev => ({
         ...prev,
         [selectedTenantForTest]: {
-          dataSources: dataSources.data.data,
-          charts: charts.data.data
+          dataSources: dataSourcesData.data,
+          charts: chartsData.data
         }
       }));
 
       return {
         switchedTo: targetTenant.name,
         newTenantId: selectedTenantForTest,
-        dataSources: dataSources.data.data.length,
-        charts: charts.data.data.length
+        dataSources: dataSourcesData.data.length,
+        charts: chartsData.data.length
       };
     }, selectedTenantForTest);
   };

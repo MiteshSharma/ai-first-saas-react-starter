@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Button, Space, Table, message, Tag, Alert, Row, Col } from 'antd';
 import { PlusOutlined, BarChartOutlined, LineChartOutlined, PieChartOutlined } from '@ant-design/icons';
-import { useTenantStore } from '../store/tenant/tenantStore';
-import { getCharts, Chart } from '../helpers/backendHelper';
-import { apiHelper } from '../helpers/apiHelper';
+import { useTenantStore } from '../core/stores/tenant/tenantStore';
+import { getCharts, Chart } from '../core/api/backendHelper';
+import { apiHelper } from '../core/api/apiHelper';
 
 const { Title, Text } = Typography;
 
@@ -21,8 +21,10 @@ export const WorkspaceChartsPage: React.FC = () => {
     
     try {
       // Use tenant-scoped charts endpoint
-      const response = await apiHelper.get('/api/charts');
-      setCharts(response.data.data || []);
+      const response = await apiHelper.get('/charts');
+      // Cast response.data to proper type
+      const responseData = response.data as { data: Chart[]; meta?: any };
+      setCharts(responseData.data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch charts');
       message.error('Failed to load charts');

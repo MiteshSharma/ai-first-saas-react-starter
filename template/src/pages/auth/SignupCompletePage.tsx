@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, Typography, Alert, Card } from 'antd';
 import { UserOutlined, LockOutlined, TeamOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuthStore } from '../../auth/AuthStore';
-import type { SignupCompleteData } from '../../auth/types';
+import { useAuthStore } from '../../core/auth/AuthStore';
+import type { SignupCompleteData } from '../../core/auth/types';
 
 const { Title } = Typography;
 

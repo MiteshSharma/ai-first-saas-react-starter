@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Typography, Alert, Card } from 'antd';
 import { MailOutlined } from '@ant-design/icons';
-import { useAuthStore } from '../../auth/AuthStore';
-import type { SignupWithEmailData } from '../../auth/types';
+import { useAuthStore } from '../../core/auth/AuthStore';
+import type { SignupWithEmailData } from '../../core/auth/types';
 
 const { Title, Text } = Typography;
 
