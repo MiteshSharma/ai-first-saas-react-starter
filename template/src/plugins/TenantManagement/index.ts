@@ -1,5 +1,3 @@
-/**
- * @fileoverview Tenant Management Plugin exports
- */
-
 export { TenantManagementPlugin } from './TenantManagementPlugin';
+export * from './types';
+export * from './components';

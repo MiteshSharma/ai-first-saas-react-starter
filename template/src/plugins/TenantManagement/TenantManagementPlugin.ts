@@ -109,24 +109,26 @@ export class TenantManagementPlugin implements Plugin {
 
   registerRoutes(context: PluginContext): RouteConfig[] {
     return [
-      // Routes would be registered here when the corresponding pages are created
-      // Example routes that could be implemented:
-      // {
-      //   path: '/tenants',
-      //   component: () => import('../../pages/TenantsPage').then(m => m.default),
-      //   requiresAuth: true,
-      //   onEnter: () => context.emit('navigation.tenants.entered', {})
-      // },
+      {
+        path: '/tenants',
+        component: () => import('./pages/TenantsPage').then(m => m.default),
+        requiresAuth: true,
+        onEnter: () => context.emit('navigation.tenants.entered', {
+          timestamp: new Date(),
+          plugin: this.name
+        })
+      }
+      // Additional routes can be added here:
       // {
       //   path: '/tenant/settings',
-      //   component: () => import('../../pages/TenantSettingsPage').then(m => m.default),
+      //   component: () => import('./pages/TenantSettingsPage').then(m => m.default),
       //   requiresAuth: true,
       //   requiresTenant: true,
       //   onEnter: () => context.emit('navigation.tenant.settings.entered', {})
       // },
       // {
       //   path: '/workspaces',
-      //   component: () => import('../../pages/WorkspacesPage').then(m => m.default),
+      //   component: () => import('./pages/WorkspacesPage').then(m => m.default),
       //   requiresAuth: true,
       //   requiresTenant: true,
       //   onEnter: () => context.emit('navigation.workspaces.entered', {})

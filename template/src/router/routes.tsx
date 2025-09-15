@@ -1,5 +1,6 @@
 import { lazy, ReactElement, Suspense } from 'react';
 import { RouteObject } from 'react-router-dom';
+import { pluginManager } from '../core/plugin-system/PluginManager';
 
 const HomePage = lazy(() => import('../pages/HomePage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
@@ -15,7 +16,9 @@ const LazyWrapper = ({ children }: { children: ReactElement }): ReactElement => 
   <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
 );
 
-export const routes: RouteObject[] = [
+// Function to get dynamic routes with plugin routes included
+const getDynamicRoutes = (): RouteObject[] => {
+  const baseRoutes: RouteObject[] = [
   {
     path: '/',
     element: (
@@ -94,6 +97,28 @@ export const routes: RouteObject[] = [
       },
     ],
   },
-];
+  ];
+
+  // Get plugin routes and add them to base routes
+  const pluginRoutes = pluginManager.getRegisteredRoutes();
+  const pluginRouteObjects: RouteObject[] = [];
+
+  pluginRoutes.forEach((Component, path) => {
+    pluginRouteObjects.push({
+      path,
+      element: (
+        <LazyWrapper>
+          <Component />
+        </LazyWrapper>
+      )
+    });
+  });
+
+
+  return [...baseRoutes, ...pluginRouteObjects];
+};
+
+// Export dynamic routes
+export const routes = getDynamicRoutes();
 
 export default routes;

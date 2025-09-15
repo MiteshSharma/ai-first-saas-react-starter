@@ -1,18 +1,25 @@
 import React from 'react';
 import { BrowserRouter, useRoutes } from 'react-router-dom';
 import { routes } from './router';
-import { PluginManager } from './core/plugins/PluginManager';
-import { eventBus } from './core/plugins/EventBus';
-import { CoreEventIntegration } from './core/plugins/CoreEventIntegration';
-import pluginManifest from './plugins/pluginRegistry';
-import { SYSTEM_EVENTS } from './core/plugins/coreEvents';
-import { useAuthStore } from './core/auth/AuthStore';
-import { useTenantStore } from './core/stores/tenant/tenantStore';
-import { logger } from './core/utils/logger';
+
+// Import new plugin system (Plan 3)
+import { eventBus, CORE_EVENTS, PluginManager } from './core/plugin-system';
+import { createAuthContext } from './core/auth/AuthContext';
+
+// Import layout system (Phase 3)
+import { MainLayout } from './core/layout';
+
+// Import plugins (they auto-register themselves)
+import './plugins/test'; // Test plugin
+import './plugins/tenant-management'; // Tenant management plugin
 
 const AppRoutes: React.FC = () => {
   const routeElements = useRoutes(routes);
-  return <>{routeElements}</>;
+  return (
+    <MainLayout>
+      {routeElements}
+    </MainLayout>
+  );
 };
 
 // Plugin initialization component
@@ -22,61 +29,22 @@ const PluginProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   React.useEffect(() => {
     const initializePlugins = async () => {
       try {
-        logger.info('Initializing plugin system...', 'App');
+
+        // Initialize plugin manager with auth context
+        const authContext = createAuthContext();
+        PluginManager.initialize(authContext);
 
         // Emit app init event
-        eventBus.emit(SYSTEM_EVENTS.APP_INIT, {}, 'App');
-
-        // Initialize Core Event Integration
-        logger.info('Setting up Core Event Integration...', 'App');
-        const coreEventIntegration = new CoreEventIntegration(eventBus);
-
-        // Get core store instances with proper typing
-        const authStore = useAuthStore.getState();
-        const tenantStore = useTenantStore.getState();
-
-        // Add required methods to the stores
-        const authStoreWithMethods = {
-          ...authStore,
-          subscribe: useAuthStore.subscribe,
-          getState: useAuthStore.getState,
-        };
-
-        const tenantStoreWithMethods = {
-          ...tenantStore,
-          subscribe: useTenantStore.subscribe,
-          getState: useTenantStore.getState,
-        };
-
-        // Initialize core event integration with stores
-        coreEventIntegration.initialize({
-          auth: authStoreWithMethods,
-          tenant: tenantStoreWithMethods,
+        eventBus.emit(CORE_EVENTS.APP_INITIALIZED, {
+          timestamp: new Date(),
+          version: '1.0.0'
         });
 
-        // Initialize plugin manager
-        const pluginManager = PluginManager.getInstance(eventBus);
-
-        // Load plugins from manifest
-        for (const pluginConfig of pluginManifest.plugins) {
-          if (pluginConfig.enabled && pluginConfig.autoLoad) {
-            try {
-              const plugin = new pluginConfig.pluginClass();
-              await pluginManager.installPlugin(plugin);
-              await pluginManager.activatePlugin(plugin.name);
-            } catch (error) {
-              logger.error(`Failed to load plugin ${pluginConfig.name}`, 'App', error);
-            }
-          }
-        }
-
-        // Emit app ready event
-        eventBus.emit(SYSTEM_EVENTS.APP_READY, {}, 'App');
+        // Plugins are already auto-registered via imports
+        // No need for complex initialization
 
         setPluginsInitialized(true);
-        logger.info('Plugin system initialized successfully', 'App');
       } catch (error) {
-        logger.error('Failed to initialize plugin system', 'App', error);
         setPluginsInitialized(true); // Continue anyway
       }
     };
