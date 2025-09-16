@@ -1,0 +1,85 @@
+/**
+ * @fileoverview Typed localStorage utilities for safe storage operations
+ */
+
+import { logger } from './logger';
+
+/**
+ * Safely get item from localStorage with JSON parsing
+ */
+export function getItem<T = unknown>(key: string): T | null {
+  try {
+    const item = localStorage.getItem(key);
+    if (item === null) {
+      return null;
+    }
+    return JSON.parse(item);
+  } catch (error) {
+    logger.error(`Error reading from localStorage key "${key}"`, 'localStorage', error);
+    return null;
+  }
+}
+
+/**
+ * Safely set item to localStorage with JSON stringification
+ */
+export function setItem<T = unknown>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    logger.error(`Error writing to localStorage key "${key}"`, 'localStorage', error);
+  }
+}
+
+/**
+ * Remove item from localStorage
+ */
+export function removeItem(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    logger.error(`Error removing from localStorage key "${key}"`, 'localStorage', error);
+  }
+}
+
+/**
+ * Clear all localStorage
+ */
+export function clear(): void {
+  try {
+    localStorage.clear();
+  } catch (error) {
+    logger.error('Error clearing localStorage', 'localStorage', error);
+  }
+}
+
+/**
+ * Check if key exists in localStorage
+ */
+export function hasItem(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch (error) {
+    logger.error(`Error checking localStorage key "${key}"`, 'localStorage', error);
+    return false;
+  }
+}
+
+/**
+ * Get all keys from localStorage
+ */
+export function getAllKeys(): string[] {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        keys.push(key);
+      }
+    }
+    return keys;
+  } catch (error) {
+    logger.error('Error getting localStorage keys', 'localStorage', error);
+    return [];
+  }
+}
