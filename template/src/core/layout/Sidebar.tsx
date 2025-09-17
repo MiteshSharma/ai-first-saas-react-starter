@@ -9,7 +9,10 @@ import {
   DashboardOutlined,
   ProjectOutlined,
   TeamOutlined,
-  HomeOutlined
+  HomeOutlined,
+  FileTextOutlined,
+  SettingOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import { useLayout } from './LayoutContext';
 import { MenuItem } from './types';
@@ -82,6 +85,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
           id: 'tenant-members',
           label: 'Members',
           path: '/tenants/members',
+          order: 2
+        }
+      ]
+    },
+    {
+      id: 'audit-logs',
+      label: 'Audit Logs',
+      icon: <FileTextOutlined />,
+      path: '/audit-logs',
+      order: 4
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: <SettingOutlined />,
+      path: '/settings',
+      order: 5,
+      children: [
+        {
+          id: 'user-profile',
+          label: 'User Profile',
+          icon: <UserOutlined />,
+          path: '/settings/profile',
+          order: 0
+        },
+        {
+          id: 'workspace-settings',
+          label: 'Workspace Settings',
+          path: '/settings/workspace',
+          order: 1
+        },
+        {
+          id: 'tenant-settings',
+          label: 'Tenant Settings',
+          path: '/settings/tenant',
           order: 2
         }
       ]

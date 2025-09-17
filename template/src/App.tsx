@@ -11,8 +11,9 @@ import { useAuthStore } from './core/auth/AuthStore';
 import { MainLayout } from './core/layout';
 
 // Import plugins (they auto-register themselves)
-import './plugins/test'; // Test plugin
 import './plugins/tenant-management'; // Tenant management plugin
+import './plugins/audit-logging'; // Audit logging plugin
+import './plugins/user-settings'; // User settings plugin
 
 const AppRoutes: React.FC = () => {
   const [routes, setRoutes] = React.useState(() => getDynamicRoutes());
@@ -24,7 +25,7 @@ const AppRoutes: React.FC = () => {
     // Update routes when plugins are loaded
     const updateRoutes = () => {
       setRoutes(getDynamicRoutes());
-    };
+    }; 
 
     // Listen for plugin events
     const unsubscribe = eventBus.on(CORE_EVENTS.PLUGIN_LOADED, updateRoutes);
