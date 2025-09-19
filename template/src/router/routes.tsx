@@ -5,6 +5,8 @@ import { pluginManager } from '../core/plugin-system/PluginManager';
 const HomePage = lazy(() => import('../pages/HomePage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const ProjectsPage = lazy(() => import('../pages/ProjectsPage'));
+const SettingsPage = lazy(() => import('../pages/SettingsPage'));
+const UserProfilePage = lazy(() => import('../pages/settings/UserProfilePage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
 const SignupWithEmailPage = lazy(() => import('../pages/auth/SignupWithEmailPage'));
@@ -40,6 +42,22 @@ const baseRoutes: RouteObject[] = [
     element: (
       <LazyWrapper>
         <ProjectsPage />
+      </LazyWrapper>
+    ),
+  },
+  {
+    path: '/settings',
+    element: (
+      <LazyWrapper>
+        <SettingsPage />
+      </LazyWrapper>
+    ),
+  },
+  {
+    path: '/settings/profile',
+    element: (
+      <LazyWrapper>
+        <UserProfilePage />
       </LazyWrapper>
     ),
   },

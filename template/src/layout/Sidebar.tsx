@@ -113,14 +113,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         {
           id: 'workspace-settings',
           label: 'Workspace Settings',
-          path: '/settings/workspace',
+          path: '/workspaces/settings',
           order: 1
         },
         {
           id: 'tenant-settings',
           label: 'Tenant Settings',
-          path: '/settings/tenant',
+          path: '/tenants/settings',
           order: 2
+        },
+        {
+          id: 'user-management',
+          label: 'User Management',
+          path: '/users',
+          order: 3
         }
       ]
     }
