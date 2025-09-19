@@ -16,6 +16,7 @@ import {
   UpdateTenantRequest,
   TENANT_EVENTS
 } from '../types';
+import { tenantService } from '../services/tenantService';
 
 // Base request state for consistent loading/error handling
 interface RequestState {
@@ -57,109 +58,6 @@ interface TenantState extends RequestState {
   setCurrentRequest: (request: string | null) => void;
 }
 
-// Mock API functions (in real app, these would call actual API)
-const mockApiDelay = () => new Promise(resolve => setTimeout(resolve, 500));
-
-const mockTenants: Tenant[] = [
-  {
-    id: 'tenant-1',
-    name: 'Acme Corporation',
-    slug: 'acme-corp',
-    type: 'enterprise' as const,
-    status: 'active' as const,
-    description: 'Main corporate tenant',
-    settings: {
-      security: {
-        ssoEnabled: true,
-        mfaRequired: true,
-        sessionTimeout: 480,
-        ipWhitelist: ['192.168.1.0/24']
-      },
-      dataRetention: {
-        auditLogsDays: 90
-      },
-      features: {
-        advancedAnalytics: true,
-        apiAccess: true,
-        customBranding: true,
-        advancedSecurity: true,
-        ssoEnabled: true,
-        auditLogs: true,
-        userLimit: 100,
-        storageLimit: 1000,
-        apiCallsLimit: 10000
-      },
-      notifications: {
-        emailNotifications: true,
-        slackIntegration: {
-          webhook: 'https://hooks.slack.com/services/xxx',
-          channel: '#alerts'
-        }
-      },
-      branding: {
-        primaryColor: '#1677ff',
-        secondaryColor: '#f0f2f5'
-      },
-      timezone: 'UTC',
-      currency: 'USD',
-      language: 'en'
-    },
-    subscription: {
-      plan: 'enterprise',
-      status: 'active',
-      billingCycle: 'yearly'
-    },
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  },
-  {
-    id: 'tenant-2',
-    name: 'Startup Inc',
-    slug: 'startup-inc',
-    type: 'team' as const,
-    status: 'active' as const,
-    description: 'Growing startup tenant',
-    settings: {
-      security: {
-        ssoEnabled: false,
-        mfaRequired: false,
-        sessionTimeout: 240,
-        ipWhitelist: undefined
-      },
-      dataRetention: {
-        auditLogsDays: 30
-      },
-      features: {
-        advancedAnalytics: false,
-        apiAccess: true,
-        customBranding: false,
-        advancedSecurity: false,
-        ssoEnabled: false,
-        auditLogs: false,
-        userLimit: 10,
-        storageLimit: 100,
-        apiCallsLimit: 1000
-      },
-      notifications: {
-        emailNotifications: true
-      },
-      branding: {
-        primaryColor: '#52c41a',
-        secondaryColor: '#f6ffed'
-      },
-      timezone: 'UTC',
-      currency: 'USD',
-      language: 'en'
-    },
-    subscription: {
-      plan: 'professional',
-      status: 'active',
-      billingCycle: 'monthly'
-    },
-    createdAt: '2024-02-01T00:00:00Z',
-    updatedAt: '2024-02-01T00:00:00Z'
-  }
-];
 
 let eventBus: { emit: (event: string, data: unknown) => void } | null = null;
 let coreContextSetCurrentTenant: ((tenant: any) => void) | null = null;
@@ -187,22 +85,17 @@ export const useTenantStore = create<TenantState>()(
 
       // Switch tenant context
       switchTenant: async (tenantId: string) => {
-        const { setLoading, setError, setCurrentRequest, userTenants } = get();
+        const { setLoading, setError, setCurrentRequest } = get();
 
         try {
           setLoading(true);
           setError(null);
           setCurrentRequest('switchTenant');
 
-          await mockApiDelay();
-
-          const tenant = userTenants.find(t => t.id === tenantId);
-          if (!tenant) {
-            throw new Error('Tenant not found');
-          }
+          const result = await tenantService.switchTenant(tenantId);
+          const tenant = result.tenant;
 
           set({ currentTenant: tenant });
-          
 
           // Update tenant in CoreContext as well
           if (coreContextSetCurrentTenant) {
@@ -222,10 +115,10 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-          } catch (error) {
+        } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to switch tenant';
           setError(errorMessage);
-          } finally {
+        } finally {
           setLoading(false);
           setCurrentRequest(null);
         }
@@ -240,56 +133,7 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('createTenant');
 
-          await mockApiDelay();
-
-          const newTenant: Tenant = {
-            id: `tenant-${Date.now()}`,
-            name: data.name,
-            slug: data.slug,
-            type: data.type,
-            status: 'active',
-            description: data.description,
-            settings: {
-              security: {
-                ssoEnabled: false,
-                mfaRequired: false,
-                sessionTimeout: 240,
-                ipWhitelist: undefined
-              },
-              dataRetention: {
-                auditLogsDays: 30
-              },
-              features: {
-                advancedAnalytics: false,
-                apiAccess: true,
-                customBranding: false,
-                advancedSecurity: false,
-                ssoEnabled: false,
-                auditLogs: false,
-                userLimit: 10,
-                storageLimit: 100,
-                apiCallsLimit: 1000
-              },
-              notifications: {
-                emailNotifications: true
-              },
-              branding: {
-                primaryColor: '#1677ff',
-                secondaryColor: '#f0f2f5'
-              },
-              timezone: 'UTC',
-              currency: 'USD',
-              language: 'en',
-              ...data.settings
-            },
-            subscription: {
-              plan: 'free',
-              status: 'active',
-              billingCycle: 'monthly'
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
+          const newTenant = await tenantService.createTenant(data);
 
           const updatedTenants = [...userTenants, newTenant];
           setUserTenants(updatedTenants);
@@ -302,11 +146,11 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-            return newTenant;
+          return newTenant;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to create tenant';
           setError(errorMessage);
-            throw error;
+          throw error;
         } finally {
           setLoading(false);
           setCurrentRequest(null);
@@ -322,28 +166,14 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('updateTenant');
 
-          await mockApiDelay();
+          const updatedTenant = await tenantService.updateTenant(tenantId, data);
 
           const tenantIndex = userTenants.findIndex(t => t.id === tenantId);
-          if (tenantIndex === -1) {
-            throw new Error('Tenant not found');
+          if (tenantIndex !== -1) {
+            const updatedTenants = [...userTenants];
+            updatedTenants[tenantIndex] = updatedTenant;
+            setUserTenants(updatedTenants);
           }
-
-          const existingTenant = userTenants[tenantIndex];
-          const updatedTenant: Tenant = {
-            ...existingTenant,
-            name: data.name || existingTenant.name,
-            description: data.description !== undefined ? data.description : existingTenant.description,
-            settings: data.settings ? {
-              ...existingTenant.settings,
-              ...data.settings
-            } as TenantSettings : existingTenant.settings,
-            updatedAt: new Date().toISOString()
-          };
-
-          const updatedTenants = [...userTenants];
-          updatedTenants[tenantIndex] = updatedTenant;
-          setUserTenants(updatedTenants);
 
           // Update current tenant if it's the one being updated
           if (currentTenant?.id === tenantId) {
@@ -358,11 +188,11 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-            return updatedTenant;
+          return updatedTenant;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update tenant';
           setError(errorMessage);
-            throw error;
+          throw error;
         } finally {
           setLoading(false);
           setCurrentRequest(null);
@@ -378,7 +208,7 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('deleteTenant');
 
-          await mockApiDelay();
+          await tenantService.deleteTenant(tenantId);
 
           const updatedTenants = userTenants.filter(t => t.id !== tenantId);
           setUserTenants(updatedTenants);
@@ -396,10 +226,10 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-          } catch (error) {
+        } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to delete tenant';
           setError(errorMessage);
-            throw error;
+          throw error;
         } finally {
           setLoading(false);
           setCurrentRequest(null);
@@ -415,25 +245,13 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('loadTenantUsers');
 
-          await mockApiDelay();
+          const tenantUsers = await tenantService.getTenantMembers(tenantId);
+          set({ tenantUsers });
 
-          // Mock tenant users data
-          const mockUsers: TenantUser[] = [
-            {
-              id: 'user-1',
-              tenantId,
-              userId: 'user-1',
-              role: 'owner',
-              permissions: ['*'],
-              joinedAt: '2024-01-01T00:00:00Z'
-            }
-          ];
-
-          set({ tenantUsers: mockUsers });
-          } catch (error) {
+        } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to load tenant users';
           setError(errorMessage);
-          } finally {
+        } finally {
           setLoading(false);
           setCurrentRequest(null);
         }
@@ -448,18 +266,7 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('inviteUser');
 
-          await mockApiDelay();
-
-          const invitation: TenantInvitation = {
-            id: `invitation-${Date.now()}`,
-            tenantId,
-            email,
-            role,
-            invitedBy: 'current-user-id',
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-            status: 'pending'
-          };
+          const invitation = await tenantService.inviteUser(tenantId, { email, role });
 
           // Emit user invited event
           if (eventBus) {
@@ -469,11 +276,11 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-            return invitation;
+          return invitation;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to invite user';
           setError(errorMessage);
-            throw error;
+          throw error;
         } finally {
           setLoading(false);
           setCurrentRequest(null);
@@ -489,7 +296,7 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('removeUser');
 
-          await mockApiDelay();
+          await tenantService.removeUser(tenantId, userId);
 
           // Emit user removed event
           if (eventBus) {
@@ -500,10 +307,10 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-          } catch (error) {
+        } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to remove user';
           setError(errorMessage);
-          } finally {
+        } finally {
           setLoading(false);
           setCurrentRequest(null);
         }
@@ -518,7 +325,7 @@ export const useTenantStore = create<TenantState>()(
           setError(null);
           setCurrentRequest('updateUserRole');
 
-          await mockApiDelay();
+          await tenantService.updateUserRole(tenantId, userId, role);
 
           // Emit user role updated event
           if (eventBus) {
@@ -530,10 +337,10 @@ export const useTenantStore = create<TenantState>()(
             });
           }
 
-          } catch (error) {
+        } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update user role';
           setError(errorMessage);
-          } finally {
+        } finally {
           setLoading(false);
           setCurrentRequest(null);
         }
@@ -544,8 +351,7 @@ export const useTenantStore = create<TenantState>()(
         const { currentTenant } = get();
         if (!currentTenant) return false;
 
-        // For now, return true for mock data
-        // In real app, check user's permissions for current tenant
+        // TODO: In real app, check user's permissions for current tenant
         return true;
       },
 
@@ -561,8 +367,7 @@ export const useTenantStore = create<TenantState>()(
         const { currentTenant } = get();
         if (!currentTenant) return null;
 
-        // For mock data, return 'owner'
-        // In real app, find current user's role in tenant
+        // TODO: In real app, find current user's role in tenant
         return 'owner';
       }
     }),
@@ -576,7 +381,7 @@ export const useTenantStore = create<TenantState>()(
   )
 );
 
-// Initialize store with mock data and set up event bus
+// Initialize store and set up event bus
 export const initializeTenantStore = (
   providedEventBus: { emit: (event: string, data: unknown) => void },
   coreSetCurrentTenant?: (tenant: any) => void
@@ -586,9 +391,16 @@ export const initializeTenantStore = (
 
   const store = useTenantStore.getState();
 
-  // Initialize with mock tenants if none exist
-  if (store.userTenants.length > 0) {
-    store.setUserTenants(store.userTenants);
-    store.switchTenant(store.userTenants[0].id);
-  }
+  // Load user tenants from API
+  tenantService.getUserTenants()
+    .then(tenants => {
+      store.setUserTenants(tenants);
+      if (tenants.length > 0 && !store.currentTenant) {
+        store.switchTenant(tenants[0].id);
+      }
+    })
+    .catch(error => {
+      console.error('Failed to load user tenants:', error);
+      store.setError('Failed to load tenants');
+    });
 };

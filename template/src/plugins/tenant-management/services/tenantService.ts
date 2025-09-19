@@ -4,17 +4,13 @@
  * Service layer for tenant-related API operations
  */
 
-import apiHelper from '../../../core/api/apiHelper';
+import TenantBackendHelper from '../api/backendHelper';
 import {
   Tenant,
-  TenantMember,
-  TenantInvite,
-  Workspace,
-  CreateTenantPayload,
-  UpdateTenantPayload,
-  InviteMemberPayload,
-  CreateWorkspacePayload,
-  UpdateWorkspacePayload,
+  TenantUser,
+  TenantInvitation,
+  CreateTenantRequest,
+  UpdateTenantRequest,
   TenantRole
 } from '../types';
 
@@ -26,161 +22,121 @@ export class TenantService {
    * Get all tenants for current user
    */
   async getUserTenants(): Promise<Tenant[]> {
-    const response = await apiHelper.get('/tenants');
-    return (response.data as { data: Tenant[] }).data;
+    return TenantBackendHelper.getUserTenants();
   }
 
   /**
    * Get specific tenant details
    */
   async getTenant(tenantId: string): Promise<Tenant> {
-    const response = await apiHelper.get(`/tenants/${tenantId}`);
-    return (response.data as { data: Tenant }).data;
+    return TenantBackendHelper.getTenant(tenantId);
   }
 
   /**
    * Get tenants for a specific user
    */
   async listForUser(userId: string): Promise<Tenant[]> {
-    const response = await apiHelper.get(`/users/${userId}/tenants`);
-    return (response.data as { data: Tenant[] }).data;
+    return TenantBackendHelper.listForUser(userId);
   }
 
   /**
    * Switch to a different tenant context
    */
-  async switchTenant(tenantId: string): Promise<{ tenant: Tenant; workspaces: Workspace[] }> {
-    const response = await apiHelper.post('/tenants/switch', { tenantId });
-    return (response.data as { data: { tenant: Tenant; workspaces: Workspace[] } }).data;
+  async switchTenant(tenantId: string): Promise<{ tenant: Tenant; workspaces: any[] }> {
+    return TenantBackendHelper.switchTenant(tenantId);
   }
 
   /**
    * Update tenant settings
    */
   async updateSettings(id: string, settings: Partial<Tenant['settings']>): Promise<Tenant> {
-    const response = await apiHelper.put(`/tenants/${id}/settings`, settings);
-    return (response.data as { data: Tenant }).data;
+    return TenantBackendHelper.updateSettings(id, settings);
   }
 
   /**
    * Create a new tenant
    */
-  async createTenant(data: CreateTenantPayload): Promise<Tenant> {
-    const response = await apiHelper.post('/tenants', data);
-    return (response.data as { data: Tenant }).data;
+  async createTenant(data: CreateTenantRequest): Promise<Tenant> {
+    return TenantBackendHelper.createTenant(data);
   }
 
   /**
    * Update tenant information
    */
-  async updateTenant(tenantId: string, data: UpdateTenantPayload): Promise<Tenant> {
-    const response = await apiHelper.put(`/tenants/${tenantId}`, data);
-    return (response.data as { data: Tenant }).data;
+  async updateTenant(tenantId: string, data: UpdateTenantRequest): Promise<Tenant> {
+    return TenantBackendHelper.updateTenant(tenantId, data);
   }
 
   /**
    * Delete a tenant
    */
   async deleteTenant(tenantId: string): Promise<void> {
-    await apiHelper.delete(`/tenants/${tenantId}`);
+    return TenantBackendHelper.deleteTenant(tenantId);
   }
 
   /**
    * Get tenant members
    */
-  async getTenantMembers(tenantId: string): Promise<TenantMember[]> {
-    const response = await apiHelper.get(`/tenants/${tenantId}/members`);
-    return (response.data as { data: TenantMember[] }).data;
+  async getTenantMembers(tenantId: string): Promise<TenantUser[]> {
+    return TenantBackendHelper.getTenantMembers(tenantId);
   }
 
   /**
    * Invite user to tenant
    */
-  async inviteUser(tenantId: string, data: InviteMemberPayload): Promise<TenantInvite> {
-    const response = await apiHelper.post(`/tenants/${tenantId}/members/invite`, data);
-    return (response.data as { data: TenantInvite }).data;
+  async inviteUser(tenantId: string, data: { email: string; role: TenantRole }): Promise<TenantInvitation> {
+    return TenantBackendHelper.inviteUser(tenantId, data);
   }
 
   /**
    * Remove user from tenant
    */
   async removeUser(tenantId: string, userId: string): Promise<void> {
-    await apiHelper.delete(`/tenants/${tenantId}/members/${userId}`);
+    return TenantBackendHelper.removeUser(tenantId, userId);
   }
 
   /**
    * Update user role in tenant
    */
-  async updateUserRole(tenantId: string, userId: string, role: TenantRole): Promise<TenantMember> {
-    const response = await apiHelper.put(`/tenants/${tenantId}/members/${userId}`, { role });
-    return (response.data as { data: TenantMember }).data;
+  async updateUserRole(tenantId: string, userId: string, role: TenantRole): Promise<TenantUser> {
+    return TenantBackendHelper.updateUserRole(tenantId, userId, role);
   }
 
   /**
    * Get tenant workspaces
    */
-  async getTenantWorkspaces(tenantId: string): Promise<Workspace[]> {
-    const response = await apiHelper.get(`/tenants/${tenantId}/workspaces`);
-    return (response.data as { data: Workspace[] }).data;
+  async getTenantWorkspaces(tenantId: string): Promise<any[]> {
+    return TenantBackendHelper.getTenantWorkspaces(tenantId);
   }
 
   /**
    * Create workspace in tenant
    */
-  async createWorkspace(tenantId: string, data: CreateWorkspacePayload): Promise<Workspace> {
-    const response = await apiHelper.post(`/tenants/${tenantId}/workspaces`, data);
-    return (response.data as { data: Workspace }).data;
+  async createWorkspace(tenantId: string, data: any): Promise<any> {
+    return TenantBackendHelper.createWorkspace(tenantId, data);
   }
 
-  /**
-   * Update workspace
-   */
-  async updateWorkspace(workspaceId: string, data: UpdateWorkspacePayload): Promise<Workspace> {
-    const response = await apiHelper.put(`/workspaces/${workspaceId}`, data);
-    return (response.data as { data: Workspace }).data;
-  }
-
-  /**
-   * Delete workspace
-   */
-  async deleteWorkspace(workspaceId: string): Promise<void> {
-    await apiHelper.delete(`/workspaces/${workspaceId}`);
-  }
+  // Note: Workspace operations should use workspace service instead
 
   /**
    * Test tenant isolation
    */
   async testTenantIsolation(tenantId: string): Promise<any> {
-    const response = await apiHelper.get('/test/tenant-isolation', {
-      headers: {
-        'X-Tenant-Id': tenantId
-      }
-    });
-    return response.data as any;
+    return TenantBackendHelper.testTenantIsolation(tenantId);
   }
 
   /**
    * Get tenant-scoped data sources
    */
   async getDataSources(tenantId: string): Promise<any[]> {
-    const response = await apiHelper.get('/data-sources', {
-      headers: {
-        'X-Tenant-Id': tenantId
-      }
-    });
-    return (response.data as { data: any[] }).data;
+    return TenantBackendHelper.getDataSources(tenantId);
   }
 
   /**
    * Get tenant-scoped charts
    */
   async getCharts(tenantId: string): Promise<any[]> {
-    const response = await apiHelper.get('/charts', {
-      headers: {
-        'X-Tenant-Id': tenantId
-      }
-    });
-    return (response.data as { data: any[] }).data;
+    return TenantBackendHelper.getCharts(tenantId);
   }
 }
 
