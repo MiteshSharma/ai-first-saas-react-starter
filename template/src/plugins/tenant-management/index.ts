@@ -25,8 +25,16 @@ const tenantPlugin: Plugin = {
   async init(context: PluginContext) {
 
     try {
-      // Initialize tenant store with event bus
-      initializeTenantStore(context.eventBus);
+      // Debug: Check if context has proper functions
+      console.log('Tenant Plugin Init - Context Check:', {
+        hasEventBus: !!context.eventBus,
+        hasCore: !!context.core,
+        hasSetCurrentTenant: !!context.core?.setCurrentTenant,
+        setCurrentTenantType: typeof context.core?.setCurrentTenant
+      });
+
+      // Initialize tenant store with event bus and CoreContext
+      initializeTenantStore(context.eventBus, context.core.setCurrentTenant);
 
       // Import additional components
       const { default: TenantSettingsPage } = await import('./pages/TenantSettingsPage');

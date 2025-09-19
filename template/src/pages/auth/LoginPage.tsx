@@ -27,8 +27,18 @@ export const LoginPage: React.FC = () => {
     const mockUser = {
       id: 'dev-user-123',
       email: 'dev@example.com',
-      name: 'Development User',
-      avatar: 'https://via.placeholder.com/40'
+      emailVerified: true,
+      status: 'active' as const,
+      profile: {
+        firstName: 'Development',
+        lastName: 'User',
+        displayName: 'Development User',
+        avatar: 'https://via.placeholder.com/40',
+        timezone: 'UTC',
+        locale: 'en-US'
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     const mockToken = 'mock-jwt-token-for-dev';
 

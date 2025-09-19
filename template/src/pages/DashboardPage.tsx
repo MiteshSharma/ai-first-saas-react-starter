@@ -16,7 +16,7 @@ export const DashboardPage: React.FC = () => {
         {user ? (
           <div>
             <Text>Successfully logged in as: <strong>{user.email}</strong></Text>
-            {user.name && <div><Text>Name: <strong>{user.name}</strong></Text></div>}
+            {user.profile?.displayName && <div><Text>Name: <strong>{user.profile.displayName}</strong></Text></div>}
             <div style={{ marginTop: '1rem' }}>
               <Space>
                 <Button onClick={logout} danger>

@@ -9,18 +9,21 @@
  */
 
 import React from 'react';
-import { Plugin, PluginContext, IPluginManager, WidgetRegistration, AuthContext, CORE_EVENTS } from './types';
+import { Plugin, PluginContext, IPluginManager, WidgetRegistration, AuthContext, CoreContextInterface, CORE_EVENTS } from './types';
 import { EventBus, eventBus } from './EventBus';
 
 
 export class PluginManager implements IPluginManager {
   private static instance: PluginManager;
   private plugins: Map<string, Plugin> = new Map();
+  private pendingPlugins: Plugin[] = []; // Plugins waiting for context initialization
+  private initialized: boolean = false; // Track if contexts have been set
   private routes: Map<string, React.ComponentType> = new Map();
   private sidebarWidgets: WidgetRegistration[] = [];
   private headerWidgets: WidgetRegistration[] = [];
   private dashboardWidgets: WidgetRegistration[] = [];
   private authContext: AuthContext | null = null;
+  private coreContext: CoreContextInterface | null = null;
 
   private constructor(private eventBus: EventBus) {}
 
@@ -60,6 +63,27 @@ export class PluginManager implements IPluginManager {
       // Store plugin
       this.plugins.set(plugin.name, plugin);
 
+      // If contexts are ready, initialize immediately
+      // Otherwise, add to pending queue
+      if (this.initialized) {
+        await this.initializePlugin(plugin);
+      } else {
+        this.pendingPlugins.push(plugin);
+      }
+
+    } catch (error) {
+      this.eventBus.emit(CORE_EVENTS.PLUGIN_ERROR, {
+        name: plugin.name,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Initialize a plugin with proper context
+   */
+  private async initializePlugin(plugin: Plugin): Promise<void> {
+    try {
       // Create context for plugin
       const context = this.createPluginContext(plugin);
 
@@ -92,6 +116,12 @@ export class PluginManager implements IPluginManager {
         getToken: () => null,
         login: async () => {},
         logout: () => {}
+      },
+
+      // Core context for tenant/workspace state management
+      core: this.coreContext || {
+        setCurrentTenant: () => {},
+        setCurrentWorkspace: () => {}
       },
 
       // Event bus for communication
@@ -142,13 +172,39 @@ export class PluginManager implements IPluginManager {
     this.authContext = authContext;
   }
 
+  /**
+   * Set core context (called by core, not plugins)
+   */
+  setCoreContext(coreContext: CoreContextInterface): void {
+    this.coreContext = coreContext;
+  }
+
 
   /**
    * Initialize plugin manager with auth context
    */
-  static initialize(authContext: AuthContext): void {
+  static async initialize(authContext: AuthContext, coreContext?: CoreContextInterface): Promise<void> {
     const instance = PluginManager.getInstance();
     instance.setAuthContext(authContext);
+    if (coreContext) {
+      instance.setCoreContext(coreContext);
+    }
+    await instance.initializePendingPlugins();
+  }
+
+  /**
+   * Initialize all pending plugins after contexts are set
+   */
+  private async initializePendingPlugins(): Promise<void> {
+    this.initialized = true;
+
+    // Initialize all pending plugins
+    const pluginsToInit = [...this.pendingPlugins];
+    this.pendingPlugins = []; // Clear pending list
+
+    for (const plugin of pluginsToInit) {
+      await this.initializePlugin(plugin);
+    }
   }
 
   /**

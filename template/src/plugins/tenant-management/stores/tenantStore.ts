@@ -14,7 +14,6 @@ import {
   TenantInvitation,
   CreateTenantRequest,
   UpdateTenantRequest,
-  TenantFeatures,
   TENANT_EVENTS
 } from '../types';
 
@@ -48,7 +47,7 @@ interface TenantState extends RequestState {
 
   // Utilities
   hasPermission: (permission: string) => boolean;
-  canAccessFeature: (feature: keyof TenantFeatures) => boolean;
+  canAccessFeature: (feature: keyof TenantSettings['features']) => boolean;
   getCurrentUserRole: () => TenantRole | null;
   clearError: () => void;
 
@@ -66,23 +65,44 @@ const mockTenants: Tenant[] = [
     id: 'tenant-1',
     name: 'Acme Corporation',
     slug: 'acme-corp',
+    type: 'enterprise' as const,
+    status: 'active' as const,
     description: 'Main corporate tenant',
     settings: {
-      timezone: 'UTC',
-      currency: 'USD',
-      language: 'en',
-      features: {
-        userLimit: 100,
-        storageLimit: 10000,
-        apiCallsLimit: 50000,
-        customBranding: true,
+      security: {
         ssoEnabled: true,
-        auditLogs: true
+        mfaRequired: true,
+        sessionTimeout: 480,
+        ipWhitelist: ['192.168.1.0/24']
+      },
+      dataRetention: {
+        auditLogsDays: 90
+      },
+      features: {
+        advancedAnalytics: true,
+        apiAccess: true,
+        customBranding: true,
+        advancedSecurity: true,
+        ssoEnabled: true,
+        auditLogs: true,
+        userLimit: 100,
+        storageLimit: 1000,
+        apiCallsLimit: 10000
+      },
+      notifications: {
+        emailNotifications: true,
+        slackIntegration: {
+          webhook: 'https://hooks.slack.com/services/xxx',
+          channel: '#alerts'
+        }
       },
       branding: {
         primaryColor: '#1677ff',
         secondaryColor: '#f0f2f5'
-      }
+      },
+      timezone: 'UTC',
+      currency: 'USD',
+      language: 'en'
     },
     subscription: {
       plan: 'enterprise',
@@ -96,23 +116,40 @@ const mockTenants: Tenant[] = [
     id: 'tenant-2',
     name: 'Startup Inc',
     slug: 'startup-inc',
+    type: 'team' as const,
+    status: 'active' as const,
     description: 'Growing startup tenant',
     settings: {
-      timezone: 'UTC',
-      currency: 'USD',
-      language: 'en',
-      features: {
-        userLimit: 25,
-        storageLimit: 1000,
-        apiCallsLimit: 10000,
-        customBranding: false,
+      security: {
         ssoEnabled: false,
-        auditLogs: false
+        mfaRequired: false,
+        sessionTimeout: 240,
+        ipWhitelist: undefined
+      },
+      dataRetention: {
+        auditLogsDays: 30
+      },
+      features: {
+        advancedAnalytics: false,
+        apiAccess: true,
+        customBranding: false,
+        advancedSecurity: false,
+        ssoEnabled: false,
+        auditLogs: false,
+        userLimit: 10,
+        storageLimit: 100,
+        apiCallsLimit: 1000
+      },
+      notifications: {
+        emailNotifications: true
       },
       branding: {
         primaryColor: '#52c41a',
         secondaryColor: '#f6ffed'
-      }
+      },
+      timezone: 'UTC',
+      currency: 'USD',
+      language: 'en'
     },
     subscription: {
       plan: 'professional',
@@ -125,6 +162,7 @@ const mockTenants: Tenant[] = [
 ];
 
 let eventBus: { emit: (event: string, data: unknown) => void } | null = null;
+let coreContextSetCurrentTenant: ((tenant: any) => void) | null = null;
 
 export const useTenantStore = create<TenantState>()(
   persist(
@@ -164,6 +202,16 @@ export const useTenantStore = create<TenantState>()(
           }
 
           set({ currentTenant: tenant });
+          
+
+          // Update tenant in CoreContext as well
+          if (coreContextSetCurrentTenant) {
+            try {
+              coreContextSetCurrentTenant(tenant);
+            } catch (coreError) {
+              console.warn('Failed to update tenant in CoreContext:', coreError);
+            }
+          }
 
           // Emit tenant switched event
           if (eventBus) {
@@ -198,23 +246,40 @@ export const useTenantStore = create<TenantState>()(
             id: `tenant-${Date.now()}`,
             name: data.name,
             slug: data.slug,
+            type: data.type,
+            status: 'active',
             description: data.description,
             settings: {
-              timezone: 'UTC',
-              currency: 'USD',
-              language: 'en',
+              security: {
+                ssoEnabled: false,
+                mfaRequired: false,
+                sessionTimeout: 240,
+                ipWhitelist: undefined
+              },
+              dataRetention: {
+                auditLogsDays: 30
+              },
               features: {
+                advancedAnalytics: false,
+                apiAccess: true,
+                customBranding: false,
+                advancedSecurity: false,
+                ssoEnabled: false,
+                auditLogs: false,
                 userLimit: 10,
                 storageLimit: 100,
-                apiCallsLimit: 1000,
-                customBranding: false,
-                ssoEnabled: false,
-                auditLogs: false
+                apiCallsLimit: 1000
+              },
+              notifications: {
+                emailNotifications: true
               },
               branding: {
                 primaryColor: '#1677ff',
                 secondaryColor: '#f0f2f5'
               },
+              timezone: 'UTC',
+              currency: 'USD',
+              language: 'en',
               ...data.settings
             },
             subscription: {
@@ -484,7 +549,7 @@ export const useTenantStore = create<TenantState>()(
         return true;
       },
 
-      canAccessFeature: (feature: keyof TenantFeatures): boolean => {
+      canAccessFeature: (feature: keyof TenantSettings['features']): boolean => {
         const { currentTenant } = get();
         if (!currentTenant) return false;
 
@@ -512,14 +577,18 @@ export const useTenantStore = create<TenantState>()(
 );
 
 // Initialize store with mock data and set up event bus
-export const initializeTenantStore = (providedEventBus: { emit: (event: string, data: unknown) => void }) => {
+export const initializeTenantStore = (
+  providedEventBus: { emit: (event: string, data: unknown) => void },
+  coreSetCurrentTenant?: (tenant: any) => void
+) => {
   eventBus = providedEventBus;
+  coreContextSetCurrentTenant = coreSetCurrentTenant || null;
 
   const store = useTenantStore.getState();
 
   // Initialize with mock tenants if none exist
-  if (store.userTenants.length === 0) {
-    store.setUserTenants(mockTenants);
-    store.setCurrentTenant(mockTenants[0]);
+  if (store.userTenants.length > 0) {
+    store.setUserTenants(store.userTenants);
+    store.switchTenant(store.userTenants[0].id);
   }
 };

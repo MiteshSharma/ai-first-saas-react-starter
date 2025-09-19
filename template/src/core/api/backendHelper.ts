@@ -96,7 +96,9 @@ export interface LoginPayload {
 export interface RegisterPayload {
   email: string;
   password: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
 }
 
 export interface SignupWithEmailPayload {
@@ -105,9 +107,11 @@ export interface SignupWithEmailPayload {
 
 export interface SignupCompletePayload {
   token: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
   password: string;
-  tenantName?: string;
+  organizationName?: string;
 }
 
 export interface PasswordResetRequestPayload {

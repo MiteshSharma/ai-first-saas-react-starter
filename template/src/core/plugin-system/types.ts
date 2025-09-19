@@ -8,6 +8,11 @@
  * - Event-driven communication
  */
 
+import type { User } from '../types';
+
+// Re-export User type for plugin compatibility
+export type { User } from '../types';
+
 // Core services that plugins can access
 export interface AuthContext {
   getCurrentUser: () => User | null;
@@ -35,10 +40,19 @@ export interface LayoutContext {
   setTheme: (theme: 'light' | 'dark') => void;
 }
 
+// Core context interface for plugins (minimal interface to avoid circular deps)
+export interface CoreContextInterface {
+  setCurrentTenant: (tenant: any) => void;
+  setCurrentWorkspace: (workspace: any) => void;
+}
+
 // Context provided to plugins by core
 export interface PluginContext {
   // Core services plugins can call
   auth: AuthContext;
+
+  // Core context for tenant/workspace switching
+  core: CoreContextInterface;
 
   // Event bus for communication
   eventBus: EventBus;
@@ -78,12 +92,7 @@ export interface RouteRegistration {
 }
 
 // User interface for auth context
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-}
+// User type imported from core/types
 
 // Plugin manager interface (simplified)
 export interface IPluginManager {

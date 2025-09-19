@@ -1,7 +1,7 @@
 /**
- * @fileoverview Audit Service - Simplified Implementation
+ * @fileoverview Audit Service - Business Logic Layer
  *
- * Service that handles audit API calls with mock/real backend switching
+ * Service that handles audit business logic and delegates API calls to backendHelper
  */
 
 import {
@@ -10,125 +10,108 @@ import {
   PaginatedResponse,
   AuditStats,
   AuditFilters,
-  AuditAction,
 } from '../types';
-import { auditBackendHelper, AuditLogApiResponse, AuditStatsApiResponse } from '../api/backendHelper';
-import AuditLogMockHandlers from '../api/mockHandlers';
+import { auditBackendHelper } from '../api/backendHelper';
 
 export class AuditService {
-  private isMockMode: boolean;
-
-  constructor() {
-    // Check if mock mode is enabled
-    this.isMockMode = this.isMockModeEnabled();
-  }
-
   /**
-   * Get paginated audit logs
+   * Get paginated audit logs with business logic
    */
   async getAuditLogs(params: AuditLogParams = {}): Promise<PaginatedResponse<AuditLog>> {
     try {
-      if (this.isMockMode) {
-        // Use mock handlers
-        return await AuditLogMockHandlers.getAuditLogs(params);
-      } else {
-        // Use real API
-        const apiResponse: AuditLogApiResponse = await auditBackendHelper.getAuditLogs(params);
+      const result = await auditBackendHelper.getAuditLogs(params);
 
-        // Transform API response to match frontend expectations
-        const transformedLogs = apiResponse.data.map(log => this.transformAuditLog(log));
+      // Apply any business logic transformations here
+      const processedLogs = result.data.map(log => this.enrichAuditLog(log));
 
-        return {
-          data: transformedLogs,
-          total: apiResponse.total,
-          page: apiResponse.page,
-          pageSize: apiResponse.pageSize,
-          totalPages: apiResponse.totalPages,
-        };
-      }
+      return {
+        ...result,
+        data: processedLogs
+      };
     } catch (error) {
-      console.error('Failed to fetch audit logs:', error);
       throw new Error('Failed to fetch audit logs');
     }
   }
 
   /**
-   * Get a specific audit log by ID
+   * Get a specific audit log by ID with business logic
    */
   async getAuditLogById(id: string): Promise<AuditLog | null> {
     try {
-      if (this.isMockMode) {
-        // Use mock handlers
-        return await AuditLogMockHandlers.getAuditLogById(id);
-      } else {
-        // Use real API
-        const apiResponse = await auditBackendHelper.getAuditLogById(id);
-        return apiResponse ? this.transformAuditLog(apiResponse) : null;
-      }
+      const log = await auditBackendHelper.getAuditLogById(id);
+      return log ? this.enrichAuditLog(log) : null;
     } catch (error) {
-      console.error(`Failed to fetch audit log ${id}:`, error);
       throw new Error(`Failed to fetch audit log ${id}`);
     }
   }
 
   /**
-   * Get audit statistics
+   * Get audit statistics with business logic
    */
   async getAuditStats(filters?: AuditFilters): Promise<AuditStats> {
     try {
-      if (this.isMockMode) {
-        // Use mock handlers
-        return await AuditLogMockHandlers.getAuditStats(filters);
-      } else {
-        // Use real API
-        const apiResponse: AuditStatsApiResponse = await auditBackendHelper.getAuditStats(filters);
+      const stats = await auditBackendHelper.getAuditStats(filters);
 
-        // Transform API response to match frontend expectations
-        return {
-          totalLogs: apiResponse.totalLogs,
-          successCount: apiResponse.successCount,
-          failureCount: apiResponse.failureCount,
-          warningCount: apiResponse.warningCount,
-          topActions: apiResponse.topActions.map(item => ({
-            action: item.action as AuditAction,
-            count: item.count,
-          })),
-          topUsers: apiResponse.topUsers,
-          recentActivity: apiResponse.recentActivity.map(log => this.transformAuditLog(log)),
-        };
-      }
+      // Apply any business logic transformations here
+      return this.enrichAuditStats(stats);
     } catch (error) {
-      console.error('Failed to fetch audit stats:', error);
       throw new Error('Failed to fetch audit statistics');
     }
   }
 
   /**
-   * Check if mock mode is enabled
+   * Filter audit logs based on search criteria
    */
-  private isMockModeEnabled(): boolean {
-    const mockFromEnv = process.env.REACT_APP_USE_MOCK_API;
-    const isDevelopment = process.env.NODE_ENV === 'development';
+  filterLogs(logs: AuditLog[], filters: AuditFilters): AuditLog[] {
+    let filteredLogs = [...logs];
 
-    // Mock is enabled if:
-    // 1. REACT_APP_USE_MOCK_API is explicitly set to 'true'
-    // 2. No environment variable is set and we're in development mode
-    if (mockFromEnv !== undefined) {
-      return mockFromEnv.toLowerCase() === 'true';
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filteredLogs = filteredLogs.filter(log =>
+        log.action.toLowerCase().includes(searchLower) ||
+        log.userName?.toLowerCase().includes(searchLower) ||
+        log.description?.toLowerCase().includes(searchLower)
+      );
     }
 
-    // Default to mock in development if no explicit setting
-    return isDevelopment;
+    if (filters.action) {
+      filteredLogs = filteredLogs.filter(log => log.action === filters.action);
+    }
+
+    if (filters.userId) {
+      filteredLogs = filteredLogs.filter(log => log.userId === filters.userId);
+    }
+
+    if (filters.startDate) {
+      filteredLogs = filteredLogs.filter(log => log.timestamp >= filters.startDate!);
+    }
+
+    if (filters.endDate) {
+      filteredLogs = filteredLogs.filter(log => log.timestamp <= filters.endDate!);
+    }
+
+    return filteredLogs;
   }
 
   /**
-   * Transform audit log from API format to frontend format
+   * Enrich audit log with business logic
    */
-  private transformAuditLog(apiLog: AuditLog): AuditLog {
+  private enrichAuditLog(log: AuditLog): AuditLog {
     return {
-      ...apiLog,
-      // Ensure timestamp is a Date object
-      timestamp: typeof apiLog.timestamp === 'string' ? new Date(apiLog.timestamp) : apiLog.timestamp,
+      ...log,
+      // Add any computed fields or business logic here
+      // For example: risk level, categorization, etc.
+    };
+  }
+
+  /**
+   * Enrich audit stats with business logic
+   */
+  private enrichAuditStats(stats: AuditStats): AuditStats {
+    return {
+      ...stats,
+      // Add any computed stats or business logic here
+      // For example: risk scores, trends, etc.
     };
   }
 }

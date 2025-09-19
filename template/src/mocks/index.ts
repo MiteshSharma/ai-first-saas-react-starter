@@ -6,6 +6,7 @@ import { tenantMocks } from './tenantMocks';
 import { setupUserMocks } from './handlers/userHandlers';
 import { setupAuthMocks } from './handlers/authHandlers';
 import { setupTenantMocks } from './handlers/tenantHandlers';
+import { setupWorkspaceMocks } from '../plugins/workspace-management/api/mockHandlers';
 
 // Check if mocking is enabled via environment variable
 const isMockingEnabled = () => {
@@ -33,6 +34,7 @@ export const setupMocks = () => {
   setupAuthMocks(mockInstance);
   setupUserMocks(mockInstance);
   setupTenantMocks(mockInstance);
+  setupWorkspaceMocks(mockInstance);
 
   // Log all registered mocks in development
   if (process.env.NODE_ENV === 'development') {
@@ -40,6 +42,7 @@ export const setupMocks = () => {
       auth: '/auth/*',
       users: '/users/*',
       tenants: '/tenants/*',
+      workspaces: '/workspaces/*',
     });
   }
 };

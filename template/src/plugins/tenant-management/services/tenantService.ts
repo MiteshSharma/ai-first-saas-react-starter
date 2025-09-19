@@ -39,11 +39,27 @@ export class TenantService {
   }
 
   /**
+   * Get tenants for a specific user
+   */
+  async listForUser(userId: string): Promise<Tenant[]> {
+    const response = await apiHelper.get(`/users/${userId}/tenants`);
+    return (response.data as { data: Tenant[] }).data;
+  }
+
+  /**
    * Switch to a different tenant context
    */
   async switchTenant(tenantId: string): Promise<{ tenant: Tenant; workspaces: Workspace[] }> {
     const response = await apiHelper.post('/tenants/switch', { tenantId });
     return (response.data as { data: { tenant: Tenant; workspaces: Workspace[] } }).data;
+  }
+
+  /**
+   * Update tenant settings
+   */
+  async updateSettings(id: string, settings: Partial<Tenant['settings']>): Promise<Tenant> {
+    const response = await apiHelper.put(`/tenants/${id}/settings`, settings);
+    return (response.data as { data: Tenant }).data;
   }
 
   /**

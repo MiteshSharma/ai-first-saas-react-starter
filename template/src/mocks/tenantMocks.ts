@@ -18,6 +18,8 @@ export const tenantMocks = {
       id: 'tenant-1',
       name: 'Acme Corporation',
       slug: 'acme-corp',
+      type: 'enterprise',
+      status: 'active',
       description: 'Enterprise corporation focused on innovation and growth',
       createdAt: '2024-01-15T10:00:00Z',
       updatedAt: '2024-03-01T15:30:00Z',
@@ -25,13 +27,29 @@ export const tenantMocks = {
         timezone: 'UTC',
         currency: 'USD',
         language: 'en',
-        features: {
-          userLimit: 100,
-          storageLimit: 10000,
-          apiCallsLimit: 50000,
-          customBranding: true,
+        security: {
           ssoEnabled: true,
-          auditLogs: true
+          mfaRequired: false,
+          sessionTimeout: 60,
+          ipWhitelist: []
+        },
+        dataRetention: {
+          auditLogsDays: 365
+        },
+        features: {
+          advancedAnalytics: true,
+          apiAccess: true,
+          customBranding: true,
+          advancedSecurity: true,
+          ssoEnabled: true,
+          auditLogs: true,
+          userLimit: 100,
+          storageLimit: 1000,
+          apiCallsLimit: 10000
+        },
+        notifications: {
+          emailNotifications: true,
+          webhookUrl: ''
         },
         branding: {
           primaryColor: '#1890ff',
@@ -49,6 +67,8 @@ export const tenantMocks = {
       id: 'tenant-2',
       name: 'StartupXYZ',
       slug: 'startup-xyz',
+      type: 'team',
+      status: 'active',
       description: 'Innovative startup building the next big thing',
       createdAt: '2024-02-01T14:00:00Z',
       updatedAt: '2024-02-15T09:20:00Z',
@@ -56,13 +76,29 @@ export const tenantMocks = {
         timezone: 'PST',
         currency: 'USD',
         language: 'en',
-        features: {
-          userLimit: 10,
-          storageLimit: 1000,
-          apiCallsLimit: 5000,
-          customBranding: false,
+        security: {
           ssoEnabled: false,
-          auditLogs: false
+          mfaRequired: false,
+          sessionTimeout: 30,
+          ipWhitelist: []
+        },
+        dataRetention: {
+          auditLogsDays: 90
+        },
+        features: {
+          advancedAnalytics: false,
+          apiAccess: true,
+          customBranding: false,
+          advancedSecurity: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          userLimit: 10,
+          storageLimit: 100,
+          apiCallsLimit: 1000
+        },
+        notifications: {
+          emailNotifications: true,
+          webhookUrl: ''
         },
         branding: {
           primaryColor: '#ff6b35',
@@ -79,6 +115,8 @@ export const tenantMocks = {
       id: 'tenant-3',
       name: 'DevTeam Pro',
       slug: 'devteam-pro',
+      type: 'team',
+      status: 'active',
       description: 'Professional development team workspace',
       createdAt: '2024-03-01T09:00:00Z',
       updatedAt: '2024-03-01T09:00:00Z',
@@ -86,13 +124,29 @@ export const tenantMocks = {
         timezone: 'EST',
         currency: 'USD',
         language: 'en',
-        features: {
-          userLimit: 25,
-          storageLimit: 5000,
-          apiCallsLimit: 15000,
-          customBranding: true,
+        security: {
           ssoEnabled: false,
-          auditLogs: true
+          mfaRequired: true,
+          sessionTimeout: 45,
+          ipWhitelist: []
+        },
+        dataRetention: {
+          auditLogsDays: 180
+        },
+        features: {
+          advancedAnalytics: true,
+          apiAccess: true,
+          customBranding: true,
+          advancedSecurity: false,
+          ssoEnabled: false,
+          auditLogs: true,
+          userLimit: 25,
+          storageLimit: 250,
+          apiCallsLimit: 2500
+        },
+        notifications: {
+          emailNotifications: true,
+          webhookUrl: ''
         },
         branding: {
           primaryColor: '#7265e6',
@@ -198,7 +252,6 @@ export const tenantMocks = {
       id: 'workspace-1',
       tenantId: 'tenant-1',
       name: 'Product Development',
-      description: 'Main product development workspace for new features',
       status: WORKSPACE_STATUSES.ACTIVE,
       createdAt: '2024-01-20T10:00:00Z',
       updatedAt: '2024-03-01T15:30:00Z'
@@ -207,8 +260,28 @@ export const tenantMocks = {
       id: 'workspace-2',
       tenantId: 'tenant-1',
       name: 'Marketing Analytics',
-      description: 'Marketing campaigns and customer analytics',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: {
+        access: {
+          visibility: 'tenant',
+          joinPolicy: 'open',
+          externalAccess: true
+        },
+        data: {
+          allowDataExport: true,
+          backupEnabled: true,
+          dataRetentionDays: 180
+        },
+        integrations: {
+          slackChannel: '#marketing',
+          githubRepo: 'acme/marketing-analytics'
+        },
+        notifications: {
+          projectUpdates: true,
+          memberActivity: false,
+          systemAlerts: true
+        }
+      },
       createdAt: '2024-02-01T09:00:00Z',
       updatedAt: '2024-02-28T12:00:00Z'
     },
@@ -216,8 +289,28 @@ export const tenantMocks = {
       id: 'workspace-3',
       tenantId: 'tenant-1',
       name: 'Customer Support',
-      description: 'Customer support tickets and knowledge base',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: {
+        access: {
+          visibility: 'tenant',
+          joinPolicy: 'invite_only',
+          externalAccess: false
+        },
+        data: {
+          allowDataExport: false,
+          backupEnabled: true,
+          dataRetentionDays: 2555 // 7 years for compliance
+        },
+        integrations: {
+          slackChannel: '#support',
+          jiraProject: 'SUP'
+        },
+        notifications: {
+          projectUpdates: true,
+          memberActivity: true,
+          systemAlerts: true
+        }
+      },
       createdAt: '2024-02-15T14:00:00Z',
       updatedAt: '2024-03-10T10:00:00Z'
     },
@@ -226,8 +319,28 @@ export const tenantMocks = {
       id: 'workspace-4',
       tenantId: 'tenant-2',
       name: 'MVP Development',
-      description: 'Building the minimum viable product',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: {
+        access: {
+          visibility: 'private',
+          joinPolicy: 'invite_only',
+          externalAccess: false
+        },
+        data: {
+          allowDataExport: true,
+          backupEnabled: true,
+          dataRetentionDays: 90
+        },
+        integrations: {
+          slackChannel: '#mvp-dev',
+          githubRepo: 'startupxyz/mvp'
+        },
+        notifications: {
+          projectUpdates: true,
+          memberActivity: true,
+          systemAlerts: true
+        }
+      },
       createdAt: '2024-02-05T10:00:00Z',
       updatedAt: '2024-03-01T16:00:00Z'
     },
@@ -235,8 +348,27 @@ export const tenantMocks = {
       id: 'workspace-5',
       tenantId: 'tenant-2',
       name: 'User Research',
-      description: 'Customer interviews and market research',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: {
+        access: {
+          visibility: 'tenant',
+          joinPolicy: 'open',
+          externalAccess: true
+        },
+        data: {
+          allowDataExport: false,
+          backupEnabled: true,
+          dataRetentionDays: 365
+        },
+        integrations: {
+          slackChannel: '#user-research'
+        },
+        notifications: {
+          projectUpdates: true,
+          memberActivity: false,
+          systemAlerts: false
+        }
+      },
       createdAt: '2024-02-10T11:00:00Z',
       updatedAt: '2024-02-25T13:30:00Z'
     },
@@ -245,8 +377,28 @@ export const tenantMocks = {
       id: 'workspace-6',
       tenantId: 'tenant-3',
       name: 'Client Projects',
-      description: 'Active client development projects',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: {
+        access: {
+          visibility: 'private',
+          joinPolicy: 'invite_only',
+          externalAccess: true
+        },
+        data: {
+          allowDataExport: true,
+          backupEnabled: true,
+          dataRetentionDays: 1095 // 3 years
+        },
+        integrations: {
+          slackChannel: '#client-work',
+          githubRepo: 'devteam/client-projects'
+        },
+        notifications: {
+          projectUpdates: true,
+          memberActivity: true,
+          systemAlerts: true
+        }
+      },
       createdAt: '2024-03-02T09:00:00Z',
       updatedAt: '2024-03-15T14:00:00Z'
     },
@@ -254,8 +406,28 @@ export const tenantMocks = {
       id: 'workspace-7',
       tenantId: 'tenant-3',
       name: 'Internal Tools',
-      description: 'Development of internal productivity tools',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: {
+        access: {
+          visibility: 'tenant',
+          joinPolicy: 'request',
+          externalAccess: false
+        },
+        data: {
+          allowDataExport: true,
+          backupEnabled: true,
+          dataRetentionDays: 180
+        },
+        integrations: {
+          slackChannel: '#internal-tools',
+          githubRepo: 'devteam/internal-tools'
+        },
+        notifications: {
+          projectUpdates: false,
+          memberActivity: false,
+          systemAlerts: true
+        }
+      },
       createdAt: '2024-03-05T10:00:00Z',
       updatedAt: '2024-03-12T11:20:00Z'
     }

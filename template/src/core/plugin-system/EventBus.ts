@@ -1,11 +1,59 @@
 /**
- * @fileoverview Simplified Event Bus (Plan 3)
+ * @fileoverview Enhanced Event Bus with Context Events
  *
- * Simple event bus for plugin communication following plan_3 specifications:
+ * Event bus for plugin communication with context awareness:
  * - Lightweight event system
- * - No complex metadata
- * - Focus on core-to-plugin and plugin-to-plugin communication
+ * - Context change events for multi-tenant features
+ * - Core-to-plugin and plugin-to-plugin communication
  */
+
+import type { User, ISODate, WorkspaceSettings } from '../types';
+
+// Context-related event types
+export interface TenantContext {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
+export interface WorkspaceContext {
+  id: string;
+  name: string;
+  slug: string;
+  tenantId: string;
+  type: 'project' | 'department' | 'team' | 'client';
+  status: 'active' | 'archived' | 'deleted';
+  settings: WorkspaceSettings;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
+export interface ContextChangeEvent {
+  type: 'tenant' | 'workspace' | 'user';
+  previousContext?: {
+    tenant?: TenantContext;
+    workspace?: WorkspaceContext;
+    user?: User;
+  };
+  currentContext: {
+    tenant?: TenantContext;
+    workspace?: WorkspaceContext;
+    user?: User;
+  };
+  timestamp: ISODate;
+}
+
+// Standard event types
+export interface SystemEvents {
+  'context:changed': ContextChangeEvent;
+  'tenant:switched': { tenantId: string; tenant: TenantContext };
+  'workspace:switched': { workspaceId: string; workspace: WorkspaceContext };
+  'user:updated': { user: User };
+  'auth:login': { user: User };
+  'auth:logout': { userId: string };
+}
 
 export class EventBus {
   private events: Map<string, Set<Function>> = new Map();
@@ -86,6 +134,92 @@ export class EventBus {
    */
   getListenerCount(event: string): number {
     return this.events.get(event)?.size || 0;
+  }
+
+  // Type-safe context event methods
+
+  /**
+   * Emit a context change event
+   */
+  emitContextChange(contextChangeEvent: ContextChangeEvent): void {
+    this.emit('context:changed', contextChangeEvent);
+  }
+
+  /**
+   * Subscribe to context change events
+   */
+  onContextChange(handler: (event: ContextChangeEvent) => void): () => void {
+    return this.on('context:changed', handler);
+  }
+
+  /**
+   * Emit tenant switch event
+   */
+  emitTenantSwitch(tenantId: string, tenant: TenantContext): void {
+    this.emit('tenant:switched', { tenantId, tenant });
+  }
+
+  /**
+   * Subscribe to tenant switch events
+   */
+  onTenantSwitch(handler: (event: { tenantId: string; tenant: TenantContext }) => void): () => void {
+    return this.on('tenant:switched', handler);
+  }
+
+  /**
+   * Emit workspace switch event
+   */
+  emitWorkspaceSwitch(workspaceId: string, workspace: WorkspaceContext): void {
+    this.emit('workspace:switched', { workspaceId, workspace });
+  }
+
+  /**
+   * Subscribe to workspace switch events
+   */
+  onWorkspaceSwitch(handler: (event: { workspaceId: string; workspace: WorkspaceContext }) => void): () => void {
+    return this.on('workspace:switched', handler);
+  }
+
+  /**
+   * Emit user update event
+   */
+  emitUserUpdate(user: User): void {
+    this.emit('user:updated', { user });
+  }
+
+  /**
+   * Subscribe to user update events
+   */
+  onUserUpdate(handler: (event: { user: User }) => void): () => void {
+    return this.on('user:updated', handler);
+  }
+
+  /**
+   * Emit auth login event
+   */
+  emitAuthLogin(user: User): void {
+    this.emit('auth:login', { user });
+  }
+
+  /**
+   * Subscribe to auth login events
+   */
+  onAuthLogin(handler: (event: { user: User }) => void): () => void {
+    return this.on('auth:login', handler);
+  }
+
+  /**
+   * Emit auth logout event
+   */
+  emitAuthLogout(userId: string): void {
+    this.emit('auth:logout', { userId });
+  }
+
+  /**
+   * Subscribe to auth logout events
+   */
+  onAuthLogout(handler: (event: { userId: string }) => void): () => void {
+    return this.on('auth:logout', handler);
   }
 }
 

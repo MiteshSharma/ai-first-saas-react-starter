@@ -28,7 +28,7 @@ export const setupUserMocks = (mock: MockAdapter) => {
     if (search) {
       const searchLower = search.toLowerCase();
       filteredUsers = filteredUsers.filter(user =>
-        user.name.toLowerCase().includes(searchLower) ||
+        user.profile?.displayName?.toLowerCase().includes(searchLower) ||
         user.email.toLowerCase().includes(searchLower)
       );
     }
@@ -94,12 +94,11 @@ export const setupUserMocks = (mock: MockAdapter) => {
       const userData = JSON.parse(config.data);
       
       // Validate required fields
-      if (!userData.name || !userData.email) {
-        return [400, { 
-          message: 'Name and email are required',
+      if (!userData.email) {
+        return [400, {
+          message: 'Email is required',
           code: 'VALIDATION_ERROR',
           errors: {
-            name: !userData.name ? 'Name is required' : null,
             email: !userData.email ? 'Email is required' : null,
           }
         }];
@@ -120,11 +119,20 @@ export const setupUserMocks = (mock: MockAdapter) => {
 
       // Create new user
       const newUser = addUserToMocks({
-        name: userData.name,
         email: userData.email,
+        emailVerified: userData.emailVerified || false,
+        status: userData.status || 'active',
+        profile: userData.profile || {
+          firstName: userData.firstName || 'Unknown',
+          lastName: userData.lastName || 'User',
+          displayName: userData.displayName || `${userData.firstName || 'Unknown'} ${userData.lastName || 'User'}`,
+          timezone: 'UTC',
+          locale: 'en-US'
+        },
+        // Legacy fields for backward compatibility
+        name: userData.name || userData.displayName || `${userData.firstName || 'Unknown'} ${userData.lastName || 'User'}`,
         role: userData.role || 'user',
         isActive: userData.isActive !== undefined ? userData.isActive : true,
-        profile: userData.profile || {},
       });
 
       return [201, { 
@@ -269,7 +277,7 @@ export const setupUserMocks = (mock: MockAdapter) => {
     const totalUsers = userMocks.list.length;
     const activeUsers = userMocks.list.filter(user => user.isActive).length;
     const usersByRole = userMocks.list.reduce((acc, user) => {
-      acc[user.role] = (acc[user.role] || 0) + 1;
+      acc[user.role || 'user'] = (acc[user.role || 'user'] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 

@@ -1,0 +1,1428 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Workspace Management API",
+    "description": "API for managing workspaces within tenants, including member management, invitations, and activity tracking",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "api@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/v1",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Workspaces",
+      "description": "Workspace management operations"
+    },
+    {
+      "name": "Members",
+      "description": "Workspace member management"
+    },
+    {
+      "name": "Invitations",
+      "description": "Workspace invitation management"
+    },
+    {
+      "name": "Activity",
+      "description": "Workspace activity and statistics"
+    }
+  ],
+  "paths": {
+    "/tenants/{tenantId}/workspaces": {
+      "get": {
+        "tags": ["Workspaces"],
+        "summary": "List workspaces for a tenant",
+        "description": "Retrieve all workspaces belonging to a specific tenant with optional filtering",
+        "operationId": "listWorkspaces",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the tenant",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by workspace status",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["active", "archived", "deleted"]
+              }
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by workspace type",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["project", "department", "team", "client"]
+              }
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search workspaces by name or description",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "type": "string",
+              "enum": ["name", "createdAt", "updatedAt", "memberCount"],
+              "default": "name"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "description": "Sort order",
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of workspaces",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WorkspaceWithMembers"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Workspaces"],
+        "summary": "Create a new workspace",
+        "description": "Create a new workspace within a tenant",
+        "operationId": "createWorkspace",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the tenant",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workspace created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Workspace"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}": {
+      "get": {
+        "tags": ["Workspaces"],
+        "summary": "Get workspace details",
+        "description": "Retrieve detailed information about a specific workspace",
+        "operationId": "getWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceWithMembers"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Workspaces"],
+        "summary": "Update workspace",
+        "description": "Update workspace information",
+        "operationId": "updateWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Workspace"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Workspaces"],
+        "summary": "Delete workspace",
+        "description": "Permanently delete a workspace",
+        "operationId": "deleteWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Workspace deleted successfully"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/archive": {
+      "put": {
+        "tags": ["Workspaces"],
+        "summary": "Archive workspace",
+        "description": "Archive a workspace (soft delete)",
+        "operationId": "archiveWorkspace",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace archived successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Workspace"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/settings": {
+      "put": {
+        "tags": ["Workspaces"],
+        "summary": "Update workspace settings",
+        "description": "Update workspace settings configuration",
+        "operationId": "updateWorkspaceSettings",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Workspace"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/members": {
+      "get": {
+        "tags": ["Members"],
+        "summary": "List workspace members",
+        "description": "Get all members of a workspace",
+        "operationId": "getWorkspaceMembers",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of workspace members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WorkspaceMember"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/members/{memberId}": {
+      "delete": {
+        "tags": ["Members"],
+        "summary": "Remove workspace member",
+        "description": "Remove a member from the workspace",
+        "operationId": "removeWorkspaceMember",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the member",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Member removed successfully"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/members/{memberId}/role": {
+      "put": {
+        "tags": ["Members"],
+        "summary": "Update member role",
+        "description": "Update the role of a workspace member",
+        "operationId": "updateMemberRole",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the member",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": ["admin", "editor", "viewer"],
+                    "description": "The new role for the member"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceMember"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/invitations": {
+      "get": {
+        "tags": ["Invitations"],
+        "summary": "List workspace invitations",
+        "description": "Get all pending invitations for a workspace",
+        "operationId": "getWorkspaceInvitations",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of workspace invitations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WorkspaceInvitation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Invitations"],
+        "summary": "Invite member to workspace",
+        "description": "Send an invitation to join the workspace",
+        "operationId": "inviteWorkspaceMember",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteWorkspaceMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceInvitation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/invitations/{invitationId}": {
+      "delete": {
+        "tags": ["Invitations"],
+        "summary": "Cancel invitation",
+        "description": "Cancel a pending workspace invitation",
+        "operationId": "cancelWorkspaceInvitation",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invitationId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the invitation",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Invitation cancelled successfully"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/activity": {
+      "get": {
+        "tags": ["Activity"],
+        "summary": "Get workspace activity",
+        "description": "Retrieve recent activity for a workspace",
+        "operationId": "getWorkspaceActivity",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of activities to return",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of workspace activities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WorkspaceActivity"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/stats": {
+      "get": {
+        "tags": ["Activity"],
+        "summary": "Get workspace statistics",
+        "description": "Retrieve statistics for a workspace",
+        "operationId": "getWorkspaceStats",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "description": "The ID of the workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WorkspaceStats"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/workspaces/switch": {
+      "post": {
+        "tags": ["Workspaces"],
+        "summary": "Switch workspace context",
+        "description": "Switch the current workspace context for the user",
+        "operationId": "switchWorkspaceContext",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["workspaceId"],
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "description": "The ID of the workspace to switch to"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Context switched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "workspace": {
+                          "$ref": "#/components/schemas/Workspace"
+                        },
+                        "members": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/WorkspaceMember"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Workspace": {
+        "type": "object",
+        "required": ["id", "tenantId", "name", "type", "status", "settings", "createdAt", "updatedAt"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the workspace"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "ID of the tenant this workspace belongs to"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the workspace"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["project", "department", "team", "client"],
+            "description": "Type of workspace"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "archived", "deleted"],
+            "description": "Current status of the workspace"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/WorkspaceSettings"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the workspace was created"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the workspace was last updated"
+          }
+        }
+      },
+      "WorkspaceWithMembers": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Workspace"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Description of the workspace"
+              },
+              "visibility": {
+                "type": "string",
+                "enum": ["private", "tenant", "public"],
+                "description": "Visibility level of the workspace"
+              },
+              "joinPolicy": {
+                "type": "string",
+                "enum": ["open", "request", "invite_only"],
+                "description": "Policy for joining the workspace"
+              },
+              "memberCount": {
+                "type": "integer",
+                "description": "Number of members in the workspace"
+              },
+              "isOwner": {
+                "type": "boolean",
+                "description": "Whether the current user is the owner"
+              },
+              "canManage": {
+                "type": "boolean",
+                "description": "Whether the current user can manage this workspace"
+              }
+            }
+          }
+        ]
+      },
+      "WorkspaceSettings": {
+        "type": "object",
+        "required": ["access", "data"],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/WorkspaceAccessSettings"
+          },
+          "data": {
+            "$ref": "#/components/schemas/WorkspaceDataSettings"
+          },
+          "integrations": {
+            "$ref": "#/components/schemas/WorkspaceIntegrations"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/WorkspaceNotifications"
+          }
+        }
+      },
+      "WorkspaceAccessSettings": {
+        "type": "object",
+        "required": ["visibility", "joinPolicy", "externalAccess"],
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "enum": ["private", "tenant", "public"],
+            "description": "Workspace visibility"
+          },
+          "joinPolicy": {
+            "type": "string",
+            "enum": ["open", "request", "invite_only"],
+            "description": "How users can join the workspace"
+          },
+          "externalAccess": {
+            "type": "boolean",
+            "description": "Whether external users can access"
+          }
+        }
+      },
+      "WorkspaceDataSettings": {
+        "type": "object",
+        "required": ["allowDataExport", "backupEnabled"],
+        "properties": {
+          "allowDataExport": {
+            "type": "boolean",
+            "description": "Whether data export is allowed"
+          },
+          "backupEnabled": {
+            "type": "boolean",
+            "description": "Whether automatic backups are enabled"
+          },
+          "dataRetentionDays": {
+            "type": "integer",
+            "description": "Number of days to retain data"
+          }
+        }
+      },
+      "WorkspaceIntegrations": {
+        "type": "object",
+        "properties": {
+          "slackChannel": {
+            "type": "string",
+            "description": "Slack channel ID for notifications"
+          },
+          "githubRepo": {
+            "type": "string",
+            "description": "GitHub repository URL"
+          },
+          "jiraProject": {
+            "type": "string",
+            "description": "Jira project key"
+          }
+        }
+      },
+      "WorkspaceNotifications": {
+        "type": "object",
+        "required": ["projectUpdates", "memberActivity", "systemAlerts"],
+        "properties": {
+          "projectUpdates": {
+            "type": "boolean",
+            "description": "Receive project update notifications"
+          },
+          "memberActivity": {
+            "type": "boolean",
+            "description": "Receive member activity notifications"
+          },
+          "systemAlerts": {
+            "type": "boolean",
+            "description": "Receive system alert notifications"
+          }
+        }
+      },
+      "WorkspaceMember": {
+        "type": "object",
+        "required": ["id", "userId", "workspaceId", "role", "permissions", "joinedAt"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the membership"
+          },
+          "userId": {
+            "type": "string",
+            "description": "ID of the user"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "ID of the workspace"
+          },
+          "role": {
+            "type": "string",
+            "description": "Member's role in the workspace"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of permissions"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the member joined"
+          }
+        }
+      },
+      "WorkspaceInvitation": {
+        "type": "object",
+        "required": ["id", "workspaceId", "email", "role", "status", "invitedBy", "invitedAt", "expiresAt", "token"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the invitation"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "ID of the workspace"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email address of the invitee"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "editor", "viewer"],
+            "description": "Intended role for the invitee"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "accepted", "expired", "cancelled"],
+            "description": "Current status of the invitation"
+          },
+          "invitedBy": {
+            "type": "string",
+            "description": "ID of the user who sent the invitation"
+          },
+          "invitedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the invitation was sent"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the invitation expires"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the invitation was accepted"
+          },
+          "token": {
+            "type": "string",
+            "description": "Unique token for accepting the invitation"
+          },
+          "message": {
+            "type": "string",
+            "description": "Optional message from the inviter"
+          }
+        }
+      },
+      "WorkspaceActivity": {
+        "type": "object",
+        "required": ["id", "workspaceId", "userId", "action", "description", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the activity"
+          },
+          "workspaceId": {
+            "type": "string",
+            "description": "ID of the workspace"
+          },
+          "userId": {
+            "type": "string",
+            "description": "ID of the user who performed the action"
+          },
+          "userName": {
+            "type": "string",
+            "description": "Name of the user who performed the action"
+          },
+          "action": {
+            "type": "string",
+            "description": "Type of action performed"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of the activity"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Additional metadata about the activity"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the activity occurred"
+          }
+        }
+      },
+      "WorkspaceStats": {
+        "type": "object",
+        "required": ["workspaceId", "memberCount", "activeMembers", "totalActivities", "recentActivities", "storageUsed", "apiCallsUsed"],
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "description": "ID of the workspace"
+          },
+          "memberCount": {
+            "type": "integer",
+            "description": "Total number of members"
+          },
+          "activeMembers": {
+            "type": "integer",
+            "description": "Number of active members"
+          },
+          "totalActivities": {
+            "type": "integer",
+            "description": "Total number of activities"
+          },
+          "recentActivities": {
+            "type": "integer",
+            "description": "Number of recent activities"
+          },
+          "storageUsed": {
+            "type": "integer",
+            "description": "Storage used in MB"
+          },
+          "apiCallsUsed": {
+            "type": "integer",
+            "description": "Number of API calls made"
+          },
+          "lastActivity": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the last activity"
+          }
+        }
+      },
+      "CreateWorkspaceRequest": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the workspace"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["project", "department", "team", "client"],
+            "description": "Type of workspace"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/WorkspaceSettings"
+          }
+        }
+      },
+      "UpdateWorkspaceRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the workspace"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "archived", "deleted"],
+            "description": "Status of the workspace"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/WorkspaceSettings"
+          }
+        }
+      },
+      "InviteWorkspaceMemberRequest": {
+        "type": "object",
+        "required": ["email", "role"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email address of the person to invite"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "editor", "viewer"],
+            "description": "Role to assign to the new member"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Optional invitation message"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Error code"
+              },
+              "message": {
+                "type": "string",
+                "description": "Error message"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Additional error details"
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the error occurred"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "BAD_REQUEST",
+                "message": "Invalid request parameters"
+              }
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "UNAUTHORIZED",
+                "message": "Authentication required"
+              }
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "FORBIDDEN",
+                "message": "You do not have permission to access this resource"
+              }
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "NOT_FOUND",
+                "message": "The requested resource was not found"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT authentication token"
+      },
+      "ApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for service-to-service authentication"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    },
+    {
+      "ApiKey": []
+    }
+  ]
+}

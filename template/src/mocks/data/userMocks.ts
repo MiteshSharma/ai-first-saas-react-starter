@@ -1,19 +1,11 @@
 import { faker } from '@faker-js/faker';
+import type { User, UserProfile } from '../../core/types';
 
-export interface MockUser {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  role: 'admin' | 'user' | 'moderator';
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  profile?: {
-    bio?: string;
-    location?: string;
-    website?: string;
-  };
+export interface MockUser extends User {
+  // Legacy fields for backward compatibility
+  name?: string;
+  role?: 'admin' | 'user' | 'moderator';
+  isActive?: boolean;
 }
 
 // Generate a single mock user
@@ -21,21 +13,29 @@ export const generateMockUser = (overrides: Partial<MockUser> = {}): MockUser =>
   const firstName = faker.person.firstName();
   const lastName = faker.person.lastName();
   const email = faker.internet.email({ firstName, lastName }).toLowerCase();
-  
+  const displayName = `${firstName} ${lastName}`;
+
   return {
     id: faker.string.uuid(),
-    name: `${firstName} ${lastName}`,
     email,
-    avatar: faker.image.avatar(),
-    role: 'user',
-    isActive: faker.datatype.boolean(),
+    emailVerified: faker.datatype.boolean({ probability: 0.8 }),
+    status: ['active', 'inactive', 'suspended'][Math.floor(Math.random() * 3)] as 'active' | 'inactive' | 'suspended',
+    profile: {
+      firstName,
+      lastName,
+      displayName,
+      avatar: faker.image.avatar(),
+      timezone: faker.location.timeZone(),
+      locale: 'en-US'
+    },
     createdAt: faker.date.past({ years: 2 }).toISOString(),
     updatedAt: faker.date.recent({ days: 30 }).toISOString(),
-    profile: {
-      bio: faker.lorem.sentence(),
-      location: `${faker.location.city()}, ${faker.location.state()}`,
-      website: faker.internet.url(),
-    },
+
+    // Legacy fields for backward compatibility
+    name: displayName,
+    role: 'user',
+    isActive: faker.datatype.boolean(),
+
     ...overrides,
   };
 };
@@ -50,30 +50,57 @@ export const userMocks = {
   // Admin user for testing admin features
   admin: generateMockUser({
     id: 'admin-user-1',
-    name: 'Admin User',
     email: 'admin@example.com',
+    emailVerified: true,
+    status: 'active',
+    profile: {
+      firstName: 'Admin',
+      lastName: 'User',
+      displayName: 'Admin User',
+      timezone: 'UTC',
+      locale: 'en-US'
+    },
+    name: 'Admin User',
     role: 'admin',
     isActive: true,
   }),
-  
+
   // Regular user for testing standard features
   user: generateMockUser({
     id: 'regular-user-1',
-    name: 'John Doe',
     email: 'john.doe@example.com',
+    emailVerified: true,
+    status: 'active',
+    profile: {
+      firstName: 'John',
+      lastName: 'Doe',
+      displayName: 'John Doe',
+      timezone: 'UTC',
+      locale: 'en-US'
+    },
+    name: 'John Doe',
     role: 'user',
     isActive: true,
   }),
-  
+
   // Inactive user for testing status scenarios
   inactiveUser: generateMockUser({
     id: 'inactive-user-1',
-    name: 'Inactive User',
     email: 'inactive@example.com',
+    emailVerified: false,
+    status: 'inactive',
+    profile: {
+      firstName: 'Inactive',
+      lastName: 'User',
+      displayName: 'Inactive User',
+      timezone: 'UTC',
+      locale: 'en-US'
+    },
+    name: 'Inactive User',
     role: 'user',
     isActive: false,
   }),
-  
+
   // Generate a list of users for pagination/listing
   list: generateMockUsers(25),
 };

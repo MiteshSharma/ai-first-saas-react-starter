@@ -25,6 +25,7 @@ import {
   INVITE_STATUSES,
   WORKSPACE_STATUSES
 } from '../../plugins/tenant-management/types';
+import { CreateWorkspaceRequest } from '../../core/types';
 
 /**
  * Setup mock handlers for tenant-related API endpoints
@@ -102,6 +103,8 @@ export const setupTenantMocks = (mock: MockAdapter) => {
       id: `tenant-${Date.now()}`,
       name: payload.name,
       slug: payload.slug || (payload.name || 'unnamed').toLowerCase().replace(/\s+/g, '-'),
+      type: payload.type || 'team',
+      status: 'active',
       description: payload.description,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -109,13 +112,30 @@ export const setupTenantMocks = (mock: MockAdapter) => {
         timezone: payload.settings?.timezone || 'UTC',
         currency: payload.settings?.currency || 'USD',
         language: payload.settings?.language || 'en',
+        security: {
+          ssoEnabled: payload.settings?.security?.ssoEnabled || false,
+          mfaRequired: payload.settings?.security?.mfaRequired || false,
+          sessionTimeout: payload.settings?.security?.sessionTimeout || 3600,
+          ipWhitelist: payload.settings?.security?.ipWhitelist || []
+        },
+        dataRetention: {
+          auditLogsDays: payload.settings?.dataRetention?.auditLogsDays || 90
+        },
         features: {
-          userLimit: payload.settings?.features?.userLimit || 5,
-          storageLimit: payload.settings?.features?.storageLimit || 1000,
-          apiCallsLimit: payload.settings?.features?.apiCallsLimit || 1000,
+          advancedAnalytics: payload.settings?.features?.advancedAnalytics || false,
+          apiAccess: payload.settings?.features?.apiAccess || true,
           customBranding: payload.settings?.features?.customBranding || false,
+          advancedSecurity: payload.settings?.features?.advancedSecurity || false,
           ssoEnabled: payload.settings?.features?.ssoEnabled || false,
-          auditLogs: payload.settings?.features?.auditLogs || false
+          auditLogs: payload.settings?.features?.auditLogs || false,
+          userLimit: payload.settings?.features?.userLimit || 10,
+          storageLimit: payload.settings?.features?.storageLimit || 100,
+          apiCallsLimit: payload.settings?.features?.apiCallsLimit || 1000
+        },
+        notifications: {
+          emailNotifications: payload.settings?.notifications?.emailNotifications || true,
+          slackIntegration: payload.settings?.notifications?.slackIntegration,
+          webhookUrl: payload.settings?.notifications?.webhookUrl
         },
         branding: {
           primaryColor: payload.settings?.branding?.primaryColor || '#1890ff',
@@ -255,21 +275,39 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   // Create workspace
   mock.onPost(/\/tenants\/([^/]+)\/workspaces$/).reply((config) => {
     const tenantId = config.url?.split('/')[3];
-    const payload: CreateWorkspacePayload = JSON.parse(config.data);
+    const payload: CreateWorkspaceRequest = JSON.parse(config.data);
     console.log(`🆕 Mock: Create workspace in tenant ${tenantId}`, payload);
-    
+
     const newWorkspace = {
       id: `workspace-${Date.now()}`,
       tenantId: tenantId!,
       name: payload.name,
-      description: payload.description,
+      type: payload.type || 'project',
       status: WORKSPACE_STATUSES.ACTIVE,
+      settings: payload.settings || {
+        access: {
+          visibility: 'tenant',
+          joinPolicy: 'request',
+          externalAccess: false
+        },
+        data: {
+          allowDataExport: true,
+          backupEnabled: true,
+          dataRetentionDays: 365
+        },
+        integrations: {},
+        notifications: {
+          projectUpdates: true,
+          memberActivity: true,
+          systemAlerts: true
+        }
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    
+
     (tenantMocks.workspaces as any[]).push(newWorkspace);
-    
+
     return [201, {
       success: true,
       data: newWorkspace,
@@ -309,17 +347,131 @@ export const setupTenantMocks = (mock: MockAdapter) => {
   mock.onDelete(/\/workspaces\/([^/]+)$/).reply((config) => {
     const workspaceId = config.url?.split('/').pop();
     console.log(`🗑️ Mock: Delete workspace ${workspaceId}`);
-    
+
     const workspaceIndex = tenantMocks.workspaces.findIndex((w: Workspace) => w.id === workspaceId);
     if (workspaceIndex === -1) {
       return [404, { success: false, error: 'Workspace not found' }];
     }
-    
+
     tenantMocks.workspaces.splice(workspaceIndex, 1);
-    
+
     return [200, {
       success: true,
       message: 'Workspace deleted successfully'
+    }];
+  });
+
+  // Get specific workspace
+  mock.onGet(/\/workspaces\/([^/]+)$/).reply((config) => {
+    const workspaceId = config.url?.split('/').pop();
+    console.log(`📋 Mock: Get workspace details for ${workspaceId}`);
+
+    const workspace = tenantMocks.workspaces.find((w: Workspace) => w.id === workspaceId);
+    if (!workspace) {
+      return [404, { success: false, error: 'Workspace not found' }];
+    }
+
+    // Add computed properties for workspace management
+    const workspaceWithMembers = {
+      ...workspace,
+      memberCount: 3, // Mock member count
+      isOwner: true,   // Mock ownership
+      canManage: true  // Mock management permission
+    };
+
+    return [200, {
+      success: true,
+      data: workspaceWithMembers
+    }];
+  });
+
+  // Update workspace settings
+  mock.onPut(/\/workspaces\/([^/]+)\/settings$/).reply((config) => {
+    const workspaceId = config.url?.split('/')[3];
+    const settings = JSON.parse(config.data);
+    console.log(`⚙️ Mock: Update workspace settings for ${workspaceId}`, settings);
+
+    const workspaceIndex = tenantMocks.workspaces.findIndex((w: Workspace) => w.id === workspaceId);
+    if (workspaceIndex === -1) {
+      return [404, { success: false, error: 'Workspace not found' }];
+    }
+
+    // Merge settings
+    const currentWorkspace = tenantMocks.workspaces[workspaceIndex] as any;
+    const updatedWorkspace = {
+      ...currentWorkspace,
+      settings: {
+        ...currentWorkspace.settings,
+        ...settings
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    (tenantMocks.workspaces as any[])[workspaceIndex] = updatedWorkspace;
+
+    return [200, {
+      success: true,
+      data: updatedWorkspace,
+      message: 'Workspace settings updated successfully'
+    }];
+  });
+
+  // Archive workspace
+  mock.onPut(/\/workspaces\/([^/]+)\/archive$/).reply((config) => {
+    const workspaceId = config.url?.split('/')[3];
+    console.log(`📦 Mock: Archive workspace ${workspaceId}`);
+
+    const workspaceIndex = tenantMocks.workspaces.findIndex((w: Workspace) => w.id === workspaceId);
+    if (workspaceIndex === -1) {
+      return [404, { success: false, error: 'Workspace not found' }];
+    }
+
+    (tenantMocks.workspaces as any[])[workspaceIndex].status = 'archived';
+    (tenantMocks.workspaces as any[])[workspaceIndex].updatedAt = new Date().toISOString();
+
+    return [200, {
+      success: true,
+      message: 'Workspace archived successfully'
+    }];
+  });
+
+  // Switch workspace context
+  mock.onPost('/workspaces/switch').reply((config) => {
+    const { workspaceId } = JSON.parse(config.data);
+    console.log(`🔄 Mock: Switch to workspace ${workspaceId}`);
+
+    const workspace = tenantMocks.workspaces.find((w: Workspace) => w.id === workspaceId);
+    if (!workspace) {
+      return [404, { success: false, error: 'Workspace not found' }];
+    }
+
+    // Mock workspace members
+    const members = [
+      {
+        id: 'member-1',
+        userId: 'user-1',
+        workspaceId,
+        role: 'admin',
+        permissions: ['workspace.read', 'workspace.write', 'workspace.manage'],
+        joinedAt: new Date().toISOString()
+      },
+      {
+        id: 'member-2',
+        userId: 'user-2',
+        workspaceId,
+        role: 'editor',
+        permissions: ['workspace.read', 'workspace.write'],
+        joinedAt: new Date().toISOString()
+      }
+    ];
+
+    return [200, {
+      success: true,
+      data: {
+        workspace,
+        members
+      },
+      message: `Switched to ${workspace.name}`
     }];
   });
 

@@ -3,14 +3,10 @@
  */
 
 import type { AppError, RequestLifecycle } from '../stores/base/types';
+import type { User } from '../types';
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role?: string;
-  avatar?: string;
-}
+// Re-export User type from core types
+export type { User } from '../types';
 
 // Auth-specific state
 export interface AuthCoreState {
@@ -64,7 +60,9 @@ export interface LoginCredentials {
 export interface RegisterData {
   email: string;
   password: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
 }
 
 export interface AuthResponse {
@@ -78,9 +76,11 @@ export interface SignupWithEmailData {
 
 export interface SignupCompleteData {
   token: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
   password: string;
-  tenantName?: string;
+  organizationName?: string;
 }
 
 export interface PasswordResetRequestData {

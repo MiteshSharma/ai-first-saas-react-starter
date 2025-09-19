@@ -164,10 +164,16 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     return [200, {
       data: {
         id: user.id,
-        name: user.name,
         email: user.email,
+        emailVerified: user.emailVerified,
+        status: user.status,
+        profile: user.profile,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        // Legacy fields for backward compatibility
+        name: user.name,
         role: user.role,
-        avatar: user.avatar,
+        avatar: user.profile?.avatar,
         isActive: user.isActive,
       }
     }];

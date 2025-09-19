@@ -6,14 +6,16 @@ import { getDynamicRoutes } from './router/routes';
 import { eventBus, CORE_EVENTS, PluginManager } from './core/plugin-system';
 import { createAuthContext } from './core/auth/AuthContext';
 import { useAuthStore } from './core/auth/AuthStore';
+import { CoreProvider, useCoreContext } from './core/context/CoreContext';
 
 // Import layout system (Phase 3)
-import { MainLayout } from './core/layout';
+import { MainLayout } from './layout';
 
 // Import plugins (they auto-register themselves)
 import './plugins/tenant-management'; // Tenant management plugin
 import './plugins/audit-logging'; // Audit logging plugin
-import './plugins/user-settings'; // User settings plugin
+import './plugins/user-management'; // User management plugin
+import './plugins/workspace-management';
 
 const AppRoutes: React.FC = () => {
   const [routes, setRoutes] = React.useState(() => getDynamicRoutes());
@@ -47,17 +49,19 @@ const AppRoutes: React.FC = () => {
   );
 };
 
-// Plugin initialization component
-const PluginProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [pluginsInitialized, setPluginsInitialized] = React.useState(false);
+// Plugin initialization component that uses CoreContext
+const PluginInitializer: React.FC<{ onInitialized: () => void }> = ({ onInitialized }) => {
+  const coreContext = useCoreContext();
 
   React.useEffect(() => {
     const initializePlugins = async () => {
       try {
-
-        // Initialize plugin manager with auth context
+        // Initialize plugin manager with auth and core context
         const authContext = createAuthContext();
-        PluginManager.initialize(authContext);
+        await PluginManager.initialize(authContext, {
+          setCurrentTenant: coreContext.setCurrentTenant,
+          setCurrentWorkspace: coreContext.setCurrentWorkspace
+        });
 
         // Emit app init event
         eventBus.emit(CORE_EVENTS.APP_INITIALIZED, {
@@ -68,26 +72,36 @@ const PluginProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
         // Plugins are already auto-registered via imports
         // No need for complex initialization
 
-        setPluginsInitialized(true);
+        onInitialized();
       } catch (error) {
-        setPluginsInitialized(true); // Continue anyway
+        onInitialized(); // Continue anyway
       }
     };
 
     initializePlugins();
-  }, []);
+  }, [coreContext.setCurrentTenant, coreContext.setCurrentWorkspace, onInitialized]);
+
+  return null;
+};
+
+// Plugin initialization component
+const PluginProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [pluginsInitialized, setPluginsInitialized] = React.useState(false);
 
   if (!pluginsInitialized) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        fontFamily: 'system-ui, sans-serif'
-      }}>
-        <div>🔌 Loading plugins...</div>
-      </div>
+      <>
+        <PluginInitializer onInitialized={() => setPluginsInitialized(true)} />
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <div>🔌 Loading plugins...</div>
+        </div>
+      </>
     );
   }
 
@@ -97,9 +111,11 @@ const PluginProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <PluginProvider>
-        <AppRoutes />
-      </PluginProvider>
+      <CoreProvider>
+        <PluginProvider>
+          <AppRoutes />
+        </PluginProvider>
+      </CoreProvider>
     </BrowserRouter>
   );
 };

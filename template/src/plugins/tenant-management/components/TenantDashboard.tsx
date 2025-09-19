@@ -66,6 +66,7 @@ export const TenantDashboard: React.FC = () => {
       await createTenant({
         name: values.name,
         slug: values.slug,
+        type: 'team', // Default type
         description: values.description
       });
       setCreateModalVisible(false);

@@ -4,10 +4,14 @@
  * Defines all types and interfaces for tenant management functionality
  */
 
+import type { TenantFeatures, TenantSettings as CoreTenantSettings } from '../../core/types';
+
 export interface Tenant {
   id: string;
   name: string;
   slug: string;
+  type: 'personal' | 'team' | 'enterprise';
+  status: 'active' | 'suspended' | 'deleted';
   description?: string;
   settings: TenantSettings;
   subscription: TenantSubscription;
@@ -15,22 +19,13 @@ export interface Tenant {
   updatedAt: string;
 }
 
-export interface TenantSettings {
+export interface TenantSettings extends CoreTenantSettings {
+  branding: TenantBranding;
   timezone: string;
   currency: string;
   language: string;
-  features: TenantFeatures;
-  branding: TenantBranding;
 }
 
-export interface TenantFeatures {
-  userLimit: number;
-  storageLimit: number;
-  apiCallsLimit: number;
-  customBranding: boolean;
-  ssoEnabled: boolean;
-  auditLogs: boolean;
-}
 
 export interface TenantBranding {
   logo?: string;
@@ -120,6 +115,7 @@ export interface TenantInvitation {
 export interface CreateTenantRequest {
   name: string;
   slug: string;
+  type: 'personal' | 'team' | 'enterprise';
   description?: string;
   settings?: Partial<TenantSettings>;
 }

@@ -5,7 +5,7 @@
  */
 
 import { create } from 'zustand';
-import { EventBus } from '../../../core/plugin-system/EventBus';
+import { EventBus } from '../../../core/plugin-system/types';
 import { auditService } from '../services/AuditService';
 import {
   AuditLog,
