@@ -14,8 +14,7 @@ import {
   BulkPermissionCheck,
   PermissionCheckResult,
 } from '../types';
-import { SYSTEM_PERMISSIONS } from '../constants';
-import { apiHelper } from '../../../core/api';
+import { permissionService } from '../services/permissionService';
 
 /**
  * Permission store implementation
@@ -35,9 +34,7 @@ export const usePermissionStore = create<PermissionState>()(
         set({ loading: true, error: null });
 
         try {
-          // For now, use system permissions
-          // In real implementation, this would fetch from API
-          const permissions = SYSTEM_PERMISSIONS;
+          const permissions = await permissionService.getPermissions();
 
           set({
             permissions,
@@ -59,18 +56,7 @@ export const usePermissionStore = create<PermissionState>()(
         set({ loading: true, error: null });
 
         try {
-          // Mock implementation - in real app, this would call API
-          const response = await fetch('/api/permissions/user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(context),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to load user permissions');
-          }
-
-          const userPermissions: ContextualPermission[] = await response.json();
+          const userPermissions = await permissionService.getUserPermissions(context);
 
           set({
             userPermissions,
@@ -78,12 +64,8 @@ export const usePermissionStore = create<PermissionState>()(
           });
         } catch (error) {
           console.error('Failed to load user permissions:', error);
-
-          // Fallback to mock permissions for development
-          const mockUserPermissions = get().generateMockUserPermissions(context);
-
           set({
-            userPermissions: mockUserPermissions,
+            error: 'Failed to load user permissions',
             loading: false
           });
         }
@@ -94,16 +76,7 @@ export const usePermissionStore = create<PermissionState>()(
        */
       checkPermission: async (permission: string, context: AccessContext): Promise<boolean> => {
         try {
-          const { userPermissions } = get();
-
-          // Check if permission exists in user's permissions
-          const hasPermission = userPermissions.some(p =>
-            p.id === permission &&
-            p.granted &&
-            get().isPermissionApplicableToContext(p, context)
-          );
-
-          return hasPermission;
+          return await permissionService.checkPermission(permission, context);
         } catch (error) {
           console.error('Failed to check permission:', error);
           return false;
@@ -115,23 +88,7 @@ export const usePermissionStore = create<PermissionState>()(
        */
       checkMultiplePermissions: async (check: BulkPermissionCheck): Promise<PermissionCheckResult[]> => {
         try {
-          const results: PermissionCheckResult[] = [];
-
-          for (const permission of check.permissions) {
-            const granted = await get().checkPermission(permission, check.context);
-            const { userPermissions } = get();
-            const permissionData = userPermissions.find(p => p.id === permission);
-
-            results.push({
-              granted,
-              reason: granted ? 'Permission granted' : 'Permission denied',
-              grantedBy: permissionData?.inheritedFrom,
-              scope: permissionData?.scope || 'resource',
-              context: check.context,
-            });
-          }
-
-          return results;
+          return await permissionService.checkMultiplePermissions(check);
         } catch (error) {
           console.error('Failed to check multiple permissions:', error);
           return check.permissions.map(permission => ({
@@ -153,59 +110,6 @@ export const usePermissionStore = create<PermissionState>()(
       // =========================================================================
       // Helper Methods (not part of public interface)
       // =========================================================================
-
-      /**
-       * Generate mock user permissions for development
-       */
-      generateMockUserPermissions: (context: AccessContext): ContextualPermission[] => {
-        const { permissions } = get();
-
-        // Mock: Grant different permissions based on user ID
-        const mockUserRoles = get().getMockUserRoles(context.userId);
-        const grantedPermissions: string[] = [];
-
-        // Accumulate permissions from all roles
-        mockUserRoles.forEach(role => {
-          grantedPermissions.push(...role.permissions);
-        });
-
-        // Convert to contextual permissions
-        return permissions.map(permission => ({
-          ...permission,
-          tenantId: context.tenantId,
-          workspaceId: context.workspaceId,
-          resourceId: context.resourceId,
-          granted: grantedPermissions.includes(permission.id),
-          inheritedFrom: mockUserRoles.find(role =>
-            role.permissions.includes(permission.id)
-          )?.id,
-        }));
-      },
-
-      /**
-       * Get mock user roles for development
-       */
-      getMockUserRoles: (userId: string) => {
-        // Mock role assignments based on user ID
-        const mockRoles = [
-          {
-            id: 'tenant-owner',
-            permissions: [
-              'tenant.read', 'tenant.update', 'tenant.manage',
-              'workspace.create', 'workspace.read', 'workspace.update',
-              'workspace.delete', 'workspace.settings.manage',
-              'user.create', 'user.read', 'user.update', 'user.delete',
-              'role.create', 'role.read', 'role.update', 'role.delete', 'role.assign',
-              'settings.tenant.read', 'settings.tenant.update',
-              'audit.read', 'audit.export',
-              'dashboard.read', 'dashboard.export',
-              'integration.read', 'integration.manage',
-            ]
-          }
-        ];
-
-        return mockRoles;
-      },
 
       /**
        * Check if permission is applicable to given context
@@ -267,9 +171,7 @@ export const permissionStoreUtils = {
     resource: string,
     context: AccessContext
   ): Promise<boolean> => {
-    const store = usePermissionStore.getState();
-    const permissionId = `${resource}.${action}`;
-    return await store.checkPermission(permissionId, context);
+    return await permissionService.canPerformAction(action, resource, context);
   },
 
   /**
@@ -289,16 +191,7 @@ export const permissionStoreUtils = {
     permissions: string[],
     context: AccessContext
   ): Promise<boolean> => {
-    const store = usePermissionStore.getState();
-
-    for (const permission of permissions) {
-      const hasPermission = await store.checkPermission(permission, context);
-      if (hasPermission) {
-        return true;
-      }
-    }
-
-    return false;
+    return await permissionService.hasAnyPermission(permissions, context);
   },
 
   /**
@@ -308,16 +201,7 @@ export const permissionStoreUtils = {
     permissions: string[],
     context: AccessContext
   ): Promise<boolean> => {
-    const store = usePermissionStore.getState();
-
-    for (const permission of permissions) {
-      const hasPermission = await store.checkPermission(permission, context);
-      if (!hasPermission) {
-        return false;
-      }
-    }
-
-    return true;
+    return await permissionService.hasAllPermissions(permissions, context);
   },
 
   /**

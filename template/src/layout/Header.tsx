@@ -14,8 +14,7 @@ import {
 } from '@ant-design/icons';
 import { useAuthStore } from '../core/auth/AuthStore';
 import { useLayout } from './LayoutContext';
-import { TenantSwitcher } from '../plugins/tenant-management';
-import { WorkspaceSwitcher } from '../plugins/workspace-management';
+import { BreadcrumbNavigation } from '../components/BreadcrumbNavigation';
 import type { MenuProps } from 'antd';
 
 const { Header: AntHeader } = Layout;
@@ -121,14 +120,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             SaaS App
           </Text>
         </div>
-      </Space>
 
-      {/* Center section - Plugin widgets will go here */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '16px' }}>
-        {/* Tenant/Workspace Switchers */}
-        <TenantSwitcher size="small" />
-        <WorkspaceSwitcher showCreateButton={false} />
-      </div>
+        {/* Breadcrumb Navigation */}
+        <BreadcrumbNavigation
+          onCreateTenant={() => {
+            // TODO: Open create tenant modal
+            // eslint-disable-next-line no-console
+            console.log('Create tenant requested');
+          }}
+          onCreateWorkspace={() => {
+            // TODO: Open create workspace modal
+            // eslint-disable-next-line no-console
+            console.log('Create workspace requested');
+          }}
+        />
+      </Space>
 
       {/* Right section */}
       <Space align="center" size="middle">

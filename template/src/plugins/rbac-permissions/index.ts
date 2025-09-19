@@ -62,7 +62,11 @@ export { PermissionViewer } from './components/PermissionViewer';
 export { RBACDashboard } from './pages/RBACDashboard';
 
 // Services
-export { rbacMockHandlers, rbacMockUtils } from './services/mockHandlers';
+export { permissionService } from './services/permissionService';
+export { roleService } from './services/roleService';
+
+// API
+export { rbacMockHandlers, rbacMockUtils } from './api/mockHandlers';
 
 // Utilities
 export { default as rbacUtils } from './utils/rbacUtils';

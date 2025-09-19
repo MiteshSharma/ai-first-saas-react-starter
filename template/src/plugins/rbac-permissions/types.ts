@@ -154,8 +154,6 @@ export interface PermissionState {
   clearError: () => void;
 
   // Helper methods
-  generateMockUserPermissions: (context: AccessContext) => ContextualPermission[];
-  getMockUserRoles: (userId: string) => Array<{ id: string; permissions: string[] }>;
   isPermissionApplicableToContext: (permission: ContextualPermission, context: AccessContext) => boolean;
 }
 

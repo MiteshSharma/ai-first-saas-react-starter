@@ -4,7 +4,6 @@
  * Mock handlers for development and testing of the permission system
  */
 
-// import { rest } from 'msw';
 import {
   Permission,
   Role,
@@ -105,38 +104,34 @@ const isPermissionApplicableToContext = (
   }
 };
 
+// Mock API delay simulation
+const mockApiDelay = () => new Promise(resolve => setTimeout(resolve, 500));
+
 /**
- * Mock API Handlers
+ * RBAC Mock Handlers Class
  */
-// TODO: Add MSW handlers when MSW is installed
-export const rbacMockHandlers: any[] = [
-  // All handlers commented out until MSW is installed
-  /*
-  // Get all permissions
-  rest.get('/api/permissions', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json(SYSTEM_PERMISSIONS)
-    );
-  }),
+export class RBACMockHandlers {
+  /**
+   * Get all permissions
+   */
+  static async getPermissions(): Promise<Permission[]> {
+    await mockApiDelay();
+    return SYSTEM_PERMISSIONS;
+  }
 
-  // Get user permissions for context
-  rest.post('/api/permissions/user', async (req, res, ctx) => {
-    const context = await req.json() as AccessContext;
-    const userPermissions = generateUserPermissions(context);
+  /**
+   * Get user permissions for context
+   */
+  static async getUserPermissions(context: AccessContext): Promise<ContextualPermission[]> {
+    await mockApiDelay();
+    return generateUserPermissions(context);
+  }
 
-    return res(
-      ctx.status(200),
-      ctx.json(userPermissions)
-    );
-  }),
-
-  // Check single permission
-  rest.post('/api/permissions/check', async (req, res, ctx) => {
-    const { permission, context } = await req.json() as {
-      permission: string;
-      context: AccessContext;
-    };
+  /**
+   * Check single permission
+   */
+  static async checkPermission(permission: string, context: AccessContext): Promise<{ hasPermission: boolean }> {
+    await mockApiDelay();
 
     const userPermissions = generateUserPermissions(context);
     const hasPermission = userPermissions.some(p =>
@@ -145,18 +140,18 @@ export const rbacMockHandlers: any[] = [
       isPermissionApplicableToContext(p, context)
     );
 
-    return res(
-      ctx.status(200),
-      ctx.json({ hasPermission })
-    );
-  }),
+    return { hasPermission };
+  }
 
-  // Check multiple permissions
-  rest.post('/api/permissions/check-bulk', async (req, res, ctx) => {
-    const bulkCheck = await req.json() as BulkPermissionCheck;
+  /**
+   * Check multiple permissions
+   */
+  static async checkBulkPermissions(bulkCheck: BulkPermissionCheck): Promise<PermissionCheckResult[]> {
+    await mockApiDelay();
+
     const userPermissions = generateUserPermissions(bulkCheck.context);
 
-    const results: PermissionCheckResult[] = bulkCheck.permissions.map(permissionId => {
+    return bulkCheck.permissions.map(permissionId => {
       const permission = userPermissions.find(p => p.id === permissionId);
       const granted = permission?.granted &&
         isPermissionApplicableToContext(permission, bulkCheck.context) || false;
@@ -169,76 +164,53 @@ export const rbacMockHandlers: any[] = [
         context: bulkCheck.context,
       };
     });
+  }
 
-    return res(
-      ctx.status(200),
-      ctx.json(results)
-    );
-  }),
+  /**
+   * Get all roles
+   */
+  static async getRoles(params?: { tenantId?: string; workspaceId?: string }): Promise<Role[]> {
+    await mockApiDelay();
 
-  // Get all roles
-  rest.get('/api/roles', (req, res, ctx) => {
-    const tenantId = req.url.searchParams.get('tenantId');
-    const workspaceId = req.url.searchParams.get('workspaceId');
+    // For now, return all roles since Role interface doesn't have tenantId/workspaceId
+    // In a real implementation, roles might be filtered by context
+    return mockRoles;
+  }
 
-    let filteredRoles = mockRoles;
-
-    if (tenantId) {
-      filteredRoles = filteredRoles.filter(role =>
-        !role.tenantId || role.tenantId === tenantId
-      );
-    }
-
-    if (workspaceId) {
-      filteredRoles = filteredRoles.filter(role =>
-        !role.workspaceId || role.workspaceId === workspaceId
-      );
-    }
-
-    return res(
-      ctx.status(200),
-      ctx.json(filteredRoles)
-    );
-  }),
-
-  // Create role
-  rest.post('/api/roles', async (req, res, ctx) => {
-    const roleData = await req.json() as Partial<Role>;
+  /**
+   * Create role
+   */
+  static async createRole(roleData: Partial<Role>): Promise<Role> {
+    await mockApiDelay();
 
     const newRole: Role = {
       id: `role-${Date.now()}`,
       name: roleData.name || '',
       description: roleData.description || '',
+      type: roleData.type || 'custom',
+      level: roleData.level || 'member',
       permissions: roleData.permissions || [],
       isSystem: false,
-      isActive: roleData.isActive ?? true,
-      tenantId: roleData.tenantId,
-      workspaceId: roleData.workspaceId,
-      userCount: 0,
+      isDefault: false,
+      color: roleData.color || '#1677ff',
       inheritedFrom: roleData.inheritedFrom,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     mockRoles.push(newRole);
+    return newRole;
+  }
 
-    return res(
-      ctx.status(201),
-      ctx.json(newRole)
-    );
-  }),
-
-  // Update role
-  rest.put('/api/roles/:roleId', async (req, res, ctx) => {
-    const { roleId } = req.params;
-    const updates = await req.json() as Partial<Role>;
+  /**
+   * Update role
+   */
+  static async updateRole(roleId: string, updates: Partial<Role>): Promise<Role> {
+    await mockApiDelay();
 
     const roleIndex = mockRoles.findIndex(role => role.id === roleId);
     if (roleIndex === -1) {
-      return res(
-        ctx.status(404),
-        ctx.json({ error: 'Role not found' })
-      );
+      throw new Error('Role not found');
     }
 
     const updatedRole = {
@@ -248,142 +220,109 @@ export const rbacMockHandlers: any[] = [
     };
 
     mockRoles[roleIndex] = updatedRole;
+    return updatedRole;
+  }
 
-    return res(
-      ctx.status(200),
-      ctx.json(updatedRole)
-    );
-  }),
-
-  // Delete role
-  rest.delete('/api/roles/:roleId', (req, res, ctx) => {
-    const { roleId } = req.params;
+  /**
+   * Delete role
+   */
+  static async deleteRole(roleId: string): Promise<void> {
+    await mockApiDelay();
 
     const roleIndex = mockRoles.findIndex(role => role.id === roleId);
     if (roleIndex === -1) {
-      return res(
-        ctx.status(404),
-        ctx.json({ error: 'Role not found' })
-      );
+      throw new Error('Role not found');
     }
 
     // Check if role is system role
     if (mockRoles[roleIndex].isSystem) {
-      return res(
-        ctx.status(400),
-        ctx.json({ error: 'Cannot delete system role' })
-      );
+      throw new Error('Cannot delete system role');
     }
 
     // Check if role has assigned users
     const hasAssignedUsers = mockUserRoleAssignments.some(assignment =>
-      assignment.roleIds.includes(roleId as string)
+      assignment.roleIds.includes(roleId)
     );
 
     if (hasAssignedUsers) {
-      return res(
-        ctx.status(400),
-        ctx.json({ error: 'Cannot delete role with assigned users' })
-      );
+      throw new Error('Cannot delete role with assigned users');
     }
 
     mockRoles.splice(roleIndex, 1);
+  }
 
-    return res(
-      ctx.status(204)
-    );
-  }),
-
-  // Get user role assignments
-  rest.get('/api/users/roles', (req, res, ctx) => {
-    const tenantId = req.url.searchParams.get('tenantId');
-    const workspaceId = req.url.searchParams.get('workspaceId');
-    const userId = req.url.searchParams.get('userId');
+  /**
+   * Get user role assignments
+   */
+  static async getUserRoles(params?: { tenantId?: string; workspaceId?: string; userId?: string }): Promise<MockUserRoleAssignment[]> {
+    await mockApiDelay();
 
     let filteredAssignments = mockUserRoleAssignments;
 
-    if (tenantId) {
+    if (params?.tenantId) {
       filteredAssignments = filteredAssignments.filter(assignment =>
-        assignment.tenantId === tenantId
+        assignment.tenantId === params.tenantId
       );
     }
 
-    if (workspaceId) {
+    if (params?.workspaceId) {
       filteredAssignments = filteredAssignments.filter(assignment =>
-        assignment.workspaceId === workspaceId
+        assignment.workspaceId === params.workspaceId
       );
     }
 
-    if (userId) {
+    if (params?.userId) {
       filteredAssignments = filteredAssignments.filter(assignment =>
-        assignment.userId === userId
+        assignment.userId === params.userId
       );
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json(filteredAssignments)
-    );
-  }),
+    return filteredAssignments;
+  }
 
-  // Assign roles to user
-  rest.post('/api/users/:userId/roles', async (req, res, ctx) => {
-    const { userId } = req.params;
-    const { roleIds, tenantId, workspaceId } = await req.json() as {
-      roleIds: string[];
-      tenantId?: string;
-      workspaceId?: string;
-    };
+  /**
+   * Assign roles to user
+   */
+  static async assignUserRoles(userId: string, data: { roleIds: string[]; tenantId?: string; workspaceId?: string }): Promise<MockUserRoleAssignment> {
+    await mockApiDelay();
 
     // Remove existing assignments for this context
     mockUserRoleAssignments = mockUserRoleAssignments.filter(assignment =>
       !(assignment.userId === userId &&
-        assignment.tenantId === tenantId &&
-        assignment.workspaceId === workspaceId)
+        assignment.tenantId === data.tenantId &&
+        assignment.workspaceId === data.workspaceId)
     );
 
     // Add new assignment
     const newAssignment: MockUserRoleAssignment = {
-      userId: userId as string,
-      roleIds,
-      tenantId,
-      workspaceId,
+      userId,
+      roleIds: data.roleIds,
+      tenantId: data.tenantId,
+      workspaceId: data.workspaceId,
       assignedAt: new Date().toISOString(),
-      assignedBy: 'current-user', // Would be actual user ID
+      assignedBy: 'current-user',
     };
 
     mockUserRoleAssignments.push(newAssignment);
 
-    // Update role user counts
-    roleIds.forEach(roleId => {
-      const role = mockRoles.find(r => r.id === roleId);
-      if (role) {
-        role.userCount = mockUserRoleAssignments.filter(assignment =>
-          assignment.roleIds.includes(roleId)
-        ).length;
-      }
-    });
+    // TODO: Update role user counts in a real implementation
 
-    return res(
-      ctx.status(200),
-      ctx.json(newAssignment)
-    );
-  }),
+    return newAssignment;
+  }
 
-  // Remove role from user
-  rest.delete('/api/users/:userId/roles/:roleId', (req, res, ctx) => {
-    const { userId, roleId } = req.params;
+  /**
+   * Remove role from user
+   */
+  static async removeUserRole(userId: string, roleId: string): Promise<void> {
+    await mockApiDelay();
 
     // Find and update assignment
     const assignmentIndex = mockUserRoleAssignments.findIndex(assignment =>
-      assignment.userId === userId && assignment.roleIds.includes(roleId as string)
+      assignment.userId === userId && assignment.roleIds.includes(roleId)
     );
 
     if (assignmentIndex === -1) {
-      return res(
-        ctx.status(404),
-        ctx.json({ error: 'Role assignment not found' })
-      );
+      throw new Error('Role assignment not found');
     }
 
     const assignment = mockUserRoleAssignments[assignmentIndex];
@@ -394,23 +333,16 @@ export const rbacMockHandlers: any[] = [
       mockUserRoleAssignments.splice(assignmentIndex, 1);
     }
 
-    // Update role user count
-    const role = mockRoles.find(r => r.id === roleId);
-    if (role) {
-      role.userCount = mockUserRoleAssignments.filter(assignment =>
-        assignment.roleIds.includes(roleId as string)
-      ).length;
-    }
+    // TODO: Update role user count in a real implementation
+  }
 
-    return res(
-      ctx.status(204)
-    );
-  }),
+  /**
+   * Get role templates
+   */
+  static async getRoleTemplates(): Promise<any[]> {
+    await mockApiDelay();
 
-  // Get role templates
-  rest.get('/api/role-templates', (req, res, ctx) => {
-    // Role templates would be predefined templates
-    const templates = [
+    return [
       {
         id: 'admin-template',
         name: 'Administrator Template',
@@ -430,50 +362,46 @@ export const rbacMockHandlers: any[] = [
         permissions: ['workspace.read', 'dashboard.read'],
       },
     ];
+  }
 
-    return res(
-      ctx.status(200),
-      ctx.json(templates)
-    );
-  }),
+  /**
+   * Export RBAC configuration
+   */
+  static async exportRBAC(): Promise<any> {
+    await mockApiDelay();
 
-  // Export RBAC configuration
-  rest.get('/api/rbac/export', (req, res, ctx) => {
-    const exportData = {
+    return {
       roles: mockRoles,
       assignments: mockUserRoleAssignments,
       permissions: SYSTEM_PERMISSIONS,
       exportedAt: new Date().toISOString(),
     };
+  }
 
-    return res(
-      ctx.status(200),
-      ctx.json(exportData)
-    );
-  }),
-
-  // Import RBAC configuration
-  rest.post('/api/rbac/import', async (req, res, ctx) => {
-    const importData = await req.json();
+  /**
+   * Import RBAC configuration
+   */
+  static async importRBAC(importData: any): Promise<{ message: string }> {
+    await mockApiDelay();
 
     // Validate import data structure
     if (!importData.roles || !importData.assignments) {
-      return res(
-        ctx.status(400),
-        ctx.json({ error: 'Invalid import data structure' })
-      );
+      throw new Error('Invalid import data structure');
     }
 
     // Replace mock data with imported data
     mockRoles = [...SYSTEM_ROLES, ...importData.roles.filter((role: Role) => !role.isSystem)];
     mockUserRoleAssignments = importData.assignments;
 
-    return res(
-      ctx.status(200),
-      ctx.json({ message: 'RBAC configuration imported successfully' })
-    );
-  }),
-  */
+    return { message: 'RBAC configuration imported successfully' };
+  }
+}
+
+/**
+ * MSW Handlers (commented out until MSW is installed)
+ */
+export const rbacMockHandlers: any[] = [
+  // All MSW handlers commented out until MSW is installed
 ];
 
 // Utility functions for testing
@@ -523,4 +451,4 @@ export const rbacMockUtils = {
   generateUserPermissions,
 };
 
-export default rbacMockHandlers;
+export default RBACMockHandlers;
