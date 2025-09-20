@@ -395,7 +395,7 @@ export const initializeTenantStore = (
   tenantService.getUserTenants()
     .then(tenants => {
       store.setUserTenants(tenants);
-      if (tenants.length > 0 && !store.currentTenant) {
+      if (tenants.length > 0) {
         store.switchTenant(tenants[0].id);
       }
     })
