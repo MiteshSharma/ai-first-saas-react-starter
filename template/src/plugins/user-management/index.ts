@@ -23,6 +23,10 @@ export { default as UserService } from './services/UserService';
 // Export store
 export { useUserManagementStore, useUserManagementActions, useUserManagementData } from './stores/userManagementStore';
 
+// Export pages
+export { default as UserManagementPage } from './pages/UserManagementPage';
+export { default as UserSettingsPage } from './pages/UserSettingsPage';
+
 // Export API helpers
 export { default as UserManagementBackendHelper } from './api/backendHelper';
 

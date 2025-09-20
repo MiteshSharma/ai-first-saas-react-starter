@@ -1,444 +1,223 @@
 /**
  * @fileoverview Workspace Settings Page
  *
- * Page for managing workspace settings and configuration
+ * Simple page for viewing and managing workspace details
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   Card,
-  Form,
   Input,
-  Select,
-  Switch,
   Button,
-  Space,
   Typography,
-  Divider,
-  Alert,
+  Tabs,
+  Space,
   message,
+  Tooltip,
   Row,
-  Col,
-  Tag
+  Col
 } from 'antd';
 import {
   SettingOutlined,
-  SaveOutlined,
-  LockOutlined,
-  TeamOutlined,
-  GlobalOutlined,
-  SlackOutlined,
-  GithubOutlined
+  EditOutlined,
+  CopyOutlined,
+  CheckCircleOutlined,
+  CloseOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
 import { useCoreContext } from '../../../core/context/CoreContext';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import { usePermissions } from '../../../core/permissions/usePermissions';
-import { WorkspaceSettings } from '../../../core/types';
 
 const { Title, Text } = Typography;
-const { TextArea } = Input;
-const { Option } = Select;
+const { TabPane } = Tabs;
 
 /**
  * Workspace Settings Page Component
  */
 export const WorkspaceSettingsPage: React.FC = () => {
   const { state: { currentWorkspace } } = useCoreContext();
-  const { updateWorkspaceSettings, loading } = useWorkspaceStore();
-  const { hasPermission } = usePermissions();
+  const { updateWorkspace, loading } = useWorkspaceStore();
 
-  const [form] = Form.useForm();
-  const [hasChanges, setHasChanges] = useState(false);
-  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
 
-  // Check permissions
-  const canManageSettings = hasPermission('workspace.settings', 'manage');
-
-  // Initialize form with current workspace settings
   useEffect(() => {
-    if (currentWorkspace?.settings) {
-      const initialSettings = currentWorkspace.settings;
-      setSettings(initialSettings);
-      form.setFieldsValue({
-        // Access Control
-        'access.visibility': initialSettings.access.visibility,
-        'access.joinPolicy': initialSettings.access.joinPolicy,
-        'access.externalAccess': initialSettings.access.externalAccess,
-
-        // Data Management
-        'data.allowDataExport': initialSettings.data.allowDataExport,
-        'data.backupEnabled': initialSettings.data.backupEnabled,
-        'data.dataRetentionDays': initialSettings.data.dataRetentionDays,
-
-        // Integrations
-        'integrations.slackChannel': initialSettings.integrations?.slackChannel,
-        'integrations.githubRepo': initialSettings.integrations?.githubRepo,
-        'integrations.jiraProject': initialSettings.integrations?.jiraProject,
-
-        // Notifications
-        'notifications.projectUpdates': initialSettings.notifications?.projectUpdates,
-        'notifications.memberActivity': initialSettings.notifications?.memberActivity,
-        'notifications.systemAlerts': initialSettings.notifications?.systemAlerts
-      });
+    if (currentWorkspace?.name) {
+      setEditedName(currentWorkspace.name);
     }
-  }, [currentWorkspace, form]);
+  }, [currentWorkspace]);
 
   /**
-   * Handle form value changes
+   * Handle workspace name save
    */
-  const handleFormChange = () => {
-    setHasChanges(true);
-  };
+  const handleNameSave = async () => {
+    if (!currentWorkspace || !editedName.trim()) {
+      setIsEditingName(false);
+      setEditedName(currentWorkspace?.name || '');
+      return;
+    }
 
-  /**
-   * Handle save settings
-   */
-  const handleSave = async () => {
-    if (!currentWorkspace || !canManageSettings) return;
+    if (editedName === currentWorkspace.name) {
+      setIsEditingName(false);
+      return;
+    }
 
     try {
-      const values = await form.validateFields();
-
-      // Construct settings object
-      const updatedSettings: Partial<WorkspaceSettings> = {
-        access: {
-          visibility: values['access.visibility'],
-          joinPolicy: values['access.joinPolicy'],
-          externalAccess: values['access.externalAccess']
-        },
-        data: {
-          allowDataExport: values['data.allowDataExport'],
-          backupEnabled: values['data.backupEnabled'],
-          dataRetentionDays: values['data.dataRetentionDays']
-        },
-        integrations: {
-          slackChannel: values['integrations.slackChannel'],
-          githubRepo: values['integrations.githubRepo'],
-          jiraProject: values['integrations.jiraProject']
-        },
-        notifications: {
-          projectUpdates: values['notifications.projectUpdates'],
-          memberActivity: values['notifications.memberActivity'],
-          systemAlerts: values['notifications.systemAlerts']
-        }
-      };
-
-      await updateWorkspaceSettings(currentWorkspace.id, updatedSettings);
-      setHasChanges(false);
-      message.success('Workspace settings updated successfully');
+      await updateWorkspace(currentWorkspace.id, { name: editedName.trim() });
+      message.success('Workspace name updated successfully');
+      setIsEditingName(false);
     } catch (error) {
-      message.error('Failed to update workspace settings');
+      message.error('Failed to update workspace name');
+      setEditedName(currentWorkspace.name);
+      setIsEditingName(false);
     }
   };
 
   /**
-   * Handle reset form
+   * Handle copy workspace ID to clipboard
    */
-  const handleReset = () => {
-    if (currentWorkspace?.settings) {
-      form.resetFields();
-      setHasChanges(false);
+  const handleCopyWorkspaceId = async () => {
+    if (!currentWorkspace?.id) return;
+
+    try {
+      await navigator.clipboard.writeText(currentWorkspace.id);
+      message.success('Workspace ID copied to clipboard');
+    } catch (error) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = currentWorkspace.id;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      message.success('Workspace ID copied to clipboard');
     }
+  };
+
+  const mockWorkspace = currentWorkspace || {
+    id: '2ecd2f32dewd3e32',
+    name: 'Production Workspace'
   };
 
   if (!currentWorkspace) {
     return (
-      <Alert
-        message="No Workspace Selected"
-        description="Please select a workspace to manage its settings."
-        type="warning"
-        showIcon
-      />
-    );
-  }
-
-  if (!canManageSettings) {
-    return (
-      <Alert
-        message="Access Denied"
-        description="You don't have permission to manage workspace settings."
-        type="error"
-        showIcon
-      />
+      <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+        <Card>
+          <Text type="secondary">No workspace selected</Text>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1200 }}>
-      {/* Header */}
+    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+      {/* Header Section */}
       <div style={{ marginBottom: 24 }}>
-        <Title level={2}>
-          <SettingOutlined style={{ marginRight: 8 }} />
-          Workspace Settings
+        <Title level={2} style={{ margin: 0 }}>
+          Workspace settings
         </Title>
-        <Text type="secondary">
-          Configure settings for <strong>{currentWorkspace.name}</strong>
-        </Text>
-        <div style={{ marginTop: 8 }}>
-          <Tag color="blue">{currentWorkspace.type}</Tag>
-          <Tag color={currentWorkspace.status === 'active' ? 'green' : 'orange'}>
-            {currentWorkspace.status}
-          </Tag>
-        </div>
       </div>
 
-      <Form
-        form={form}
-        layout="vertical"
-        onValuesChange={handleFormChange}
-      >
-        <Row gutter={24}>
-          <Col span={16}>
-            {/* Access Control */}
-            <Card
-              title={
-                <Space>
-                  <LockOutlined />
-                  Access Control
+      {/* Tabs Section */}
+      <Card>
+        <Tabs defaultActiveKey="general" size="large">
+          <TabPane
+            tab={
+              <span>
+                <SettingOutlined />
+                General
+              </span>
+            }
+            key="general"
+          >
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+              {/* Workspace Details Card */}
+              <Card
+                title={
+                  <Space>
+                    <FolderOutlined />
+                    <Text strong>Workspace Details</Text>
+                  </Space>
+                }
+                style={{ border: '1px solid #d9d9d9' }}
+              >
+                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                  {/* Workspace Name */}
+                  <Row align="middle" justify="space-between">
+                    <Col>
+                      <Text type="secondary">Workspace name</Text>
+                    </Col>
+                    <Col>
+                      {isEditingName ? (
+                        <Space>
+                          <Input
+                            value={editedName}
+                            onChange={(e) => setEditedName(e.target.value)}
+                            onPressEnter={handleNameSave}
+                            style={{ width: 200 }}
+                            autoFocus
+                          />
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<CheckCircleOutlined />}
+                            onClick={handleNameSave}
+                            loading={loading}
+                          />
+                          <Button
+                            size="small"
+                            icon={<CloseOutlined />}
+                            onClick={() => {
+                              setEditedName(mockWorkspace.name || '');
+                              setIsEditingName(false);
+                            }}
+                          />
+                        </Space>
+                      ) : (
+                        <Space>
+                          <Text strong style={{ fontSize: '16px' }}>
+                            {mockWorkspace.name}
+                          </Text>
+                          <Tooltip title="Edit workspace name">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={() => setIsEditingName(true)}
+                            />
+                          </Tooltip>
+                        </Space>
+                      )}
+                    </Col>
+                  </Row>
+
+                  {/* Workspace ID */}
+                  <Row align="middle" justify="space-between">
+                    <Col>
+                      <Text type="secondary">Workspace ID</Text>
+                    </Col>
+                    <Col>
+                      <Space>
+                        <Text code style={{ fontSize: '14px' }}>
+                          {mockWorkspace.id}
+                        </Text>
+                        <Tooltip title="Copy workspace ID">
+                          <Button
+                            type="text"
+                            icon={<CopyOutlined />}
+                            size="small"
+                            onClick={handleCopyWorkspaceId}
+                          />
+                        </Tooltip>
+                      </Space>
+                    </Col>
+                  </Row>
                 </Space>
-              }
-              style={{ marginBottom: 24 }}
-            >
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    name="access.visibility"
-                    label="Workspace Visibility"
-                    help="Who can see this workspace"
-                  >
-                    <Select>
-                      <Option value="private">
-                        <Space>
-                          <LockOutlined />
-                          Private - Only members
-                        </Space>
-                      </Option>
-                      <Option value="tenant">
-                        <Space>
-                          <TeamOutlined />
-                          Tenant - All tenant members
-                        </Space>
-                      </Option>
-                      <Option value="public">
-                        <Space>
-                          <GlobalOutlined />
-                          Public - Anyone with access
-                        </Space>
-                      </Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="access.joinPolicy"
-                    label="Join Policy"
-                    help="How new members can join"
-                  >
-                    <Select>
-                      <Option value="open">Open - Anyone can join</Option>
-                      <Option value="request">Request - Approval required</Option>
-                      <Option value="invite_only">Invite Only - Invitation required</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item
-                name="access.externalAccess"
-                label="External Access"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-              <Text type="secondary">
-                Allow external users to access this workspace
-              </Text>
-            </Card>
-
-            {/* Data Management */}
-            <Card
-              title="Data Management"
-              style={{ marginBottom: 24 }}
-            >
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    name="data.allowDataExport"
-                    label="Data Export"
-                    valuePropName="checked"
-                  >
-                    <Switch />
-                  </Form.Item>
-                  <Text type="secondary">
-                    Allow members to export workspace data
-                  </Text>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="data.backupEnabled"
-                    label="Automatic Backup"
-                    valuePropName="checked"
-                  >
-                    <Switch />
-                  </Form.Item>
-                  <Text type="secondary">
-                    Enable automatic data backup
-                  </Text>
-                </Col>
-              </Row>
-
-              <Form.Item
-                name="data.dataRetentionDays"
-                label="Data Retention (Days)"
-                help="Number of days to retain deleted data (0 = indefinite)"
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  max={3650}
-                  placeholder="365"
-                />
-              </Form.Item>
-            </Card>
-
-            {/* Integrations */}
-            <Card
-              title="Integrations"
-              style={{ marginBottom: 24 }}
-            >
-              <Form.Item
-                name="integrations.slackChannel"
-                label={
-                  <Space>
-                    <SlackOutlined />
-                    Slack Channel
-                  </Space>
-                }
-                help="Slack channel for workspace notifications"
-              >
-                <Input placeholder="#workspace-updates" />
-              </Form.Item>
-
-              <Form.Item
-                name="integrations.githubRepo"
-                label={
-                  <Space>
-                    <GithubOutlined />
-                    GitHub Repository
-                  </Space>
-                }
-                help="Connected GitHub repository"
-              >
-                <Input placeholder="organization/repository" />
-              </Form.Item>
-
-              <Form.Item
-                name="integrations.jiraProject"
-                label="Jira Project"
-                help="Connected Jira project key"
-              >
-                <Input placeholder="PROJ" />
-              </Form.Item>
-            </Card>
-          </Col>
-
-          <Col span={8}>
-            {/* Notifications */}
-            <Card
-              title="Notifications"
-              style={{ marginBottom: 24 }}
-            >
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <div>
-                  <Form.Item
-                    name="notifications.projectUpdates"
-                    valuePropName="checked"
-                    style={{ marginBottom: 8 }}
-                  >
-                    <Switch size="small" />
-                  </Form.Item>
-                  <div>
-                    <Text strong>Project Updates</Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Notifications about project milestones and updates
-                    </Text>
-                  </div>
-                </div>
-
-                <Divider style={{ margin: '12px 0' }} />
-
-                <div>
-                  <Form.Item
-                    name="notifications.memberActivity"
-                    valuePropName="checked"
-                    style={{ marginBottom: 8 }}
-                  >
-                    <Switch size="small" />
-                  </Form.Item>
-                  <div>
-                    <Text strong>Member Activity</Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Notifications about member joins, leaves, and role changes
-                    </Text>
-                  </div>
-                </div>
-
-                <Divider style={{ margin: '12px 0' }} />
-
-                <div>
-                  <Form.Item
-                    name="notifications.systemAlerts"
-                    valuePropName="checked"
-                    style={{ marginBottom: 8 }}
-                  >
-                    <Switch size="small" />
-                  </Form.Item>
-                  <div>
-                    <Text strong>System Alerts</Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Important system notifications and maintenance alerts
-                    </Text>
-                  </div>
-                </div>
-              </Space>
-            </Card>
-
-            {/* Actions */}
-            <Card>
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Button
-                  type="primary"
-                  icon={<SaveOutlined />}
-                  onClick={handleSave}
-                  loading={loading}
-                  disabled={!hasChanges}
-                  block
-                >
-                  Save Settings
-                </Button>
-                <Button
-                  onClick={handleReset}
-                  disabled={!hasChanges}
-                  block
-                >
-                  Reset Changes
-                </Button>
-              </Space>
-
-              {hasChanges && (
-                <Alert
-                  message="You have unsaved changes"
-                  type="warning"
-                  style={{ marginTop: 16 }}
-                />
-              )}
-            </Card>
-          </Col>
-        </Row>
-      </Form>
+              </Card>
+            </Space>
+          </TabPane>
+        </Tabs>
+      </Card>
     </div>
   );
 };

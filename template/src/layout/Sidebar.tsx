@@ -76,12 +76,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
           order: 0
         },
         {
-          id: 'tenant-settings',
-          label: 'Settings',
-          path: '/tenants/settings',
-          order: 1
-        },
-        {
           id: 'tenant-members',
           label: 'Members',
           path: '/tenants/members',

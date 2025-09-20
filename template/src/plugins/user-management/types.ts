@@ -160,6 +160,8 @@ export interface UpdateUserPreferencesRequest {
 export interface UpdateSecuritySettingsRequest {
   twoFactorEnabled?: boolean;
   sessionTimeout?: number;
+  password?: string;
+  currentPassword?: string;
 }
 
 export interface UploadAvatarResponse {
@@ -212,6 +214,7 @@ export interface UserManagementActions {
   resendInvitation: (invitationId: string) => Promise<void>;
 
   // User profile actions
+  updateProfile: (data: UpdateUserProfileRequest) => Promise<void>;
   uploadAvatar: (file: File) => Promise<UploadAvatarResponse>;
 
   // User preferences actions

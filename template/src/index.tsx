@@ -4,6 +4,30 @@ import App from './App';
 import { setupMocks } from './mocks';
 import { initAllPerformanceMonitoring } from './core/services/performance';
 
+// Suppress ResizeObserver errors (common with Ant Design components)
+const originalConsoleError = console.error;
+console.error = (...args: any[]) => {
+  const errorMessage = args[0];
+  if (
+    typeof errorMessage === 'string' &&
+    errorMessage.includes('ResizeObserver loop completed with undelivered notifications')
+  ) {
+    return; // Silently ignore ResizeObserver errors
+  }
+  originalConsoleError.apply(console, args);
+};
+
+// Handle ResizeObserver errors in window.onerror
+window.onerror = (message) => {
+  if (
+    typeof message === 'string' &&
+    message.includes('ResizeObserver loop completed with undelivered notifications')
+  ) {
+    return true; // Prevent error from showing
+  }
+  return false;
+};
+
 // Initialize performance monitoring
 initAllPerformanceMonitoring();
 

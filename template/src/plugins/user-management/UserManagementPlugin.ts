@@ -176,11 +176,17 @@ export const userManagementPlugin: Plugin = {
     try {
       // Register components lazily for better performance
       const { default: UserManagementPage } = await import('./pages/UserManagementPage');
+      const { default: UserSettingsPage } = await import('./pages/UserSettingsPage');
 
       // Register main user management routes
       context.registerRoute('/users', UserManagementPage);
       context.registerRoute('/users/management', UserManagementPage);
       context.registerRoute('/users/invitations', UserManagementPage);
+
+      // Register user settings/profile routes
+      context.registerRoute('/settings', UserSettingsPage);
+      context.registerRoute('/settings/profile', UserSettingsPage);
+      context.registerRoute('/profile', UserSettingsPage);
 
       // Setup event listeners for user management events
       context.eventBus.on(USER_MANAGEMENT_EVENTS.USER_INVITED, handleUserInvited);
