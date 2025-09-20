@@ -103,9 +103,7 @@ export const setupTenantMocks = (mock: MockAdapter) => {
       id: `tenant-${Date.now()}`,
       name: payload.name,
       slug: payload.slug || (payload.name || 'unnamed').toLowerCase().replace(/\s+/g, '-'),
-      type: payload.type || 'team',
       status: 'active',
-      description: payload.description,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       settings: {

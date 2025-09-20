@@ -61,13 +61,11 @@ export const TenantDashboard: React.FC = () => {
     }
   }, [currentTenant, loadTenantUsers]);
 
-  const handleCreateTenant = async (values: { name: string; slug: string; description?: string }) => {
+  const handleCreateTenant = async (values: { name: string; slug: string }) => {
     try {
       await createTenant({
         name: values.name,
-        slug: values.slug,
-        type: 'team', // Default type
-        description: values.description
+        slug: values.slug
       });
       setCreateModalVisible(false);
       form.resetFields();
@@ -188,7 +186,6 @@ export const TenantDashboard: React.FC = () => {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <Title level={2}>{currentTenant.name}</Title>
-        <Text type="secondary">{currentTenant.description}</Text>
         <div style={{ marginTop: 8 }}>
           <Tag color="blue">{currentTenant.subscription.plan}</Tag>
           <Tag color={currentTenant.subscription.status === 'active' ? 'green' : 'red'}>
@@ -341,15 +338,6 @@ export const TenantDashboard: React.FC = () => {
             <Input placeholder="e.g., my-company" />
           </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="Description"
-          >
-            <TextArea
-              rows={3}
-              placeholder="Brief description of the tenant"
-            />
-          </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>

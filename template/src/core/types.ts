@@ -109,7 +109,6 @@ export interface Tenant {
   id: string;
   name: string;
   slug: string;
-  type: 'personal' | 'team' | 'enterprise';
   status: 'active' | 'suspended' | 'deleted';
   settings: TenantSettings;
   createdAt: ISODate;
@@ -220,7 +219,6 @@ export interface PermissionContext {
 export interface CreateTenantRequest {
   name: string;
   slug: string;
-  type: 'personal' | 'team' | 'enterprise';
   settings?: Partial<TenantSettings>;
 }
 
@@ -393,7 +391,6 @@ export function isTenant(value: any): value is Tenant {
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     typeof value.slug === 'string' &&
-    ['personal', 'team', 'enterprise'].includes(value.type) &&
     ['active', 'suspended', 'deleted'].includes(value.status) &&
     typeof value.settings === 'object' &&
     isISODate(value.createdAt) &&

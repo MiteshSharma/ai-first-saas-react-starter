@@ -23,9 +23,7 @@ const mockTenants: Tenant[] = [
     id: 'tenant-1',
     name: 'Acme Corporation',
     slug: 'acme-corp',
-    type: 'enterprise' as const,
     status: 'active' as const,
-    description: 'Main corporate tenant',
     settings: {
       security: {
         ssoEnabled: true,
@@ -74,9 +72,7 @@ const mockTenants: Tenant[] = [
     id: 'tenant-2',
     name: 'Startup Inc',
     slug: 'startup-inc',
-    type: 'team' as const,
     status: 'active' as const,
-    description: 'Growing startup tenant',
     settings: {
       security: {
         ssoEnabled: false,
@@ -180,9 +176,7 @@ export class TenantMockHandlers {
       id: `tenant-${Date.now()}`,
       name: data.name,
       slug: data.slug,
-      type: data.type,
       status: 'active',
-      description: data.description,
       settings: {
         security: {
           ssoEnabled: false,
@@ -244,7 +238,6 @@ export class TenantMockHandlers {
     const updatedTenant: Tenant = {
       ...existingTenant,
       name: data.name || existingTenant.name,
-      description: data.description !== undefined ? data.description : existingTenant.description,
       settings: data.settings ? {
         ...existingTenant.settings,
         ...data.settings

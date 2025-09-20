@@ -27,8 +27,14 @@ const workspacePlugin: Plugin = {
       // Initialize workspace store with CoreContext
       initializeWorkspaceStore(context.core.setCurrentWorkspace);
 
+      // Import CreateWorkspace component
+      const { default: CreateWorkspace } = await import('./pages/CreateWorkspace');
+
       // Register workspace routes with authentication protection
       context.registerRoute('/workspaces/settings', createProtectedRoute(WorkspaceSettingsPage));
+
+      // Register CreateWorkspace as standalone route (full-screen, no sidebar)
+      context.registerStandaloneRoute('/workspaces/create', createProtectedRoute(CreateWorkspace));
 
       // Register workspace switcher as a header widget
       context.registerHeaderWidget('workspace-switcher', () => React.createElement(WorkspaceSwitcher));

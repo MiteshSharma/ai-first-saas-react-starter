@@ -31,12 +31,16 @@ const tenantPlugin: Plugin = {
       // Import additional components
       const { default: TenantSettingsPage } = await import('./pages/TenantSettingsPage');
       const { default: TenantMembersPage } = await import('./pages/TenantMembersPage');
+      const { default: CreateTenant } = await import('./pages/CreateTenant');
 
       // Register tenant routes with authentication protection
       context.registerRoute('/tenants', createProtectedRoute(TenantDashboard));
       context.registerRoute('/tenants/dashboard', createProtectedRoute(TenantDashboard));
       context.registerRoute('/tenants/settings', createProtectedRoute(TenantSettingsPage));
       context.registerRoute('/tenants/members', createProtectedRoute(TenantMembersPage));
+
+      // Register CreateTenant as standalone route (full-screen, no sidebar)
+      context.registerStandaloneRoute('/tenants/create', createProtectedRoute(CreateTenant));
 
       // Register tenant switcher as a header widget
       context.registerHeaderWidget('tenant-switcher', () => React.createElement(TenantSwitcher));

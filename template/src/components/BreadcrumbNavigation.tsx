@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dropdown, Button, Typography, Space } from 'antd';
 import {
   DownOutlined,
@@ -32,6 +33,7 @@ export const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
   onCreateTenant,
   onCreateWorkspace
 }) => {
+  const navigate = useNavigate();
   const { theme } = useLayout();
   const {
     currentTenant,
@@ -69,12 +71,12 @@ export const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
 
   const handleCreateTenant = () => {
     setTenantDropdownOpen(false);
-    onCreateTenant?.();
+    navigate('/tenants/create');
   };
 
   const handleCreateWorkspace = () => {
     setWorkspaceDropdownOpen(false);
-    onCreateWorkspace?.();
+    navigate('/workspaces/create');
   };
 
   // Tenant dropdown menu items

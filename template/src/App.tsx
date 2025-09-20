@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, useRoutes } from 'react-router-dom';
-import { getDynamicRoutes } from './router/routes';
+import { getDynamicRoutes, getStandaloneRoutes } from './router/routes';
 
 // Import new plugin system (Plan 3)
 import { eventBus, CORE_EVENTS, PluginManager } from './core/plugin-system';
@@ -19,6 +19,7 @@ import './plugins/workspace-management';
 
 const AppRoutes: React.FC = () => {
   const [routes, setRoutes] = React.useState(() => getDynamicRoutes());
+  const [standaloneRoutes, setStandaloneRoutes] = React.useState(() => getStandaloneRoutes());
 
   React.useEffect(() => {
     // Initialize auth state from localStorage first
@@ -27,7 +28,8 @@ const AppRoutes: React.FC = () => {
     // Update routes when plugins are loaded
     const updateRoutes = () => {
       setRoutes(getDynamicRoutes());
-    }; 
+      setStandaloneRoutes(getStandaloneRoutes());
+    };
 
     // Listen for plugin events
     const unsubscribe = eventBus.on(CORE_EVENTS.PLUGIN_LOADED, updateRoutes);
@@ -41,7 +43,25 @@ const AppRoutes: React.FC = () => {
     };
   }, []);
 
-  const routeElements = useRoutes(routes);
+  // Combine layout routes with standalone routes
+  const allRoutes = [...routes, ...standaloneRoutes];
+  const routeElements = useRoutes(allRoutes);
+
+  // Debug: Log routes for debugging
+  React.useEffect(() => {
+    console.log('Debug - Regular routes:', routes.map(r => r.path));
+    console.log('Debug - Standalone routes:', standaloneRoutes.map(r => r.path));
+    console.log('Debug - All routes:', allRoutes.map(r => r.path));
+  }, [routes, standaloneRoutes, allRoutes]);
+
+  // Check if current route is standalone
+  const currentPath = window.location.pathname;
+  const isStandaloneRoute = standaloneRoutes.some(route => route.path === currentPath);
+
+  if (isStandaloneRoute) {
+    return <>{routeElements}</>;
+  }
+
   return (
     <MainLayout>
       {routeElements}

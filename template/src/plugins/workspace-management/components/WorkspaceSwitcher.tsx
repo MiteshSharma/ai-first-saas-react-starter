@@ -4,7 +4,8 @@
  * Dropdown component for switching between workspaces
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Select,
   Button,
@@ -13,10 +14,6 @@ import {
   Badge,
   Divider,
   Typography,
-  Tooltip,
-  Modal,
-  Form,
-  Input,
   message
 } from 'antd';
 import {
@@ -28,11 +25,10 @@ import {
 } from '@ant-design/icons';
 import { useCoreContext } from '../../../core/context/CoreContext';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import { CreateWorkspacePayload, WorkspaceType } from '../types';
+import { WorkspaceType } from '../types';
 
 const { Option, OptGroup } = Select;
 const { Text } = Typography;
-const { TextArea } = Input;
 
 /**
  * Icon mapping for workspace types
@@ -75,6 +71,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   showCreateButton = true,
   onWorkspaceChange
 }) => {
+  const navigate = useNavigate();
   const { state: { currentTenant, currentWorkspace } } = useCoreContext();
   const {
     workspaces,
@@ -82,12 +79,9 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     error,
     loadWorkspaces,
     switchWorkspace,
-    createWorkspace,
     clearError
   } = useWorkspaceStore();
 
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [form] = Form.useForm();
 
   // Load workspaces when tenant changes
   useEffect(() => {
@@ -124,23 +118,9 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   /**
    * Handle workspace creation
    */
-  const handleCreateWorkspace = async (values: CreateWorkspacePayload) => {
-    if (!currentTenant) {
-      message.error('No tenant selected');
-      return;
-    }
-
-    try {
-      const workspace = await createWorkspace(currentTenant.id, values);
-      setCreateModalVisible(false);
-      form.resetFields();
-      message.success('Workspace created successfully');
-
-      // Switch to the new workspace
-      await switchWorkspace(workspace.id);
-    } catch (error) {
-      message.error('Failed to create workspace');
-    }
+  const handleCreateWorkspace = () => {
+    console.log('🎯 Create Workspace button clicked!');
+    navigate('/workspaces/create');
   };
 
   /**
@@ -181,162 +161,60 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       <Select
         placeholder="No tenant selected"
         disabled
-        style={style}
+        style={{ minWidth: 200, ...style }}
       />
     );
   }
 
   return (
     <>
-      <Space.Compact style={style}>
-        <Select
-          value={currentWorkspace?.id}
-          placeholder={placeholder}
-          onChange={handleWorkspaceSwitch}
-          loading={loading}
-          disabled={disabled}
-          style={{ minWidth: 200, flex: 1 }}
-          dropdownRender={menu => (
-            <div>
-              {menu}
-              {showCreateButton && (
-                <>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Space style={{ padding: '8px 12px' }}>
-                    <Button
-                      type="text"
-                      icon={<PlusOutlined />}
-                      onClick={() => setCreateModalVisible(true)}
-                      style={{ width: '100%', textAlign: 'left' }}
-                    >
-                      Create New Workspace
-                    </Button>
-                  </Space>
-                </>
-              )}
-            </div>
-          )}
-        >
-          {Object.entries(groupedWorkspaces).map(([type, workspaceList]) => (
-            <OptGroup
-              key={type}
-              label={
-                <Space>
-                  {WORKSPACE_TYPE_ICONS[type as WorkspaceType]}
-                  <Text style={{ textTransform: 'capitalize' }}>{type}</Text>
-                  <Tag
-                    color={WORKSPACE_TYPE_COLORS[type as WorkspaceType]}
+      <Select
+        value={currentWorkspace?.id}
+        placeholder={placeholder}
+        onChange={handleWorkspaceSwitch}
+        loading={loading}
+        disabled={disabled}
+        style={{ minWidth: 200, ...style }}
+        dropdownRender={menu => (
+          <div>
+            {menu}
+            {showCreateButton && (
+              <>
+                <Divider style={{ margin: '8px 0' }} />
+                <Space style={{ padding: '8px 12px' }}>
+                  <Button
+                    type="text"
+                    icon={<PlusOutlined />}
+                    onClick={handleCreateWorkspace}
+                    style={{ width: '100%', textAlign: 'left' }}
                   >
-                    {workspaceList.length}
-                  </Tag>
+                    Create New Workspacew
+                  </Button>
                 </Space>
-              }
-            >
-              {workspaceList.map(renderWorkspaceOption)}
-            </OptGroup>
-          ))}
-        </Select>
-
-        {showCreateButton && (
-          <Tooltip title="Create new workspace">
-            <Button
-              icon={<PlusOutlined />}
-              onClick={() => setCreateModalVisible(true)}
-              disabled={disabled}
-            />
-          </Tooltip>
+              </>
+            )}
+          </div>
         )}
-      </Space.Compact>
-
-      {/* Create Workspace Modal */}
-      <Modal
-        title="Create New Workspace"
-        open={createModalVisible}
-        onCancel={() => {
-          setCreateModalVisible(false);
-          form.resetFields();
-        }}
-        footer={null}
-        width={500}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateWorkspace}
-        >
-          <Form.Item
-            name="name"
-            label="Workspace Name"
-            rules={[
-              { required: true, message: 'Please enter workspace name' },
-              { min: 2, message: 'Name must be at least 2 characters' },
-              { max: 50, message: 'Name cannot exceed 50 characters' }
-            ]}
+        {Object.entries(groupedWorkspaces).map(([type, workspaceList]) => (
+          <OptGroup
+            key={type}
+            label={
+              <Space>
+                {WORKSPACE_TYPE_ICONS[type as WorkspaceType]}
+                <Text style={{ textTransform: 'capitalize' }}>{type}</Text>
+                <Tag
+                  color={WORKSPACE_TYPE_COLORS[type as WorkspaceType]}
+                >
+                  {workspaceList.length}
+                </Tag>
+              </Space>
+            }
           >
-            <Input placeholder="e.g., Project Alpha, Marketing Team" />
-          </Form.Item>
-
-          <Form.Item
-            name="type"
-            label="Workspace Type"
-            rules={[{ required: true, message: 'Please select workspace type' }]}
-          >
-            <Select placeholder="Select workspace type">
-              <Option value="project">
-                <Space>
-                  <ProjectOutlined />
-                  Project - For specific projects and initiatives
-                </Space>
-              </Option>
-              <Option value="department">
-                <Space>
-                  <TeamOutlined />
-                  Department - For organizational departments
-                </Space>
-              </Option>
-              <Option value="team">
-                <Space>
-                  <UserOutlined />
-                  Team - For cross-functional teams
-                </Space>
-              </Option>
-              <Option value="client">
-                <Space>
-                  <FolderOutlined />
-                  Client - For client-specific work
-                </Space>
-              </Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="description"
-            label="Description (Optional)"
-          >
-            <TextArea
-              rows={3}
-              placeholder="Brief description of the workspace purpose"
-              maxLength={200}
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-            <Space>
-              <Button
-                onClick={() => {
-                  setCreateModalVisible(false);
-                  form.resetFields();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Create Workspace
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+            {workspaceList.map(renderWorkspaceOption)}
+          </OptGroup>
+        ))}
+      </Select>
 
       {/* Error Display */}
       {error && (

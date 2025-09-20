@@ -27,7 +27,6 @@ export const TenantSettingsPage: React.FC<TenantSettingsPageProps> = ({
 
   const [formData, setFormData] = React.useState<UpdateTenantPayload>({
     name: currentTenant?.name || '',
-    description: currentTenant?.description || '',
     settings: currentTenant?.settings
   });
 
@@ -35,7 +34,6 @@ export const TenantSettingsPage: React.FC<TenantSettingsPageProps> = ({
     if (currentTenant) {
       setFormData({
         name: currentTenant.name,
-        description: currentTenant.description,
         settings: currentTenant.settings
       });
     }
@@ -103,15 +101,6 @@ export const TenantSettingsPage: React.FC<TenantSettingsPageProps> = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              value={formData.description || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              rows={3}
-            />
-          </div>
         </div>
 
         <div className="form-section">

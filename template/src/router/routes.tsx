@@ -136,6 +136,25 @@ export const getDynamicRoutes = (): RouteObject[] => {
   return [...baseRoutes, ...pluginRouteObjects];
 };
 
+// Function to get standalone routes (full-screen, bypass layout)
+export const getStandaloneRoutes = (): RouteObject[] => {
+  const standaloneRoutes = pluginManager.getStandaloneRoutes();
+  const standaloneRouteObjects: RouteObject[] = [];
+
+  standaloneRoutes.forEach((Component, path) => {
+    standaloneRouteObjects.push({
+      path,
+      element: (
+        <LazyWrapper>
+          <Component />
+        </LazyWrapper>
+      )
+    });
+  });
+
+  return standaloneRouteObjects;
+};
+
 // Export dynamic routes function (not static routes)
 export const routes = getDynamicRoutes();
 

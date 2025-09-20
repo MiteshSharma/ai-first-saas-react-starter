@@ -63,6 +63,7 @@ export interface PluginContext {
   // Registration methods for plugins
   registerRoute: (path: string, component: React.ComponentType) => void;
   registerProtectedRoute: (path: string, component: React.ComponentType) => void;
+  registerStandaloneRoute: (path: string, component: React.ComponentType) => void;
   registerSidebarWidget: (id: string, component: React.ComponentType, priority: number) => void;
   registerHeaderWidget: (id: string, component: React.ComponentType) => void;
   registerDashboardWidget: (id: string, component: React.ComponentType, priority: number) => void;
@@ -98,6 +99,7 @@ export interface RouteRegistration {
 export interface IPluginManager {
   register: (plugin: Plugin) => void;
   getRegisteredRoutes: () => Map<string, React.ComponentType>;
+  getStandaloneRoutes: () => Map<string, React.ComponentType>;
   getSidebarWidgets: () => WidgetRegistration[];
   getHeaderWidgets: () => WidgetRegistration[];
   getDashboardWidgets: () => WidgetRegistration[];

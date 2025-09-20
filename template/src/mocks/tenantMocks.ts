@@ -18,9 +18,7 @@ export const tenantMocks = {
       id: 'tenant-1',
       name: 'Acme Corporation',
       slug: 'acme-corp',
-      type: 'enterprise',
       status: 'active',
-      description: 'Enterprise corporation focused on innovation and growth',
       createdAt: '2024-01-15T10:00:00Z',
       updatedAt: '2024-03-01T15:30:00Z',
       settings: {
@@ -67,9 +65,7 @@ export const tenantMocks = {
       id: 'tenant-2',
       name: 'StartupXYZ',
       slug: 'startup-xyz',
-      type: 'team',
       status: 'active',
-      description: 'Innovative startup building the next big thing',
       createdAt: '2024-02-01T14:00:00Z',
       updatedAt: '2024-02-15T09:20:00Z',
       settings: {
@@ -115,9 +111,7 @@ export const tenantMocks = {
       id: 'tenant-3',
       name: 'DevTeam Pro',
       slug: 'devteam-pro',
-      type: 'team',
       status: 'active',
-      description: 'Professional development team workspace',
       createdAt: '2024-03-01T09:00:00Z',
       updatedAt: '2024-03-01T09:00:00Z',
       settings: {

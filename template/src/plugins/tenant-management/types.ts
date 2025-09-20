@@ -10,9 +10,7 @@ export interface Tenant {
   id: string;
   name: string;
   slug: string;
-  type: 'personal' | 'team' | 'enterprise';
   status: 'active' | 'suspended' | 'deleted';
-  description?: string;
   settings: TenantSettings;
   subscription: TenantSubscription;
   createdAt: string;
@@ -115,14 +113,11 @@ export interface TenantInvitation {
 export interface CreateTenantRequest {
   name: string;
   slug: string;
-  type: 'personal' | 'team' | 'enterprise';
-  description?: string;
   settings?: Partial<TenantSettings>;
 }
 
 export interface UpdateTenantRequest {
   name?: string;
-  description?: string;
   settings?: Partial<TenantSettings>;
 }
 

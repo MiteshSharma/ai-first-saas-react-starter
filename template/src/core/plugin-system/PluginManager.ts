@@ -19,6 +19,7 @@ export class PluginManager implements IPluginManager {
   private pendingPlugins: Plugin[] = []; // Plugins waiting for context initialization
   private initialized: boolean = false; // Track if contexts have been set
   private routes: Map<string, React.ComponentType> = new Map();
+  private standaloneRoutes: Map<string, React.ComponentType> = new Map();
   private sidebarWidgets: WidgetRegistration[] = [];
   private headerWidgets: WidgetRegistration[] = [];
   private dashboardWidgets: WidgetRegistration[] = [];
@@ -149,6 +150,10 @@ export class PluginManager implements IPluginManager {
         this.routes.set(path, component);
       },
 
+      registerStandaloneRoute: (path: string, component: React.ComponentType) => {
+        this.standaloneRoutes.set(path, component);
+      },
+
       registerSidebarWidget: (id: string, component: React.ComponentType, priority: number = 1) => {
         this.sidebarWidgets.push({ id, component, priority });
         this.sidebarWidgets.sort((a, b) => (a.priority || 1) - (b.priority || 1));
@@ -212,6 +217,13 @@ export class PluginManager implements IPluginManager {
    */
   getRegisteredRoutes(): Map<string, React.ComponentType> {
     return new Map(this.routes);
+  }
+
+  /**
+   * Get standalone routes (called by core layout, not plugins)
+   */
+  getStandaloneRoutes(): Map<string, React.ComponentType> {
+    return new Map(this.standaloneRoutes);
   }
 
   /**
