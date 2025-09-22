@@ -391,54 +391,6 @@ class WorkspaceMockHandlers {
     return false;
   }
 
-  static getMembers(workspaceId: string): ExtendedWorkspaceMember[] {
-    return this.members[workspaceId] || [];
-  }
-
-  static getInvitations(workspaceId: string): WorkspaceInvitation[] {
-    return this.invitations[workspaceId] || [];
-  }
-
-  static addInvitation(workspaceId: string, invitation: WorkspaceInvitation): void {
-    if (!this.invitations[workspaceId]) {
-      this.invitations[workspaceId] = [];
-    }
-    this.invitations[workspaceId].push(invitation);
-  }
-
-  static removeInvitation(workspaceId: string, invitationId: string): boolean {
-    if (this.invitations[workspaceId]) {
-      const invitationIndex = this.invitations[workspaceId].findIndex(inv => inv.id === invitationId);
-      if (invitationIndex !== -1) {
-        this.invitations[workspaceId].splice(invitationIndex, 1);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  static removeMember(workspaceId: string, memberId: string): boolean {
-    if (this.members[workspaceId]) {
-      const memberIndex = this.members[workspaceId].findIndex(member => member.id === memberId);
-      if (memberIndex !== -1) {
-        this.members[workspaceId].splice(memberIndex, 1);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  static updateMemberRole(workspaceId: string, memberId: string, role: string): ExtendedWorkspaceMember | null {
-    if (this.members[workspaceId]) {
-      const member = this.members[workspaceId].find(member => member.id === memberId);
-      if (member) {
-        member.role = role as 'admin' | 'editor' | 'viewer';
-        return member;
-      }
-    }
-    return null;
-  }
-
   static getActivities(workspaceId: string): WorkspaceActivity[] {
     return this.activities[workspaceId] || [];
   }
@@ -544,56 +496,6 @@ class WorkspaceMockHandlers {
     return Promise.resolve();
   }
 
-  static async getMembersMock(workspaceId: string): Promise<ExtendedWorkspaceMember[]> {
-    return Promise.resolve(this.getMembers(workspaceId));
-  }
-
-  static async inviteMemberMock(workspaceId: string, data: InviteWorkspaceMemberPayload): Promise<WorkspaceInvitation> {
-    const newInvitation: WorkspaceInvitation = {
-      id: `invite-${Date.now()}`,
-      workspaceId,
-      email: data.email,
-      role: data.role as 'admin' | 'editor' | 'viewer',
-      status: 'pending' as const,
-      invitedBy: 'current-user-id',
-      invitedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
-      token: `token-${Date.now()}`,
-      message: data.message
-    };
-
-    this.addInvitation(workspaceId, newInvitation);
-    return Promise.resolve(newInvitation);
-  }
-
-  static async removeMemberMock(workspaceId: string, memberId: string): Promise<void> {
-    const removed = this.removeMember(workspaceId, memberId);
-    if (!removed) {
-      throw new Error('Member not found');
-    }
-    return Promise.resolve();
-  }
-
-  static async updateMemberRoleMock(workspaceId: string, memberId: string, role: string): Promise<void> {
-    const member = this.updateMemberRole(workspaceId, memberId, role);
-    if (!member) {
-      throw new Error('Member not found');
-    }
-    return Promise.resolve();
-  }
-
-  static async getInvitationsMock(workspaceId: string): Promise<WorkspaceInvitation[]> {
-    return Promise.resolve(this.getInvitations(workspaceId));
-  }
-
-  static async cancelInvitationMock(workspaceId: string, invitationId: string): Promise<void> {
-    const removed = this.removeInvitation(workspaceId, invitationId);
-    if (!removed) {
-      throw new Error('Invitation not found');
-    }
-    return Promise.resolve();
-  }
-
   static async getActivityMock(workspaceId: string): Promise<WorkspaceActivity[]> {
     return Promise.resolve(this.getActivities(workspaceId));
   }
@@ -606,16 +508,13 @@ class WorkspaceMockHandlers {
     return Promise.resolve(stats);
   }
 
-  static async switchContextMock(workspaceId: string): Promise<{ workspace: Workspace; members: ExtendedWorkspaceMember[] }> {
+  static async switchContextMock(workspaceId: string): Promise<{ workspace: Workspace; }> {
     const workspace = this.getWorkspaceById(workspaceId);
     if (!workspace) {
       throw new Error('Workspace not found');
     }
-
-    const members = this.getMembers(workspaceId);
     return Promise.resolve({
-      workspace,
-      members
+      workspace
     });
   }
 }
@@ -871,127 +770,6 @@ export const setupWorkspaceMocks = (mock: MockAdapter) => {
     return [404, { error: 'Workspace not found' }];
   });
 
-  // Get workspace members
-  mock.onGet(/\/workspaces\/[^/]+\/members/).reply((config) => {
-    const url = config.url || '';
-    const workspaceIdMatch = url.match(/\/workspaces\/([^/]+)\/members/);
-
-    if (!workspaceIdMatch) {
-      return [400, { error: 'Invalid workspace ID' }];
-    }
-
-    const workspaceId = workspaceIdMatch[1];
-    const members = WorkspaceMockHandlers.getMembers(workspaceId);
-
-    return [200, { data: members }];
-  });
-
-  // Invite member
-  mock.onPost(/\/workspaces\/[^/]+\/invitations/).reply((config) => {
-    const url = config.url || '';
-    const workspaceIdMatch = url.match(/\/workspaces\/([^/]+)\/invitations/);
-
-    if (!workspaceIdMatch) {
-      return [400, { error: 'Invalid workspace ID' }];
-    }
-
-    const workspaceId = workspaceIdMatch[1];
-    const inviteData = JSON.parse(config.data) as InviteWorkspaceMemberPayload;
-
-    const newInvitation = {
-      id: `invite-${Date.now()}`,
-      workspaceId,
-      email: inviteData.email,
-      role: inviteData.role as 'admin' | 'editor' | 'viewer',
-      status: 'pending' as const,
-      invitedBy: 'current-user-id',
-      invitedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
-      token: `token-${Date.now()}`,
-      message: inviteData.message
-    };
-
-    WorkspaceMockHandlers.addInvitation(workspaceId, newInvitation);
-
-    return [201, { data: newInvitation }];
-  });
-
-  // Remove member from workspace
-  mock.onDelete(/\/workspaces\/[^/]+\/members\/[^/]+/).reply((config) => {
-    const url = config.url || '';
-    const match = url.match(/\/workspaces\/([^/]+)\/members\/([^/]+)/);
-
-    if (!match) {
-      return [400, { error: 'Invalid workspace or member ID' }];
-    }
-
-    const [, workspaceId, memberId] = match;
-
-    const removed = WorkspaceMockHandlers.removeMember(workspaceId, memberId);
-
-    if (removed) {
-      return [204];
-    }
-
-    return [404, { error: 'Member not found' }];
-  });
-
-  // Update member role
-  mock.onPut(/\/workspaces\/[^/]+\/members\/[^/]+\/role/).reply((config) => {
-    const url = config.url || '';
-    const match = url.match(/\/workspaces\/([^/]+)\/members\/([^/]+)\/role/);
-
-    if (!match) {
-      return [400, { error: 'Invalid workspace or member ID' }];
-    }
-
-    const [, workspaceId, memberId] = match;
-    const { role } = JSON.parse(config.data);
-
-    const member = WorkspaceMockHandlers.updateMemberRole(workspaceId, memberId, role);
-
-    if (member) {
-      return [200, { data: member }];
-    }
-
-    return [404, { error: 'Member not found' }];
-  });
-
-  // Get workspace invitations
-  mock.onGet(/\/workspaces\/[^/]+\/invitations/).reply((config) => {
-    const url = config.url || '';
-    const workspaceIdMatch = url.match(/\/workspaces\/([^/]+)\/invitations/);
-
-    if (!workspaceIdMatch) {
-      return [400, { error: 'Invalid workspace ID' }];
-    }
-
-    const workspaceId = workspaceIdMatch[1];
-    const invitations = WorkspaceMockHandlers.getInvitations(workspaceId);
-
-    return [200, { data: invitations }];
-  });
-
-  // Cancel invitation
-  mock.onDelete(/\/workspaces\/[^/]+\/invitations\/[^/]+/).reply((config) => {
-    const url = config.url || '';
-    const match = url.match(/\/workspaces\/([^/]+)\/invitations\/([^/]+)/);
-
-    if (!match) {
-      return [400, { error: 'Invalid workspace or invitation ID' }];
-    }
-
-    const [, workspaceId, invitationId] = match;
-
-    const removed = WorkspaceMockHandlers.removeInvitation(workspaceId, invitationId);
-
-    if (removed) {
-      return [204];
-    }
-
-    return [404, { error: 'Invitation not found' }];
-  });
-
   // Get workspace activity
   mock.onGet(/\/workspaces\/[^/]+\/activity/).reply((config) => {
     const url = config.url || '';
@@ -1035,12 +813,9 @@ export const setupWorkspaceMocks = (mock: MockAdapter) => {
       return [404, { error: 'Workspace not found' }];
     }
 
-    const members = WorkspaceMockHandlers.getMembers(workspaceId);
-
     return [200, {
       data: {
-        workspace,
-        members
+        workspace
       }
     }];
   });

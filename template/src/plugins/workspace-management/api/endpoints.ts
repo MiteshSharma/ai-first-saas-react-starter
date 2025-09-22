@@ -16,16 +16,6 @@ export const WORKSPACE_ENDPOINTS = {
   // Settings operations
   UPDATE_SETTINGS: '/workspaces/:workspaceId/settings',
 
-  // Member operations
-  GET_MEMBERS: '/workspaces/:workspaceId/members',
-  INVITE_MEMBER: '/workspaces/:workspaceId/invitations',
-  REMOVE_MEMBER: '/workspaces/:workspaceId/members/:memberId',
-  UPDATE_MEMBER_ROLE: '/workspaces/:workspaceId/members/:memberId/role',
-
-  // Invitation operations
-  GET_INVITATIONS: '/workspaces/:workspaceId/invitations',
-  CANCEL_INVITATION: '/workspaces/:workspaceId/invitations/:invitationId',
-
   // Activity and stats
   GET_ACTIVITY: '/workspaces/:workspaceId/activity',
   GET_STATS: '/workspaces/:workspaceId/stats',
