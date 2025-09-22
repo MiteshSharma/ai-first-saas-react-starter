@@ -28,16 +28,11 @@ export const tenantManagementPlugin: Plugin = {
       initializeTenantStore(context.eventBus);
 
       // Register components lazily
-      const { TenantDashboard } = await import('./components/TenantDashboard');
       const { TenantSwitcher } = await import('./components/TenantSwitcher');
       const { default: TenantSettingsPage } = await import('./pages/TenantSettingsPage');
-      const { default: TenantMembersPage } = await import('./pages/TenantMembersPage');
 
       // Register main tenant dashboard routes
-      context.registerRoute('/tenants', TenantDashboard);  // Add this for sidebar compatibility
-      context.registerRoute('/tenants/dashboard', TenantDashboard);  // Add this for sidebar compatibility
       context.registerRoute('/tenants/settings', TenantSettingsPage);  // Add this for sidebar compatibility
-      context.registerRoute('/tenants/members', TenantMembersPage);  // Add this for sidebar compatibility
 
       // Register tenant switcher as a header widget
       context.registerHeaderWidget('tenant-switcher', TenantSwitcher);

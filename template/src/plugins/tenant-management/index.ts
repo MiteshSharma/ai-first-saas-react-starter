@@ -14,7 +14,7 @@ import { Plugin, PluginContext } from '../../core/plugin-system/types';
 import { PluginManager } from '../../core/plugin-system/PluginManager';
 import { createProtectedRoute } from '../../core/routing/ProtectedRoute';
 import { initializeTenantStore } from './stores/tenantStore';
-import { TenantDashboard, TenantSwitcher } from './components';
+import { TenantSwitcher } from './components';
 import { TENANT_EVENTS } from './types';
 
 // Create the tenant management plugin
@@ -30,14 +30,10 @@ const tenantPlugin: Plugin = {
 
       // Import additional components
       const { default: TenantSettingsPage } = await import('./pages/TenantSettingsPage');
-      const { default: TenantMembersPage } = await import('./pages/TenantMembersPage');
       const { default: CreateTenant } = await import('./pages/CreateTenant');
 
       // Register tenant routes with authentication protection
-      context.registerRoute('/tenants', createProtectedRoute(TenantDashboard));
-      context.registerRoute('/tenants/dashboard', createProtectedRoute(TenantDashboard));
       context.registerRoute('/tenants/settings', createProtectedRoute(TenantSettingsPage));
-      context.registerRoute('/tenants/members', createProtectedRoute(TenantMembersPage));
 
       // Register CreateTenant as standalone route (full-screen, no sidebar)
       context.registerStandaloneRoute('/tenants/create', createProtectedRoute(CreateTenant));

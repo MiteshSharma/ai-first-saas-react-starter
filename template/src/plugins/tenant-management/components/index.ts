@@ -3,4 +3,3 @@
  */
 
 export { TenantSwitcher } from './TenantSwitcher';
-export { TenantDashboard } from './TenantDashboard';

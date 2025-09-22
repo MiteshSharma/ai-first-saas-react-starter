@@ -63,27 +63,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
       order: 2
     },
     {
-      id: 'tenants',
-      label: 'Tenants',
-      icon: <TeamOutlined />,
-      path: '/tenants',
-      order: 3,
-      children: [
-        {
-          id: 'tenant-dashboard',
-          label: 'Dashboard',
-          path: '/tenants/dashboard',
-          order: 0
-        },
-        {
-          id: 'tenant-members',
-          label: 'Members',
-          path: '/tenants/members',
-          order: 2
-        }
-      ]
-    },
-    {
       id: 'audit-logs',
       label: 'Audit Logs',
       icon: <FileTextOutlined />,
