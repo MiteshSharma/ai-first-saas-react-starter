@@ -45,19 +45,6 @@ export class RBACBackendHelper {
   }
 
   /**
-   * Get user permissions for context
-   */
-  static async getUserPermissions(context: AccessContext): Promise<ContextualPermission[]> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.getUserPermissions(context);
-    }
-
-    const response = await apiHelper.post(RBAC_ENDPOINTS.USER_PERMISSIONS, context);
-    return (response.data as { data: ContextualPermission[] }).data;
-  }
-
-  /**
    * Check single permission
    */
   static async checkPermission(permission: string, context: AccessContext): Promise<{ hasPermission: boolean }> {
@@ -142,28 +129,6 @@ export class RBACBackendHelper {
 
     const endpoint = RBAC_ENDPOINTS.ROLE_BY_ID.replace(':roleId', roleId);
     await apiHelper.delete(endpoint);
-  }
-
-  /**
-   * Get user role assignments
-   */
-  static async getUserRoles(params?: { tenantId?: string; workspaceId?: string; userId?: string }): Promise<any[]> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.getUserRoles(params);
-    }
-
-    const queryParams = new URLSearchParams();
-    if (params?.tenantId) queryParams.append('tenantId', params.tenantId);
-    if (params?.workspaceId) queryParams.append('workspaceId', params.workspaceId);
-    if (params?.userId) queryParams.append('userId', params.userId);
-
-    const endpoint = queryParams.toString()
-      ? `${RBAC_ENDPOINTS.USER_ROLES}?${queryParams.toString()}`
-      : RBAC_ENDPOINTS.USER_ROLES;
-
-    const response = await apiHelper.get(endpoint);
-    return (response.data as { data: any[] }).data;
   }
 
   /**

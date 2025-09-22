@@ -21,6 +21,7 @@ import {
   UploadAvatarResponse,
   USER_MANAGEMENT_EVENTS,
 } from '../types';
+import { AUDIT_PLUGIN_EVENTS, AUDIT_ACTIONS } from '../../../events';
 import InvitationService from '../services/InvitationService';
 import UserService from '../services/UserService';
 
@@ -121,8 +122,8 @@ export const useUserManagementStore = create<UserManagementStoreState>()(
 
           // Emit event for successful fetch
           if (typeof window !== 'undefined' && window.eventBus) {
-            window.eventBus.emit(USER_MANAGEMENT_EVENTS.USER_UPDATED, {
-              action: 'users.fetched',
+            window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+              action: AUDIT_ACTIONS.USERS_FETCHED,
               count: response.users.length,
               filters,
             });
@@ -167,8 +168,8 @@ export const useUserManagementStore = create<UserManagementStoreState>()(
 
           // Emit event for successful fetch
           if (typeof window !== 'undefined' && window.eventBus) {
-            window.eventBus.emit(USER_MANAGEMENT_EVENTS.INVITATION_SENT, {
-              action: 'invitations.fetched',
+            window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+              action: AUDIT_ACTIONS.INVITATIONS_FETCHED,
               count: response.invitations.length,
               tenantId,
             });
@@ -260,8 +261,8 @@ export const useUserManagementStore = create<UserManagementStoreState>()(
 
           // Emit event for successful resend
           if (typeof window !== 'undefined' && window.eventBus) {
-            window.eventBus.emit(USER_MANAGEMENT_EVENTS.INVITATION_SENT, {
-              action: 'invitation.resent',
+            window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+              action: AUDIT_ACTIONS.INVITATION_RESENT,
               invitationId,
             });
           }

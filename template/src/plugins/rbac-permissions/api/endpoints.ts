@@ -7,7 +7,7 @@
 export const RBAC_ENDPOINTS = {
   // Permission operations
   PERMISSIONS: '/permissions',
-  USER_PERMISSIONS: '/permissions/user',
+  // USER_PERMISSIONS removed - now comes from tenant-management events
   CHECK_PERMISSION: '/permissions/check',
   CHECK_BULK_PERMISSIONS: '/permissions/check-bulk',
 
@@ -15,8 +15,8 @@ export const RBAC_ENDPOINTS = {
   ROLES: '/roles',
   ROLE_BY_ID: '/roles/:roleId',
 
-  // User role operations
-  USER_ROLES: '/users/roles',
+  // User role operations (admin only)
+  // USER_ROLES removed - now comes from tenant-management
   ASSIGN_USER_ROLES: '/users/:userId/roles',
   REMOVE_USER_ROLE: '/users/:userId/roles/:roleId',
 

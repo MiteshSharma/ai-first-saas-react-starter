@@ -25,13 +25,6 @@ export class PermissionService {
   }
 
   /**
-   * Get user permissions for given context
-   */
-  async getUserPermissions(context: AccessContext): Promise<ContextualPermission[]> {
-    return RBACBackendHelper.getUserPermissions(context);
-  }
-
-  /**
    * Check if user has specific permission
    */
   async checkPermission(permission: string, context: AccessContext): Promise<boolean> {

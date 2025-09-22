@@ -11,7 +11,7 @@ export * from './types';
 export * from './constants';
 
 // Stores
-export { usePermissionStore, permissionStoreUtils } from './stores/permissionStore';
+export { usePermissionStore, permissionStoreUtils, initializePermissionStore } from './stores/permissionStore';
 
 // Hooks
 export {
@@ -71,7 +71,10 @@ export { rbacMockHandlers, rbacMockUtils } from './api/mockHandlers';
 // Utilities
 export { default as rbacUtils } from './utils/rbacUtils';
 
-// Plugin configuration
+// Plugin exports
+export { default as rbacPermissionsPlugin } from './plugin';
+
+// Legacy plugin configuration (for backward compatibility)
 export const RBACPermissionsPlugin = {
   name: 'rbac-permissions',
   version: '1.0.0',

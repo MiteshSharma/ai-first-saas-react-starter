@@ -16,7 +16,6 @@ export * from './services';
 // Store exports
 export { useAuthStore } from './auth/AuthStore';
 export { useTenantStore } from '../plugins/tenant-management/stores/tenantStore';
-export { useProjectStore } from './stores/projects/ProjectStore';  // Updated path
 
 // API exports
 export { apiHelper } from './api/apiHelper';

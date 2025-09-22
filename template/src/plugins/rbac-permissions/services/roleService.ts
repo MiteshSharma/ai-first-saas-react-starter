@@ -50,13 +50,6 @@ export class RoleService {
   }
 
   /**
-   * Get user role assignments
-   */
-  async getUserRoles(params?: { tenantId?: string; workspaceId?: string; userId?: string }): Promise<any[]> {
-    return RBACBackendHelper.getUserRoles(params);
-  }
-
-  /**
    * Assign roles to user
    */
   async assignUserRoles(userId: string, data: { roleIds: string[]; tenantId?: string; workspaceId?: string }): Promise<any> {
@@ -132,13 +125,13 @@ export class RoleService {
 
   /**
    * Get user's roles in specific context
+   * @deprecated User roles now come from tenant-management events
    */
   async getUserRolesInContext(userId: string, context: { tenantId?: string; workspaceId?: string }): Promise<any[]> {
-    return this.getUserRoles({
-      userId,
-      tenantId: context.tenantId,
-      workspaceId: context.workspaceId
-    });
+    // This method is deprecated - roles should come from tenant-management
+    console.warn('getUserRolesInContext is deprecated. User roles should come from tenant-management events.');
+    // Return empty array as roles are now managed by tenant-management
+    return [];
   }
 }
 

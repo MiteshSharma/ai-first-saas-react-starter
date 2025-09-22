@@ -7,12 +7,12 @@ import { Layout, Menu, Divider } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
-  ProjectOutlined,
-  TeamOutlined,
   HomeOutlined,
   FileTextOutlined,
   SettingOutlined,
-  UserOutlined
+  UserOutlined,
+  ApartmentOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 import { useLayout } from './LayoutContext';
 import { MenuItem } from './types';
@@ -56,13 +56,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
       order: 1
     },
     {
-      id: 'projects',
-      label: 'Projects',
-      icon: <ProjectOutlined />,
-      path: '/projects',
-      order: 2
-    },
-    {
       id: 'audit-logs',
       label: 'Audit Logs',
       icon: <FileTextOutlined />,
@@ -86,18 +79,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         {
           id: 'workspace-settings',
           label: 'Workspace Settings',
+          icon: <ApartmentOutlined />,
           path: '/workspaces/settings',
           order: 1
         },
         {
           id: 'tenant-settings',
           label: 'Tenant Settings',
+          icon: <TeamOutlined />,
           path: '/tenants/settings',
           order: 2
         },
         {
           id: 'user-management',
           label: 'User Management',
+          icon: <UserOutlined />,
           path: '/users',
           order: 3
         }

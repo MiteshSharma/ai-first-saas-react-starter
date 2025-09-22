@@ -17,7 +17,7 @@ import {
   createErrorFromResponse
 } from '../stores/base';
 import { eventBus } from '../plugin-system/EventBus';
-import { CORE_EVENTS } from '../plugin-system';
+import { CORE_EVENTS } from '../../events';
 import type {
   AuthState,
   AuthActions,

@@ -300,8 +300,18 @@ export class TenantMockHandlers {
         id: 'user-1',
         tenantId,
         userId: 'user-1',
-        role: 'owner',
-        permissions: ['*'],
+        tenantRole: 'owner',
+        workspaces: [
+          {
+            workspaceId: 'workspace-1',
+            groupIds: ['owner-group'],
+            effectivePermissions: [
+              { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+              { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
+              { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
+            ]
+          }
+        ],
         joinedAt: '2024-01-01T00:00:00Z'
       }
     ];
@@ -343,8 +353,20 @@ export class TenantMockHandlers {
       id: userId,
       tenantId,
       userId,
-      role,
-      permissions: role === 'owner' ? ['*'] : ['read'],
+      tenantRole: role,
+      workspaces: [
+        {
+          workspaceId: 'workspace-1',
+          groupIds: role === 'owner' ? ['owner-group'] : ['member-group'],
+          effectivePermissions: role === 'owner' ? [
+            { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+            { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
+            { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
+          ] : [
+            { id: 'project.read', name: 'Read Project', resource: 'project', action: 'read' }
+          ]
+        }
+      ],
       joinedAt: '2024-01-01T00:00:00Z'
     };
   }

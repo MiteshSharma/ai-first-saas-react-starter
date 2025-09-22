@@ -39,13 +39,35 @@ export interface TenantSubscription {
   expiresAt?: string;
 }
 
-export interface TenantUser {
+/**
+ * Permission structure for workspace-based permissions
+ */
+export interface Permission {
   id: string;
-  tenantId: string;
-  userId: string;
-  role: TenantRole;
-  permissions: string[];
-  joinedAt: string;
+  name: string;
+  resource?: string;
+  action?: string;
+}
+
+/**
+ * Workspace membership with permissions
+ */
+export interface WorkspaceMembership {
+  workspaceId: string;
+  groupIds: string[];                    // Group IDs user is part of in this workspace
+  effectivePermissions: Permission[];    // Final resolved permissions for this user in this workspace
+}
+
+/**
+ * Tenant user with workspace-based permissions
+ */
+export interface TenantUser {
+  id: string;                           // Internal ID for TenantUser
+  tenantId: string;                     // Org ID
+  userId: string;                       // Global user ID
+  tenantRole: TenantRole;              // e.g., 'owner', 'admin', 'member'
+  joinedAt: string;                     // When user joined the org
+  workspaces: WorkspaceMembership[];    // All workspace-level memberships
 }
 
 export type TenantRole = 'owner' | 'admin' | 'member' | 'guest';
@@ -167,7 +189,8 @@ export const TENANT_EVENTS = {
   TENANT_DELETED: 'tenant.deleted',
   USER_INVITED: 'tenant.user.invited',
   USER_REMOVED: 'tenant.user.removed',
-  USER_ROLE_UPDATED: 'tenant.user.role_updated'
+  USER_ROLE_UPDATED: 'tenant.user.role_updated',
+  USER_PERMISSIONS_LOADED: 'tenant.permissions.loaded'
 } as const;
 
 export type TenantEventType = typeof TENANT_EVENTS[keyof typeof TENANT_EVENTS];

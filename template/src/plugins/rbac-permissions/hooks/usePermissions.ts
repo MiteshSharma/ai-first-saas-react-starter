@@ -51,7 +51,6 @@ export const usePermissions = (
     userPermissions,
     loading,
     error,
-    loadUserPermissions,
     checkPermission,
     checkMultiplePermissions,
     clearError,
@@ -78,16 +77,12 @@ export const usePermissions = (
    * Initialize permissions on mount or context change
    */
   useEffect(() => {
-    const initializePermissions = async () => {
-      if (!currentUser?.id) return;
-
-      const context = buildContext();
-      await loadUserPermissions(context);
+    // Permissions are now loaded via events from tenant-management
+    // Just mark as initialized when user is present
+    if (currentUser?.id) {
       setIsInitialized(true);
-    };
-
-    initializePermissions();
-  }, [currentUser?.id, currentTenant?.id, currentWorkspace?.id, loadUserPermissions, buildContext]);
+    }
+  }, [currentUser?.id, currentTenant?.id, currentWorkspace?.id]);
 
   /**
    * Check if user has specific permission
@@ -190,11 +185,10 @@ export const usePermissions = (
    * Refresh user permissions
    */
   const refreshPermissions = useCallback(async (): Promise<void> => {
-    if (!currentUser?.id) return;
-
-    const context = buildContext();
-    await loadUserPermissions(context);
-  }, [currentUser?.id, buildContext, loadUserPermissions]);
+    // Permissions are now refreshed via events from tenant-management
+    // This is kept for compatibility but doesn't need to do anything
+    console.log('Permissions refresh requested - handled by tenant-management events');
+  }, []);
 
   /**
    * Memoized permissions for performance

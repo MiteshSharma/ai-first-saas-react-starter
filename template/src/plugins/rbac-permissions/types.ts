@@ -148,7 +148,7 @@ export interface PermissionState {
 
   // Actions
   loadPermissions: () => Promise<void>;
-  loadUserPermissions: (context: AccessContext) => Promise<void>;
+  setUserPermissionsFromEvent: (permissions: string[], role: string, context: AccessContext) => void;
   checkPermission: (permission: string, context: AccessContext) => Promise<boolean>;
   checkMultiplePermissions: (check: BulkPermissionCheck) => Promise<PermissionCheckResult[]>;
   clearError: () => void;

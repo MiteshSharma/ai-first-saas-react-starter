@@ -14,9 +14,11 @@ import {
   TenantInvitation,
   CreateTenantRequest,
   UpdateTenantRequest,
+  Permission,
   TENANT_EVENTS
 } from '../types';
 import { tenantService } from '../services/tenantService';
+import { useAuthStore } from '../../../core/auth/AuthStore';
 
 // Base request state for consistent loading/error handling
 interface RequestState {
@@ -47,7 +49,6 @@ interface TenantState extends RequestState {
   updateUserRole: (tenantId: string, userId: string, role: TenantRole) => Promise<void>;
 
   // Utilities
-  hasPermission: (permission: string) => boolean;
   canAccessFeature: (feature: keyof TenantSettings['features']) => boolean;
   getCurrentUserRole: () => TenantRole | null;
   clearError: () => void;
@@ -117,6 +118,8 @@ export const useTenantStore = create<TenantState>()(
             eventBus.emitTenantSwitch(tenant.id, ''); // userId will be empty for now
           }
 
+          // Load tenant users after successful switch
+          await get().loadTenantUsers(tenantId);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to switch tenant';
           setError(errorMessage);
@@ -250,6 +253,44 @@ export const useTenantStore = create<TenantState>()(
           const tenantUsers = await tenantService.getTenantMembers(tenantId);
           set({ tenantUsers });
 
+          // Get current user ID from auth store
+          const currentUserId = useAuthStore.getState().user?.id;
+
+          if (currentUserId && eventBus) {
+            // Find current user in tenant members
+            const currentUserMember = tenantUsers.find(member => member.userId === "user-1");
+
+            if (currentUserMember) {
+              // Emit tenant-level permissions event
+              console.log('[Tenant Store] Emitting USER_PERMISSIONS_LOADED event:', {
+                userId: currentUserId,
+                tenantId: tenantId,
+                tenantRole: currentUserMember.tenantRole,
+                workspaceCount: currentUserMember.workspaces?.length || 0
+              });
+
+              // Emit tenant-level role/permissions
+              eventBus.emit(TENANT_EVENTS.USER_PERMISSIONS_LOADED, {
+                userId: currentUserId,
+                tenantId: tenantId,
+                tenantRole: currentUserMember.tenantRole,
+                workspaces: currentUserMember.workspaces || []
+              });
+
+              // Also emit workspace-specific permissions for each workspace
+              if (currentUserMember.workspaces) {
+                currentUserMember.workspaces.forEach(workspace => {
+                  eventBus.emit('workspace.permissions.loaded', {
+                    userId: currentUserId,
+                    tenantId: tenantId,
+                    workspaceId: workspace.workspaceId,
+                    permissions: workspace.effectivePermissions.map(p => p.id)
+                  });
+                });
+              }
+            }
+          }
+
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to load tenant users';
           setError(errorMessage);
@@ -349,14 +390,6 @@ export const useTenantStore = create<TenantState>()(
       },
 
       // Utility functions
-      hasPermission: (permission: string) => {
-        const { currentTenant } = get();
-        if (!currentTenant) return false;
-
-        // TODO: In real app, check user's permissions for current tenant
-        return true;
-      },
-
       canAccessFeature: (feature: keyof TenantSettings['features']): boolean => {
         const { currentTenant } = get();
         if (!currentTenant) return false;
@@ -366,11 +399,14 @@ export const useTenantStore = create<TenantState>()(
       },
 
       getCurrentUserRole: () => {
-        const { currentTenant } = get();
+        const { currentTenant, tenantUsers } = get();
         if (!currentTenant) return null;
 
-        // TODO: In real app, find current user's role in tenant
-        return 'owner';
+        const currentUserId = useAuthStore.getState().user?.id;
+        if (!currentUserId) return null;
+
+        const currentUser = tenantUsers.find(u => u.userId === currentUserId);
+        return currentUser?.tenantRole || null;
       }
     }),
     {
@@ -394,7 +430,7 @@ export const initializeTenantStore = (
   const store = useTenantStore.getState();
 
   // Listen to AUTH_SUCCESS events to load tenant data
-  const unsubscribeAuthSuccess = eventBus.onAuthSuccess(({ userId }: { userId: string }) => {
+  const unsubscribeAuthSuccess = eventBus.onAuthSuccess(() => {
     // Load user tenants when authentication is successful
     tenantService.getUserTenants()
       .then(tenants => {

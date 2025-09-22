@@ -3,7 +3,8 @@ import { BrowserRouter, useRoutes } from 'react-router-dom';
 import { getDynamicRoutes, getStandaloneRoutes } from './router/routes';
 
 // Import new plugin system (Plan 3)
-import { eventBus, CORE_EVENTS, PluginManager } from './core/plugin-system';
+import { eventBus, PluginManager } from './core/plugin-system';
+import { CORE_EVENTS } from './events';
 import { createAuthContext } from './core/auth/AuthContext';
 import { useAuthStore } from './core/auth/AuthStore';
 import { CoreProvider, useCoreContext } from './core/context/CoreContext';
@@ -16,6 +17,7 @@ import './plugins/tenant-management'; // Tenant management plugin
 import './plugins/audit-logging'; // Audit logging plugin
 import './plugins/user-management'; // User management plugin
 import './plugins/workspace-management';
+import './plugins/rbac-permissions';
 
 const AppRoutes: React.FC = () => {
   const [routes, setRoutes] = React.useState(() => getDynamicRoutes());

@@ -10,6 +10,7 @@ import {
   SendInvitationRequest,
   InvitationListResponse,
 } from '../types';
+import { AUDIT_PLUGIN_EVENTS, AUDIT_ACTIONS } from '../../../events';
 
 declare global {
   interface Window {
@@ -36,8 +37,8 @@ export class InvitationService {
 
       // Log audit event for invitation sending
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'invitation.sent',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.INVITATION_SENT,
           actorId: 'current-user', // This should come from auth context
           tenantId: data.tenantId,
           meta: {
@@ -81,8 +82,8 @@ export class InvitationService {
 
       // Log audit event for invitation cancellation
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'invitation.cancelled',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.INVITATION_CANCELLED,
           actorId: 'current-user', // This should come from auth context
           meta: {
             invitationId,
@@ -106,8 +107,8 @@ export class InvitationService {
 
       // Log audit event for invitation resending
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'invitation.resent',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.INVITATION_RESENT,
           actorId: 'current-user', // This should come from auth context
           meta: {
             invitationId,
@@ -131,8 +132,8 @@ export class InvitationService {
 
       // Log audit event for invitation acceptance
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'invitation.accepted',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.INVITATION_ACCEPTED,
           actorId: 'current-user', // This should come from auth context
           meta: {
             token,

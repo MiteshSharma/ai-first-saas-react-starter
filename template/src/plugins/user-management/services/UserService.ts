@@ -16,6 +16,7 @@ import {
   SecuritySettings,
   UploadAvatarResponse,
 } from '../types';
+import { AUDIT_PLUGIN_EVENTS, AUDIT_ACTIONS } from '../../../events';
 
 declare global {
   interface Window {
@@ -76,8 +77,8 @@ export class UserService {
 
       // Log audit event for profile update
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.profile.updated',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_PROFILE_UPDATED,
           actorId: userId,
           meta: {
             updatedFields: Object.keys(data),
@@ -113,8 +114,8 @@ export class UserService {
 
       // Log audit event for avatar upload
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.avatar.uploaded',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_AVATAR_UPLOADED,
           actorId: userId,
           meta: {
             fileName: file.name,
@@ -161,8 +162,8 @@ export class UserService {
 
       // Log audit event for preferences update
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.preferences.updated',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_PREFERENCES_UPDATED,
           actorId: userId,
           meta: {
             updatedFields: Object.keys(data),
@@ -205,8 +206,8 @@ export class UserService {
 
       // Log audit event for security settings update
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.security.updated',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_SECURITY_UPDATED,
           actorId: userId,
           meta: {
             updatedFields: Object.keys(data),
@@ -230,8 +231,8 @@ export class UserService {
 
       // Log audit event for 2FA enablement
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.2fa.enabled',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_2FA_ENABLED,
           actorId: userId,
           meta: {
             method: 'totp',
@@ -257,8 +258,8 @@ export class UserService {
 
       // Log audit event for 2FA disablement
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.2fa.disabled',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_2FA_DISABLED,
           actorId: userId,
           meta: {
             method: 'totp',
@@ -288,8 +289,8 @@ export class UserService {
 
       // Log audit event for role update
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.role.updated',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_ROLE_UPDATED,
           actorId: 'current-user', // This should come from auth context
           tenantId,
           meta: {
@@ -316,8 +317,8 @@ export class UserService {
 
       // Log audit event for user deactivation
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.deactivated',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_DEACTIVATED,
           actorId: 'current-user', // This should come from auth context
           tenantId,
           meta: {
@@ -343,8 +344,8 @@ export class UserService {
 
       // Log audit event for user reactivation
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.reactivated',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_REACTIVATED,
           actorId: 'current-user', // This should come from auth context
           tenantId,
           meta: {
@@ -370,8 +371,8 @@ export class UserService {
 
       // Log audit event for user removal
       if (typeof window !== 'undefined' && window.eventBus) {
-        window.eventBus.emit('audit.event', {
-          action: 'user.removed',
+        window.eventBus.emit(AUDIT_PLUGIN_EVENTS.AUDIT_EVENT, {
+          action: AUDIT_ACTIONS.USER_REMOVED,
           actorId: 'current-user', // This should come from auth context
           tenantId,
           meta: {

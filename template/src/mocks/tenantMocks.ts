@@ -161,8 +161,18 @@ export const tenantMocks = {
       id: 'member-1',
       userId: 'user-1',
       tenantId: 'tenant-1',
-      role: TENANT_ROLES.OWNER,
-      permissions: ['*'],
+      tenantRole: TENANT_ROLES.OWNER,
+      workspaces: [
+        {
+          workspaceId: 'workspace-1',
+          groupIds: ['owner-group'],
+          effectivePermissions: [
+            { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+            { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
+            { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
+          ]
+        }
+      ],
       email: 'owner@acme-corp.com',
       name: 'John Smith',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
@@ -173,8 +183,17 @@ export const tenantMocks = {
       id: 'member-2',
       userId: 'user-3',
       tenantId: 'tenant-1',
-      role: TENANT_ROLES.ADMIN,
-      permissions: ['admin:*', 'tenant:read', 'tenant:update'],
+      tenantRole: TENANT_ROLES.ADMIN,
+      workspaces: [
+        {
+          workspaceId: 'workspace-1',
+          groupIds: ['admin-group'],
+          effectivePermissions: [
+            { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+            { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' }
+          ]
+        }
+      ],
       email: 'admin@acme-corp.com',
       name: 'Sarah Johnson',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
@@ -185,10 +204,19 @@ export const tenantMocks = {
       id: 'member-3',
       userId: 'user-4',
       tenantId: 'tenant-1',
-      role: TENANT_ROLES.MEMBER,
-      permissions: ['tenant:read'],
+      tenantRole: TENANT_ROLES.MEMBER,
+      workspaces: [
+        {
+          workspaceId: 'workspace-1',
+          groupIds: ['member-group'],
+          effectivePermissions: [
+            { id: 'project.read', name: 'Read Project', resource: 'project', action: 'read' }
+          ]
+        }
+      ],
       email: 'member@acme-corp.com',
       name: 'Mike Wilson',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
       status: MEMBER_STATUSES.ACTIVE,
       joinedAt: '2024-01-20T10:15:00Z'
     },
@@ -196,10 +224,21 @@ export const tenantMocks = {
       id: 'member-4',
       userId: 'user-1',
       tenantId: 'tenant-2',
-      role: TENANT_ROLES.OWNER,
-      permissions: ['*'],
+      tenantRole: TENANT_ROLES.OWNER,
+      workspaces: [
+        {
+          workspaceId: 'workspace-2',
+          groupIds: ['owner-group'],
+          effectivePermissions: [
+            { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+            { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
+            { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
+          ]
+        }
+      ],
       email: 'founder@startupxyz.com',
       name: 'John Smith',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
       status: MEMBER_STATUSES.ACTIVE,
       joinedAt: '2024-02-01T14:00:00Z'
     },
@@ -207,8 +246,17 @@ export const tenantMocks = {
       id: 'member-5',
       userId: 'user-2',
       tenantId: 'tenant-3',
-      role: TENANT_ROLES.OWNER,
-      permissions: ['*'],
+      tenantRole: TENANT_ROLES.OWNER,
+      workspaces: [
+        {
+          workspaceId: 'workspace-3',
+          groupIds: ['owner-group'],
+          effectivePermissions: [
+            { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+            { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' }
+          ]
+        }
+      ],
       email: 'lead@devteam-pro.com',
       name: 'Alice Brown',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alice',

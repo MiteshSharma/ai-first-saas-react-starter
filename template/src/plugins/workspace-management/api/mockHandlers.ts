@@ -620,6 +620,7 @@ class WorkspaceMockHandlers {
   }
 }
 
+export { WorkspaceMockHandlers };
 export default WorkspaceMockHandlers;
 
 export const setupWorkspaceMocks = (mock: MockAdapter) => {

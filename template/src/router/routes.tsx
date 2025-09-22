@@ -1,10 +1,10 @@
-import { lazy, ReactElement, Suspense } from 'react';
+import React, { lazy, ReactElement, Suspense } from 'react';
 import { RouteObject } from 'react-router-dom';
 import { pluginManager } from '../core/plugin-system/PluginManager';
+import { createProtectedRoute } from '../core/routing/ProtectedRoute';
 
 const HomePage = lazy(() => import('../pages/HomePage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
-const ProjectsPage = lazy(() => import('../pages/ProjectsPage'));
 const SettingsPage = lazy(() => import('../pages/SettingsPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'));
@@ -17,13 +17,13 @@ const LazyWrapper = ({ children }: { children: ReactElement }): ReactElement => 
   <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
 );
 
-// Base routes that are always available
-const baseRoutes: RouteObject[] = [
+// Authenticated routes - require login
+const authenticatedRoutes: RouteObject[] = [
   {
     path: '/',
     element: (
       <LazyWrapper>
-        <HomePage />
+        {React.createElement(createProtectedRoute(HomePage))}
       </LazyWrapper>
     ),
     index: true,
@@ -32,15 +32,7 @@ const baseRoutes: RouteObject[] = [
     path: '/dashboard',
     element: (
       <LazyWrapper>
-        <DashboardPage />
-      </LazyWrapper>
-    ),
-  },
-  {
-    path: '/projects',
-    element: (
-      <LazyWrapper>
-        <ProjectsPage />
+        {React.createElement(createProtectedRoute(DashboardPage))}
       </LazyWrapper>
     ),
   },
@@ -48,10 +40,14 @@ const baseRoutes: RouteObject[] = [
     path: '/settings',
     element: (
       <LazyWrapper>
-        <SettingsPage />
+        {React.createElement(createProtectedRoute(SettingsPage))}
       </LazyWrapper>
     ),
   },
+];
+
+// Non-authenticated routes - public access
+const publicRoutes: RouteObject[] = [
   {
     path: '/auth',
     children: [
@@ -105,6 +101,12 @@ const baseRoutes: RouteObject[] = [
       },
     ],
   },
+];
+
+// Combine all base routes
+const baseRoutes: RouteObject[] = [
+  ...authenticatedRoutes,
+  ...publicRoutes,
 ];
 
 // Function to get dynamic routes with plugin routes included

@@ -8,6 +8,7 @@
  */
 
 import type { User, ISODate, WorkspaceSettings } from '../types';
+import { CORE_SYSTEM_EVENTS } from '../../events';
 
 // Context-related event types
 export interface TenantContext {
@@ -47,13 +48,13 @@ export interface ContextChangeEvent {
 
 // Standard event types
 export interface SystemEvents {
-  'context:changed': ContextChangeEvent;
-  'tenant:switched': { tenantId: string; userId: string };
-  'workspace:switched': { workspaceId: string; workspace: WorkspaceContext };
-  'user:updated': { user: User };
-  'auth:success': { userId: string };
-  'auth:login': { user: User };
-  'auth:logout': { userId: string };
+  [CORE_SYSTEM_EVENTS.CONTEXT_CHANGED]: ContextChangeEvent;
+  [CORE_SYSTEM_EVENTS.TENANT_SWITCHED]: { tenantId: string; userId: string };
+  [CORE_SYSTEM_EVENTS.WORKSPACE_SWITCHED]: { workspaceId: string; workspace: WorkspaceContext };
+  [CORE_SYSTEM_EVENTS.USER_UPDATED]: { user: User };
+  [CORE_SYSTEM_EVENTS.AUTH_SUCCESS]: { userId: string };
+  [CORE_SYSTEM_EVENTS.AUTH_LOGIN]: { user: User };
+  [CORE_SYSTEM_EVENTS.AUTH_LOGOUT]: { userId: string };
 }
 
 export class EventBus {
@@ -143,98 +144,98 @@ export class EventBus {
    * Emit a context change event
    */
   emitContextChange(contextChangeEvent: ContextChangeEvent): void {
-    this.emit('context:changed', contextChangeEvent);
+    this.emit(CORE_SYSTEM_EVENTS.CONTEXT_CHANGED, contextChangeEvent);
   }
 
   /**
    * Subscribe to context change events
    */
   onContextChange(handler: (event: ContextChangeEvent) => void): () => void {
-    return this.on('context:changed', handler);
+    return this.on(CORE_SYSTEM_EVENTS.CONTEXT_CHANGED, handler);
   }
 
   /**
    * Emit tenant switch event
    */
   emitTenantSwitch(tenantId: string, userId: string): void {
-    this.emit('tenant:switched', { tenantId, userId });
+    this.emit(CORE_SYSTEM_EVENTS.TENANT_SWITCHED, { tenantId, userId });
   }
 
   /**
    * Subscribe to tenant switch events
    */
   onTenantSwitch(handler: (event: { tenantId: string; userId: string }) => void): () => void {
-    return this.on('tenant:switched', handler);
+    return this.on(CORE_SYSTEM_EVENTS.TENANT_SWITCHED, handler);
   }
 
   /**
    * Emit workspace switch event
    */
   emitWorkspaceSwitch(workspaceId: string, workspace: WorkspaceContext): void {
-    this.emit('workspace:switched', { workspaceId, workspace });
+    this.emit(CORE_SYSTEM_EVENTS.WORKSPACE_SWITCHED, { workspaceId, workspace });
   }
 
   /**
    * Subscribe to workspace switch events
    */
   onWorkspaceSwitch(handler: (event: { workspaceId: string; workspace: WorkspaceContext }) => void): () => void {
-    return this.on('workspace:switched', handler);
+    return this.on(CORE_SYSTEM_EVENTS.WORKSPACE_SWITCHED, handler);
   }
 
   /**
    * Emit user update event
    */
   emitUserUpdate(user: User): void {
-    this.emit('user:updated', { user });
+    this.emit(CORE_SYSTEM_EVENTS.USER_UPDATED, { user });
   }
 
   /**
    * Subscribe to user update events
    */
   onUserUpdate(handler: (event: { user: User }) => void): () => void {
-    return this.on('user:updated', handler);
+    return this.on(CORE_SYSTEM_EVENTS.USER_UPDATED, handler);
   }
 
   /**
    * Emit auth success event
    */
   emitAuthSuccess(userId: string): void {
-    this.emit('auth:success', { userId });
+    this.emit(CORE_SYSTEM_EVENTS.AUTH_SUCCESS, { userId });
   }
 
   /**
    * Subscribe to auth success events
    */
   onAuthSuccess(handler: (event: { userId: string }) => void): () => void {
-    return this.on('auth:success', handler);
+    return this.on(CORE_SYSTEM_EVENTS.AUTH_SUCCESS, handler);
   }
 
   /**
    * Emit auth login event
    */
   emitAuthLogin(user: User): void {
-    this.emit('auth:login', { user });
+    this.emit(CORE_SYSTEM_EVENTS.AUTH_LOGIN, { user });
   }
 
   /**
    * Subscribe to auth login events
    */
   onAuthLogin(handler: (event: { user: User }) => void): () => void {
-    return this.on('auth:login', handler);
+    return this.on(CORE_SYSTEM_EVENTS.AUTH_LOGIN, handler);
   }
 
   /**
    * Emit auth logout event
    */
   emitAuthLogout(userId: string): void {
-    this.emit('auth:logout', { userId });
+    this.emit(CORE_SYSTEM_EVENTS.AUTH_LOGOUT, { userId });
   }
 
   /**
    * Subscribe to auth logout events
    */
   onAuthLogout(handler: (event: { userId: string }) => void): () => void {
-    return this.on('auth:logout', handler);
+    return this.on(CORE_SYSTEM_EVENTS.AUTH_LOGOUT, handler);
   }
 }
 

@@ -1,101 +1,39 @@
 /**
- * @fileoverview Workspace Management Plugin
+ * @fileoverview Workspace Management Plugin Entry Point
  *
- * Main plugin implementation for workspace management functionality
- * Demonstrates complete plugin system integration with:
- * - Route registration
- * - Widget registration
- * - Event handling
- * - State management
+ * Main exports for the workspace management plugin
  */
 
-import React from 'react';
-import { Plugin, PluginContext } from '../../core/plugin-system/types';
 import { PluginManager } from '../../core/plugin-system/PluginManager';
-import { createProtectedRoute } from '../../core/routing/ProtectedRoute';
-import { initializeWorkspaceStore } from './stores/workspaceStore';
-import { WorkspaceSwitcher } from './components/WorkspaceSwitcher';
-import { WorkspaceSettingsPage } from './pages/WorkspaceSettingsPage';
-
-// Create the workspace management plugin
-const workspacePlugin: Plugin = {
-  name: 'workspace-management',
-  version: '1.0.0',
-
-  async init(context: PluginContext) {
-    try {
-      // Initialize workspace store with CoreContext
-      initializeWorkspaceStore(context.core.setCurrentWorkspace);
-
-      // Import CreateWorkspace component
-      const { default: CreateWorkspace } = await import('./pages/CreateWorkspace');
-
-      // Register workspace routes with authentication protection
-      context.registerRoute('/settings/workspaces', createProtectedRoute(WorkspaceSettingsPage));
-
-      // Register CreateWorkspace as standalone route (full-screen, no sidebar)
-      context.registerStandaloneRoute('/workspaces/create', createProtectedRoute(CreateWorkspace));
-
-      // Register workspace switcher as a header widget
-      context.registerHeaderWidget('workspace-switcher', () => React.createElement(WorkspaceSwitcher));
-
-      // Register workspace dashboard widget
-      context.registerDashboardWidget(
-        'workspace-overview',
-        () => React.createElement('div', { style: { padding: 16 } }, [
-          React.createElement('h3', { key: 'title' }, 'Workspace Overview'),
-          React.createElement('p', { key: 'description' }, 'Quick workspace management overview widget')
-        ]),
-        2
-      );
-
-      // Listen to core app events
-      const unsubscribeAppInit = context.eventBus.on('core.app.initialized', () => {
-        // Handle app initialization
-      });
-
-      // Listen to workspace-specific events
-      const unsubscribeWorkspaceSwitched = context.eventBus.on('WORKSPACE_SWITCHED', () => {
-        // Handle workspace context switch
-      });
-
-      // Store cleanup functions (would be used in destroy method)
-      (workspacePlugin as { unsubscribers?: (() => void)[] }).unsubscribers = [
-        unsubscribeAppInit,
-        unsubscribeWorkspaceSwitched
-      ];
-
-      // Emit plugin-specific initialization event
-      context.eventBus.emit('workspace.plugin.initialized', {
-        pluginName: workspacePlugin.name,
-        version: workspacePlugin.version,
-        timestamp: new Date()
-      });
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  async destroy() {
-    try {
-      // Clean up event listeners
-      const unsubscribers = (workspacePlugin as { unsubscribers?: (() => void)[] }).unsubscribers || [];
-      unsubscribers.forEach((unsubscribe: () => void) => {
-        try {
-          unsubscribe();
-        } catch (error) {
-        }
-      });
-    } catch (error) {
-    }
-  }
-};
+import workspaceManagementPlugin from './WorkspaceManagementPlugin';
 
 // Auto-register the plugin
-PluginManager.register(workspacePlugin);
+PluginManager.register(workspaceManagementPlugin);
 
-export default workspacePlugin;
-export { workspacePlugin };
+// Export the main plugin
+export { default as workspaceManagementPlugin } from './WorkspaceManagementPlugin';
+
+// Export types
 export * from './types';
-export * from './stores/workspaceStore';
+
+// Export services
+export { WorkspaceService } from './services/WorkspaceService';
+
+// Export store
+export { useWorkspaceStore, initializeWorkspaceStore } from './stores/workspaceStore';
+
+// Export pages
+export { default as WorkspaceSettingsPage } from './pages/WorkspaceSettingsPage';
+export { default as CreateWorkspace } from './pages/CreateWorkspace';
+
+// Export components
 export * from './components';
+
+// Export API helpers
+export { WorkspaceBackendHelper } from './api/backendHelper';
+export { WorkspaceMockHandlers } from './api/mockHandlers';
+export { default as workspaceMockHandlers } from './api/mockHandlers';
+
+// For backward compatibility
+export default workspaceManagementPlugin;
+export { workspaceManagementPlugin as workspacePlugin };

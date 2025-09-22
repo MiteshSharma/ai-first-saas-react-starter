@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 import { act } from '@testing-library/react';
 import { useAuthStore } from '../authStore';
 import { EventBus } from '../../plugin-system/EventBus';
-import { CORE_EVENTS } from '../../plugin-system';
+import { CORE_EVENTS } from '../../../events';
 // import { MockLocalStorage } from '../../utils/testUtils';
 
 // Mock localStorage

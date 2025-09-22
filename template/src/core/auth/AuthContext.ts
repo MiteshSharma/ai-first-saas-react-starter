@@ -7,7 +7,8 @@
 
 import { useAuthStore } from './AuthStore';
 import { AuthContext, User } from '../plugin-system/types';
-import { eventBus, CORE_EVENTS } from '../plugin-system';
+import { eventBus } from '../plugin-system';
+import { CORE_EVENTS } from '../../events';
 
 /**
  * Create AuthContext from the existing auth store
