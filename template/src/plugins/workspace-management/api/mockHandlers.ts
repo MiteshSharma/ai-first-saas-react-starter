@@ -4,12 +4,7 @@ import {
   WorkspaceWithMembers,
   CreateWorkspacePayload,
   UpdateWorkspacePayload,
-  InviteWorkspaceMemberPayload,
-  ExtendedWorkspaceMember,
-  WorkspaceInvitation,
-  WorkspaceActivity,
-  WorkspaceListFilter,
-  WorkspaceStats
+  WorkspaceListFilter
 } from '../types';
 
 /**
@@ -185,77 +180,6 @@ class WorkspaceMockHandlers {
     ]
   };
 
-  private static members: { [workspaceId: string]: ExtendedWorkspaceMember[] } = {
-    'workspace-1': [
-      {
-        id: 'member-1',
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-        role: 'admin' as const,
-        permissions: [],
-        status: 'active' as const,
-        joinedAt: '2024-01-20T10:00:00Z',
-        invitedAt: '2024-01-20T10:00:00Z',
-        invitedBy: 'user-1'
-      },
-      {
-        id: 'member-2',
-        workspaceId: 'workspace-1',
-        userId: 'user-2',
-        role: 'editor' as const,
-        permissions: [],
-        status: 'active' as const,
-        joinedAt: '2024-01-22T09:30:00Z',
-        invitedAt: '2024-01-21T16:00:00Z',
-        invitedBy: 'user-1'
-      }
-    ]
-  };
-
-  private static invitations: { [workspaceId: string]: WorkspaceInvitation[] } = {
-    'workspace-1': [
-      {
-        id: 'invite-1',
-        workspaceId: 'workspace-1',
-        email: 'newdev@acme.com',
-        role: 'editor' as const,
-        status: 'pending' as const,
-        invitedBy: 'user-1',
-        invitedAt: '2024-03-01T10:00:00Z',
-        expiresAt: '2024-03-15T10:00:00Z',
-        token: 'invite-token-1',
-        message: 'Welcome to the Engineering Team!'
-      }
-    ]
-  };
-
-  private static activities: { [workspaceId: string]: WorkspaceActivity[] } = {
-    'workspace-1': [
-      {
-        id: 'activity-1',
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-        userName: 'John Doe',
-        action: 'workspace.member.invited',
-        description: 'Invited newdev@acme.com to the workspace',
-        metadata: { email: 'newdev@acme.com', role: 'editor' },
-        createdAt: '2024-03-01T10:00:00Z'
-      }
-    ]
-  };
-
-  private static stats: { [workspaceId: string]: WorkspaceStats } = {
-    'workspace-1': {
-      workspaceId: 'workspace-1',
-      memberCount: 8,
-      activeMembers: 7,
-      totalActivities: 45,
-      recentActivities: 12,
-      storageUsed: 2500,
-      apiCallsUsed: 1200,
-      lastActivity: '2024-03-01T10:00:00Z'
-    }
-  };
 
   // Helper methods
   static getWorkspacesByTenant(tenantId: string): WorkspaceWithMembers[] {
@@ -391,13 +315,6 @@ class WorkspaceMockHandlers {
     return false;
   }
 
-  static getActivities(workspaceId: string): WorkspaceActivity[] {
-    return this.activities[workspaceId] || [];
-  }
-
-  static getStats(workspaceId: string): WorkspaceStats | null {
-    return this.stats[workspaceId] || null;
-  }
 
   /**
    * Static async methods for backend helper compatibility
@@ -480,13 +397,6 @@ class WorkspaceMockHandlers {
     return Promise.resolve();
   }
 
-  static async archive(workspaceId: string): Promise<void> {
-    const workspace = this.archiveWorkspace(workspaceId);
-    if (!workspace) {
-      throw new Error('Workspace not found');
-    }
-    return Promise.resolve();
-  }
 
   static async delete(workspaceId: string): Promise<void> {
     const removed = this.removeWorkspace(workspaceId);
@@ -496,27 +406,6 @@ class WorkspaceMockHandlers {
     return Promise.resolve();
   }
 
-  static async getActivityMock(workspaceId: string): Promise<WorkspaceActivity[]> {
-    return Promise.resolve(this.getActivities(workspaceId));
-  }
-
-  static async getStatsMock(workspaceId: string): Promise<WorkspaceStats> {
-    const stats = this.getStats(workspaceId);
-    if (!stats) {
-      throw new Error('Workspace stats not found');
-    }
-    return Promise.resolve(stats);
-  }
-
-  static async switchContextMock(workspaceId: string): Promise<{ workspace: Workspace; }> {
-    const workspace = this.getWorkspaceById(workspaceId);
-    if (!workspace) {
-      throw new Error('Workspace not found');
-    }
-    return Promise.resolve({
-      workspace
-    });
-  }
 }
 
 export { WorkspaceMockHandlers };
@@ -768,40 +657,6 @@ export const setupWorkspaceMocks = (mock: MockAdapter) => {
     }
 
     return [404, { error: 'Workspace not found' }];
-  });
-
-  // Get workspace activity
-  mock.onGet(/\/workspaces\/[^/]+\/activity/).reply((config) => {
-    const url = config.url || '';
-    const workspaceIdMatch = url.match(/\/workspaces\/([^/]+)\/activity/);
-
-    if (!workspaceIdMatch) {
-      return [400, { error: 'Invalid workspace ID' }];
-    }
-
-    const workspaceId = workspaceIdMatch[1];
-    const activities = WorkspaceMockHandlers.getActivities(workspaceId);
-
-    return [200, { data: activities }];
-  });
-
-  // Get workspace stats
-  mock.onGet(/\/workspaces\/[^/]+\/stats/).reply((config) => {
-    const url = config.url || '';
-    const workspaceIdMatch = url.match(/\/workspaces\/([^/]+)\/stats/);
-
-    if (!workspaceIdMatch) {
-      return [400, { error: 'Invalid workspace ID' }];
-    }
-
-    const workspaceId = workspaceIdMatch[1];
-    const stats = WorkspaceMockHandlers.getStats(workspaceId);
-
-    if (!stats) {
-      return [404, { error: 'Workspace stats not found' }];
-    }
-
-    return [200, { data: stats }];
   });
 
   // Switch workspace context

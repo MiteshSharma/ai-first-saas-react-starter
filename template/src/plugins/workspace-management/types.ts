@@ -53,23 +53,6 @@ export interface UpdateWorkspacePayload {
   settings?: Partial<WorkspaceSettings>;
 }
 
-/**
- * Workspace invite payload
- */
-export interface InviteWorkspaceMemberPayload {
-  email: string;
-  role: string;
-  message?: string;
-}
-
-/**
- * Extended workspace member with additional properties
- */
-export interface ExtendedWorkspaceMember extends WorkspaceMember {
-  status?: 'active' | 'inactive' | 'suspended';
-  invitedAt?: string;
-  invitedBy?: string;
-}
 
 /**
  * Workspace member role
@@ -107,50 +90,6 @@ export interface WorkspaceListFilter {
   sortOrder?: 'asc' | 'desc';
 }
 
-/**
- * Workspace invitation
- */
-export interface WorkspaceInvitation {
-  id: string;
-  workspaceId: string;
-  email: string;
-  role: WorkspaceRole;
-  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
-  invitedBy: string;
-  invitedAt: string;
-  expiresAt: string;
-  acceptedAt?: string;
-  token: string;
-  message?: string;
-}
-
-/**
- * Workspace activity log entry
- */
-export interface WorkspaceActivity {
-  id: string;
-  workspaceId: string;
-  userId: string;
-  userName?: string;
-  action: string;
-  description: string;
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-}
-
-/**
- * Workspace statistics
- */
-export interface WorkspaceStats {
-  workspaceId: string;
-  memberCount: number;
-  activeMembers: number;
-  totalActivities: number;
-  recentActivities: number;
-  storageUsed: number;
-  apiCallsUsed: number;
-  lastActivity?: string;
-}
 
 /**
  * Workspace events

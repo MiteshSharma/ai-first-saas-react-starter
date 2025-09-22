@@ -11,14 +11,9 @@ export const WORKSPACE_ENDPOINTS = {
   CREATE: '/tenants/:tenantId/workspaces',
   UPDATE: '/workspaces/:workspaceId',
   DELETE: '/workspaces/:workspaceId',
-  ARCHIVE: '/workspaces/:workspaceId/archive',
 
   // Settings operations
   UPDATE_SETTINGS: '/workspaces/:workspaceId/settings',
-
-  // Activity and stats
-  GET_ACTIVITY: '/workspaces/:workspaceId/activity',
-  GET_STATS: '/workspaces/:workspaceId/stats',
 
   // Context switching
   SWITCH_CONTEXT: '/workspaces/switch'

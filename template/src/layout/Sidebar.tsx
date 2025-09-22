@@ -80,14 +80,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
           id: 'workspace-settings',
           label: 'Workspace Settings',
           icon: <ApartmentOutlined />,
-          path: '/workspaces/settings',
+          path: '/settings/workspaces',
           order: 1
         },
         {
           id: 'tenant-settings',
           label: 'Tenant Settings',
           icon: <TeamOutlined />,
-          path: '/tenants/settings',
+          path: '/settings/tenants',
           order: 2
         },
         {
