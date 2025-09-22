@@ -130,7 +130,12 @@ interface CoreProviderProps {
 // Core provider component
 export function CoreProvider({ children }: CoreProviderProps): React.JSX.Element {
   const [state, dispatch] = useReducer(coreReducer, initialState);
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, initializeAuth } = useAuthStore();
+
+  // Initialize auth on mount
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   // Sync user from auth store
   useEffect(() => {

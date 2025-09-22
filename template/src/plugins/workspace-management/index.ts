@@ -31,7 +31,7 @@ const workspacePlugin: Plugin = {
       const { default: CreateWorkspace } = await import('./pages/CreateWorkspace');
 
       // Register workspace routes with authentication protection
-      context.registerRoute('/workspaces/settings', createProtectedRoute(WorkspaceSettingsPage));
+      context.registerRoute('/settings/workspaces', createProtectedRoute(WorkspaceSettingsPage));
 
       // Register CreateWorkspace as standalone route (full-screen, no sidebar)
       context.registerStandaloneRoute('/workspaces/create', createProtectedRoute(CreateWorkspace));

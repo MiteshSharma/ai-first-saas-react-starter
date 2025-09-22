@@ -31,14 +31,14 @@ export const SettingsPage: React.FC = () => {
       title: 'Workspace Settings',
       description: 'Configure workspace settings, members, and preferences',
       icon: <ApartmentOutlined style={{ fontSize: 24, color: '#52c41a' }} />,
-      path: '/workspaces/settings',
+      path: '/settings/workspaces',
       available: true
     },
     {
       title: 'Tenant Settings',
       description: 'Manage tenant configuration, security, and subscription',
       icon: <TeamOutlined style={{ fontSize: 24, color: '#faad14' }} />,
-      path: '/tenants/settings',
+      path: '/settings/tenants',
       available: true
     },
     {

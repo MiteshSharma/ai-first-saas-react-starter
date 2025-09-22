@@ -1,0 +1,849 @@
+openapi: 3.0.3
+info:
+  title: Tenant Management API
+  description: |
+    API for managing tenants, members, and invitations in the multi-tenant SaaS platform.
+
+    This API handles:
+    - Tenant creation, updates, and management
+    - Member management within tenants
+    - User invitations to tenants
+    - Role and permission management
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api-support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Tenants
+    description: Tenant management operations
+  - name: Members
+    description: Tenant member management
+  - name: Invitations
+    description: User invitation management
+
+paths:
+  # Tenant Management Endpoints
+  /tenants:
+    get:
+      tags: [Tenants]
+      summary: List tenants
+      description: Retrieve a list of tenants accessible to the current user
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, suspended, deleted, trial]
+        - name: search
+          in: query
+          schema:
+            type: string
+            description: Search by tenant name or slug
+      responses:
+        200:
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Tenants]
+      summary: Create a new tenant
+      description: Create a new tenant with initial settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        201:
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        409:
+          description: Tenant with slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tenants/{tenantId}:
+    get:
+      tags: [Tenants]
+      summary: Get tenant details
+      description: Retrieve detailed information about a specific tenant
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        200:
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Tenants]
+      summary: Update tenant
+      description: Update tenant information and settings
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        200:
+          description: Tenant updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Tenants]
+      summary: Delete tenant
+      description: Soft delete a tenant (marks as deleted, doesn't remove data)
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        204:
+          description: Tenant deleted successfully
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  # Member Management Endpoints
+  /tenants/{tenantId}/members:
+    get:
+      tags: [Members]
+      summary: List tenant members
+      description: Retrieve all members of a specific tenant
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [owner, admin, member, guest]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, suspended]
+        - name: workspaceId
+          in: query
+          schema:
+            type: string
+            description: Filter by workspace assignment
+        - name: search
+          in: query
+          schema:
+            type: string
+            description: Search by member name or email
+      responses:
+        200:
+          description: List of tenant members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TenantMember'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/members/{memberId}:
+    get:
+      tags: [Members]
+      summary: Get member details
+      description: Retrieve detailed information about a specific member
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        200:
+          description: Member details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantMember'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Members]
+      summary: Update member
+      description: Update member role and permissions
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/MemberId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+      responses:
+        200:
+          description: Member updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantMember'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Members]
+      summary: Remove member
+      description: Remove a member from the tenant
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/MemberId'
+      responses:
+        204:
+          description: Member removed successfully
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  # Invitation Management Endpoints
+  /tenants/{tenantId}/invitations:
+    get:
+      tags: [Invitations]
+      summary: List tenant invitations
+      description: Retrieve all pending invitations for a tenant
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, expired, cancelled]
+            default: pending
+      responses:
+        200:
+          description: List of invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invitations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Invitations]
+      summary: Send invitations
+      description: Send invitations to new users to join the tenant
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendInvitationRequest'
+      responses:
+        201:
+          description: Invitations sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invitations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+                  message:
+                    type: string
+                    example: "Invitations sent to 3 recipients"
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/invitations/{invitationId}:
+    get:
+      tags: [Invitations]
+      summary: Get invitation details
+      description: Retrieve details of a specific invitation
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        200:
+          description: Invitation details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Invitations]
+      summary: Cancel invitation
+      description: Cancel a pending invitation
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        204:
+          description: Invitation cancelled successfully
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /invitations/{token}/accept:
+    post:
+      tags: [Invitations]
+      summary: Accept invitation
+      description: Accept an invitation using the invitation token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Invitation token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  description: Password for new user account (if not existing user)
+                  minLength: 8
+                firstName:
+                  type: string
+                  description: First name (if not existing user)
+                lastName:
+                  type: string
+                  description: Last name (if not existing user)
+      responses:
+        200:
+          description: Invitation accepted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invitation accepted successfully"
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
+                  member:
+                    $ref: '#/components/schemas/TenantMember'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          description: Invalid or expired invitation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TenantId:
+      name: tenantId
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Unique tenant identifier
+
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Unique member identifier
+
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema:
+        type: string
+        description: Unique invitation identifier
+
+  schemas:
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique tenant identifier
+        name:
+          type: string
+          description: Tenant display name
+        slug:
+          type: string
+          description: Unique tenant slug for URLs
+        status:
+          type: string
+          enum: [active, suspended, deleted, trial]
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+        subscription:
+          $ref: '#/components/schemas/TenantSubscription'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, status, settings, subscription, createdAt, updatedAt]
+
+    TenantSettings:
+      type: object
+      properties:
+        branding:
+          $ref: '#/components/schemas/TenantBranding'
+        timezone:
+          type: string
+          example: "UTC"
+        currency:
+          type: string
+          example: "USD"
+        language:
+          type: string
+          example: "en"
+      required: [branding, timezone, currency, language]
+
+    TenantBranding:
+      type: object
+      properties:
+        logo:
+          type: string
+          format: uri
+          description: URL to tenant logo
+        primaryColor:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#1890ff"
+        secondaryColor:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          example: "#52c41a"
+        favicon:
+          type: string
+          format: uri
+          description: URL to tenant favicon
+      required: [primaryColor, secondaryColor]
+
+    TenantSubscription:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [free, starter, professional, enterprise]
+        status:
+          type: string
+          enum: [active, inactive, cancelled, suspended]
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+        expiresAt:
+          type: string
+          format: date-time
+      required: [plan, status, billingCycle]
+
+    TenantMember:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique member identifier
+        tenantId:
+          type: string
+          description: Tenant identifier
+        userId:
+          type: string
+          description: User identifier
+        user:
+          $ref: '#/components/schemas/User'
+        role:
+          type: string
+          enum: [owner, admin, member, guest]
+        permissions:
+          type: array
+          items:
+            type: string
+          description: List of specific permissions
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceAssignment'
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        joinedAt:
+          type: string
+          format: date-time
+      required: [id, tenantId, userId, user, role, permissions, joinedAt]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        avatar:
+          type: string
+          format: uri
+      required: [id, email, firstName, lastName]
+
+    WorkspaceAssignment:
+      type: object
+      properties:
+        workspaceId:
+          type: string
+        workspaceName:
+          type: string
+        role:
+          type: string
+          enum: [admin, editor, viewer]
+      required: [workspaceId, workspaceName, role]
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        tenantId:
+          type: string
+        tenantRole:
+          type: string
+          enum: [owner, admin, member, guest]
+        workspaceRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              workspaceId:
+                type: string
+              role:
+                type: string
+                enum: [admin, editor, viewer]
+        invitedBy:
+          type: string
+          description: User ID of the inviter
+        status:
+          type: string
+          enum: [pending, accepted, expired, cancelled]
+        token:
+          type: string
+          description: Invitation token for acceptance
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        acceptedAt:
+          type: string
+          format: date-time
+      required: [id, email, tenantId, tenantRole, invitedBy, status, token, expiresAt, createdAt]
+
+    CreateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          minLength: 1
+          maxLength: 50
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+      required: [name, slug]
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+        status:
+          type: string
+          enum: [active, suspended, deleted]
+
+    UpdateMemberRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [owner, admin, member, guest]
+        permissions:
+          type: array
+          items:
+            type: string
+        workspaceRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              workspaceId:
+                type: string
+              role:
+                type: string
+                enum: [admin, editor, viewer]
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+
+    SendInvitationRequest:
+      type: object
+      properties:
+        emails:
+          type: array
+          items:
+            type: string
+            format: email
+          minItems: 1
+          maxItems: 10
+        tenantRole:
+          type: string
+          enum: [admin, member, guest]
+          default: member
+        workspaceRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              workspaceId:
+                type: string
+              role:
+                type: string
+                enum: [admin, editor, viewer]
+        message:
+          type: string
+          maxLength: 500
+          description: Optional custom message for the invitation
+      required: [emails, tenantRole]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        pages:
+          type: integer
+          minimum: 0
+      required: [page, limit, total, pages]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+      required: [error, message]
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "validation_error"
+            message: "Invalid input data"
+            details:
+              field: "email"
+              issue: "Invalid email format"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "unauthorized"
+            message: "Authentication required"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "forbidden"
+            message: "Insufficient permissions for this operation"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "not_found"
+            message: "Resource not found"

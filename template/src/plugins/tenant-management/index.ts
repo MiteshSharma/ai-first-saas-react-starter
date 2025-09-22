@@ -33,7 +33,7 @@ const tenantPlugin: Plugin = {
       const { default: CreateTenant } = await import('./pages/CreateTenant');
 
       // Register tenant routes with authentication protection
-      context.registerRoute('/tenants/settings', createProtectedRoute(TenantSettingsPage));
+      context.registerRoute('/settings/tenants', createProtectedRoute(TenantSettingsPage));
 
       // Register CreateTenant as standalone route (full-screen, no sidebar)
       context.registerStandaloneRoute('/tenants/create', createProtectedRoute(CreateTenant));

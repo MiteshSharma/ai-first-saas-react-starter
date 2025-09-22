@@ -24,8 +24,8 @@ export const tenantManagementPlugin: Plugin = {
    */
   async init(context: PluginContext): Promise<void> {
     try {
-      // Initialize tenant store with event bus
-      initializeTenantStore(context.eventBus);
+      // Initialize tenant store with event bus and core context
+      initializeTenantStore(context.eventBus, context.core?.setCurrentTenant);
 
       // Register components lazily
       const { TenantSwitcher } = await import('./components/TenantSwitcher');

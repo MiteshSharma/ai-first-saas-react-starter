@@ -24,6 +24,8 @@ import {
 import InvitationService from '../services/InvitationService';
 import UserService from '../services/UserService';
 
+let eventBus: any = null;
+
 declare global {
   interface Window {
     eventBus?: {
@@ -608,3 +610,44 @@ export const useUserManagementData = () => useUserManagementStore((state) => ({
   isUpdatingSecuritySettings: state.isUpdatingSecuritySettings,
   isUploadingAvatar: state.isUploadingAvatar,
 }));
+
+// Initialize store and set up event bus
+export const initializeUserManagementStore = (providedEventBus: any) => {
+  eventBus = providedEventBus;
+
+  const store = useUserManagementStore.getState();
+
+  // Listen to AUTH_SUCCESS events to load user data
+  const unsubscribeAuthSuccess = eventBus.onAuthSuccess(({ userId }: { userId: string }) => {
+    // Load user profile data when authentication is successful
+    UserService.getUser(userId)
+      .then(userProfile => {
+        // Set the current user in the store
+        useUserManagementStore.setState({ currentUser: userProfile });
+      })
+      .catch(error => {
+        console.error('Failed to load user profile:', error);
+        store.setError('Failed to load user profile');
+      });
+
+    // Load user preferences
+    UserService.getPreferences(userId)
+      .then(preferences => {
+        useUserManagementStore.setState({ userPreferences: preferences });
+      })
+      .catch(error => {
+        console.error('Failed to load user preferences:', error);
+      });
+
+    // Load security settings
+    UserService.getSecuritySettings(userId)
+      .then(settings => {
+        useUserManagementStore.setState({ securitySettings: settings });
+      })
+      .catch(error => {
+        console.error('Failed to load security settings:', error);
+      });
+  });
+
+  return unsubscribeAuthSuccess;
+};

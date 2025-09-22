@@ -501,8 +501,30 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // Initialize event listeners for tenant switching
       initializeEventListeners: () => {
         if (eventBus) {
-          // Listen for tenant switched events
+          // Listen for tenant switched events (old format)
           eventBus.on(TENANT_EVENTS.TENANT_SWITCHED, (data: { tenantId: string; tenantName: string; timestamp: Date }) => {
+            console.log('Workspace plugin: Tenant switched to:', data.tenantId);
+
+            // Clear current workspaces and load new ones for the switched tenant
+            const currentState = get();
+
+            // Reset workspace-related state
+            set({
+              workspaces: [],
+              currentWorkspace: null,
+              members: [],
+              invitations: [],
+              activities: [],
+              stats: null,
+              error: null
+            });
+
+            // Load workspaces for the new tenant
+            currentState.loadWorkspaces(data.tenantId, currentState.filter);
+          });
+
+          // Listen for new simplified tenant switched events
+          eventBus.onTenantSwitch((data: { tenantId: string; userId: string }) => {
             console.log('Workspace plugin: Tenant switched to:', data.tenantId);
 
             // Clear current workspaces and load new ones for the switched tenant

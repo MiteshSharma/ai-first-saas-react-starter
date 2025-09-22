@@ -75,6 +75,9 @@ export const useAuthStore = create<AuthStore>()(
               loading: false,
               error: null
             });
+
+            // Emit AUTH_SUCCESS event for plugins to initialize their data
+            eventBus.emitAuthSuccess(persistedAuth.user.id);
           }
         }
       },
@@ -93,6 +96,8 @@ export const useAuthStore = create<AuthStore>()(
           const authData = { user: user, token, refreshToken: token };
           setItem('authToken', authData);
 
+          // Emit AUTH_SUCCESS event for plugins to initialize their data
+          eventBus.emitAuthSuccess(user.id);
           // Emit login event for plugins
           eventBus.emit(CORE_EVENTS.USER_LOGGED_IN, { user });
         } catch (error: unknown) {
@@ -116,6 +121,8 @@ export const useAuthStore = create<AuthStore>()(
           const authData = { userId: user.id, token, refreshToken: token };
           setItem('authToken', authData);
 
+          // Emit AUTH_SUCCESS event for plugins to initialize their data
+          eventBus.emitAuthSuccess(user.id);
           // Emit login event for plugins (registration is essentially a login)
           eventBus.emit(CORE_EVENTS.USER_LOGGED_IN, { user });
         } catch (error: unknown) {

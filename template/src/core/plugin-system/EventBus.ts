@@ -48,9 +48,10 @@ export interface ContextChangeEvent {
 // Standard event types
 export interface SystemEvents {
   'context:changed': ContextChangeEvent;
-  'tenant:switched': { tenantId: string; tenant: TenantContext };
+  'tenant:switched': { tenantId: string; userId: string };
   'workspace:switched': { workspaceId: string; workspace: WorkspaceContext };
   'user:updated': { user: User };
+  'auth:success': { userId: string };
   'auth:login': { user: User };
   'auth:logout': { userId: string };
 }
@@ -155,14 +156,14 @@ export class EventBus {
   /**
    * Emit tenant switch event
    */
-  emitTenantSwitch(tenantId: string, tenant: TenantContext): void {
-    this.emit('tenant:switched', { tenantId, tenant });
+  emitTenantSwitch(tenantId: string, userId: string): void {
+    this.emit('tenant:switched', { tenantId, userId });
   }
 
   /**
    * Subscribe to tenant switch events
    */
-  onTenantSwitch(handler: (event: { tenantId: string; tenant: TenantContext }) => void): () => void {
+  onTenantSwitch(handler: (event: { tenantId: string; userId: string }) => void): () => void {
     return this.on('tenant:switched', handler);
   }
 
@@ -192,6 +193,20 @@ export class EventBus {
    */
   onUserUpdate(handler: (event: { user: User }) => void): () => void {
     return this.on('user:updated', handler);
+  }
+
+  /**
+   * Emit auth success event
+   */
+  emitAuthSuccess(userId: string): void {
+    this.emit('auth:success', { userId });
+  }
+
+  /**
+   * Subscribe to auth success events
+   */
+  onAuthSuccess(handler: (event: { userId: string }) => void): () => void {
+    return this.on('auth:success', handler);
   }
 
   /**

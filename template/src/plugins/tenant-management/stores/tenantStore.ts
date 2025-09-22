@@ -59,7 +59,7 @@ interface TenantState extends RequestState {
 }
 
 
-let eventBus: { emit: (event: string, data: unknown) => void } | null = null;
+let eventBus: any = null;
 let coreContextSetCurrentTenant: ((tenant: any) => void) | null = null;
 
 export const useTenantStore = create<TenantState>()(
@@ -113,6 +113,8 @@ export const useTenantStore = create<TenantState>()(
               tenantName: tenant.name,
               timestamp: new Date()
             });
+            // Also emit the new simplified TENANT_SWITCHED event for workspace plugin
+            eventBus.emitTenantSwitch(tenant.id, ''); // userId will be empty for now
           }
 
         } catch (error) {
@@ -383,7 +385,7 @@ export const useTenantStore = create<TenantState>()(
 
 // Initialize store and set up event bus
 export const initializeTenantStore = (
-  providedEventBus: { emit: (event: string, data: unknown) => void },
+  providedEventBus: any,
   coreSetCurrentTenant?: (tenant: any) => void
 ) => {
   eventBus = providedEventBus;
@@ -391,16 +393,21 @@ export const initializeTenantStore = (
 
   const store = useTenantStore.getState();
 
-  // Load user tenants from API
-  tenantService.getUserTenants()
-    .then(tenants => {
-      store.setUserTenants(tenants);
-      if (tenants.length > 0) {
-        store.switchTenant(tenants[0].id);
-      }
-    })
-    .catch(error => {
-      console.error('Failed to load user tenants:', error);
-      store.setError('Failed to load tenants');
-    });
+  // Listen to AUTH_SUCCESS events to load tenant data
+  const unsubscribeAuthSuccess = eventBus.onAuthSuccess(({ userId }: { userId: string }) => {
+    // Load user tenants when authentication is successful
+    tenantService.getUserTenants()
+      .then(tenants => {
+        store.setUserTenants(tenants);
+        if (tenants.length > 0) {
+          store.switchTenant(tenants[0].id);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to load user tenants:', error);
+        store.setError('Failed to load tenants');
+      });
+  });
+
+  return unsubscribeAuthSuccess;
 };

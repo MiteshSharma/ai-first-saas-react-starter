@@ -9,7 +9,7 @@
  */
 
 import { Plugin, PluginContext } from '../../core/plugin-system/types';
-import { useUserManagementStore } from './stores/userManagementStore';
+import { useUserManagementStore, initializeUserManagementStore } from './stores/userManagementStore';
 import { USER_MANAGEMENT_EVENTS } from './types';
 
 // Event data types
@@ -174,6 +174,9 @@ export const userManagementPlugin: Plugin = {
    */
   async init(context: PluginContext): Promise<void> {
     try {
+      // Initialize user management store with event bus
+      initializeUserManagementStore(context.eventBus);
+
       // Register components lazily for better performance
       const { default: UserManagementPage } = await import('./pages/UserManagementPage');
       const { default: UserSettingsPage } = await import('./pages/UserSettingsPage');
