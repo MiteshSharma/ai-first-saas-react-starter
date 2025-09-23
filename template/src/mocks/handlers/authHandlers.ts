@@ -309,5 +309,67 @@ export const setupAuthMocks = (mock: MockAdapter) => {
     }
   });
 
+  // POST /auth/admin/validate-token - Admin token validation
+  mock.onPost('/auth/admin/validate-token').reply((config) => {
+    try {
+      const { token, tenantId } = JSON.parse(config.data);
+
+      if (!token) {
+        return [400, {
+          message: 'Admin token is required',
+          code: 'MISSING_TOKEN'
+        }];
+      }
+
+      // Validate admin token format (for demo: 32+ chars, starts with 'admin_')
+      if (!token.startsWith('admin_') || token.length < 32) {
+        return [401, {
+          message: 'Invalid admin token format',
+          code: 'INVALID_ADMIN_TOKEN'
+        }];
+      }
+
+      // Mock admin user
+      const adminUser = {
+        id: 'admin-1',
+        email: 'admin@company.com',
+        profile: {
+          firstName: 'System',
+          lastName: 'Admin',
+          displayName: 'System Admin'
+        },
+        isAdminUser: true
+      };
+
+      // Mock tenant if provided
+      let tenant = null;
+      if (tenantId) {
+        tenant = {
+          id: tenantId,
+          name: `Tenant ${tenantId}`,
+          slug: `tenant-${tenantId}`
+        };
+      }
+
+      // Generate access token
+      const accessToken = `access_${Date.now()}_${Math.random().toString(36)}`;
+
+      return [200, {
+        data: {
+          user: adminUser,
+          tenant,
+          accessToken,
+          expiresIn: 3600 // 1 hour
+        },
+        message: 'Admin token validated successfully'
+      }];
+    } catch (error) {
+      return [400, {
+        message: 'Invalid JSON data',
+        code: 'INVALID_JSON'
+      }];
+    }
+  });
+
   console.log('🔐 Auth API mocks registered');
 };

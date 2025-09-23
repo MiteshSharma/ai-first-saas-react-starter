@@ -9,6 +9,9 @@ import { createAuthContext } from './core/auth/AuthContext';
 import { useAuthStore } from './core/auth/AuthStore';
 import { CoreProvider, useCoreContext } from './core/context/CoreContext';
 
+// Import admin URL handler
+import { AdminUrlHandler } from './core/auth/AdminUrlHandler';
+
 // Import layout system (Phase 3)
 import { MainLayout } from './layout';
 
@@ -130,9 +133,11 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <CoreProvider>
-        <PluginProvider>
-          <AppRoutes />
-        </PluginProvider>
+        <AdminUrlHandler>
+          <PluginProvider>
+            <AppRoutes />
+          </PluginProvider>
+        </AdminUrlHandler>
       </CoreProvider>
     </BrowserRouter>
   );

@@ -42,6 +42,8 @@ export interface User {
   profile: UserProfile;
   createdAt: ISODate;
   updatedAt: ISODate;
+  // Admin user flag for admin sessions
+  isAdminUser?: boolean;
 }
 
 // ============================================================================

@@ -47,9 +47,8 @@ import {
   SafetyOutlined
 } from '@ant-design/icons';
 import { useTenantStore } from '../stores/tenantStore';
-import { TenantMember, WorkspaceMembership } from '../types';
 import { useAuthStore } from '../../../core/auth/AuthStore';
-import { usePermissions } from '../../../core/permissions/usePermissions';
+import { TenantMember, WorkspaceMembership } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import type { FormInstance } from 'antd/es/form';
 
@@ -303,12 +302,12 @@ export const TenantSettingsPage: React.FC = () => {
     updateMemberWorkspacePermissions
   } = useTenantStore();
 
-  // Permission checks
-  const { hasPermission } = usePermissions();
-  const canUpdateTenant = hasPermission('tenant', 'update').allowed;
-  const canInviteMembers = hasPermission('tenant.members', 'create').allowed;
-  const canRemoveMembers = hasPermission('tenant.members', 'delete').allowed;
-  const canManagePermissions = hasPermission('tenant.permissions', 'update').allowed;
+  // Permission checks - using admin mode detection instead
+  const { isAdminSession } = useAuthStore();
+  const canUpdateTenant = !isAdminSession; // Admin users cannot update
+  const canInviteMembers = !isAdminSession; // Admin users cannot invite
+  const canRemoveMembers = !isAdminSession; // Admin users cannot remove
+  const canManagePermissions = !isAdminSession; // Admin users cannot manage permissions
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');

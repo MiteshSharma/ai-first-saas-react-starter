@@ -8,10 +8,20 @@ import type { User } from '../types';
 // Re-export User type from core types
 export type { User } from '../types';
 
+// Admin session metadata
+export interface AdminMetadata {
+  token: string;
+  forcedTenantId?: string;
+  loginTime: string;
+  accessLevel: 'read-only';
+}
+
 // Auth-specific state
 export interface AuthCoreState {
   user: User | null;
   token: string | null;
+  isAdminSession: boolean;
+  adminMetadata: AdminMetadata | null;
 }
 
 // Auth state with standardized request lifecycle
@@ -30,6 +40,7 @@ export enum AuthRequestType {
   COMPLETE_PASSWORD_RESET = 'COMPLETE_PASSWORD_RESET',
   LOGOUT = 'LOGOUT',
   REFRESH_TOKEN = 'REFRESH_TOKEN',
+  ADMIN_LOGIN = 'ADMIN_LOGIN',
 }
 
 // Auth actions interface with standardized lifecycle methods
@@ -50,6 +61,11 @@ export interface AuthActions {
   completePasswordReset: (data: PasswordResetCompleteData) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
+
+  // Admin auth actions
+  loginWithAdminToken: (token: string, tenantId?: string) => Promise<void>;
+  clearAdminSession: () => void;
+  isAdminUser: () => boolean;
 }
 
 export interface LoginCredentials {

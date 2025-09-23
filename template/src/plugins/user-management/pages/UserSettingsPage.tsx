@@ -19,7 +19,8 @@ import {
   Collapse,
   Tag,
   message,
-  Tooltip
+  Tooltip,
+  Alert
 } from 'antd';
 import {
   UserOutlined,
@@ -35,9 +36,12 @@ import {
   CloseOutlined,
   UpOutlined,
   DownOutlined,
-  FolderOutlined
+  FolderOutlined,
+  EyeOutlined,
+  WarningOutlined
 } from '@ant-design/icons';
 import { useUserManagementStore, useUserManagementData } from '../stores/userManagementStore';
+import { useAuthStore } from '../../../core/auth/AuthStore';
 import type { WorkspacePermission } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -64,6 +68,8 @@ const UserSettingsPage: React.FC = () => {
     isUpdatingProfile,
     isUpdatingSecuritySettings
   } = useUserManagementData();
+
+  const { isAdminSession, adminMetadata, user: authUser } = useAuthStore();
 
   useEffect(() => {
     if (currentUser?.profile?.displayName) {
@@ -124,6 +130,37 @@ const UserSettingsPage: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+      {/* Admin Session Alert */}
+      {isAdminSession && (
+        <Alert
+          message="Internal Support View"
+          description={
+            <div>
+              <Space direction="vertical" size={4}>
+                <Text>
+                  You are viewing this user's settings in read-only mode as an internal support user.
+                </Text>
+                <Space>
+                  <Text type="secondary">Support User:</Text>
+                  <Tag color="orange" icon={<EyeOutlined />}>
+                    {authUser?.profile?.displayName || authUser?.email}
+                  </Tag>
+                </Space>
+                <Space>
+                  <Text type="secondary">Access Level:</Text>
+                  <Tag color="red" icon={<WarningOutlined />}>
+                    Read-Only Access
+                  </Tag>
+                </Space>
+              </Space>
+            </div>
+          }
+          type="warning"
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+      )}
+
       {/* Header Section */}
       <Card style={{ marginBottom: 24 }}>
         <Row align="middle" justify="space-between">
@@ -168,14 +205,16 @@ const UserSettingsPage: React.FC = () => {
                       <Title level={3} style={{ margin: 0 }}>
                         {mockUser.profile.displayName}
                       </Title>
-                      <Tooltip title="Edit display name">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => setIsEditingName(true)}
-                        />
-                      </Tooltip>
+                      {!isAdminSession && (
+                        <Tooltip title="Edit display name">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => setIsEditingName(true)}
+                          />
+                        </Tooltip>
+                      )}
                     </>
                   )}
                 </Space>
@@ -215,13 +254,14 @@ const UserSettingsPage: React.FC = () => {
                 key="security"
               >
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  {/* Change Password Section */}
-                  <Card>
-                    <Space
-                      align="center"
-                      style={{ width: '100%', justifyContent: 'space-between', cursor: 'pointer' }}
-                      onClick={() => setShowChangePassword(!showChangePassword)}
-                    >
+                  {/* Change Password Section - Hide for admin users */}
+                  {!isAdminSession && (
+                    <Card>
+                      <Space
+                        align="center"
+                        style={{ width: '100%', justifyContent: 'space-between', cursor: 'pointer' }}
+                        onClick={() => setShowChangePassword(!showChangePassword)}
+                      >
                       <Space>
                         <LockOutlined style={{ fontSize: 20, color: '#1890ff' }} />
                         <div>
@@ -320,7 +360,21 @@ const UserSettingsPage: React.FC = () => {
                         </Form>
                       </div>
                     )}
-                  </Card>
+                    </Card>
+                  )}
+
+                  {/* Admin Access Message */}
+                  {isAdminSession && (
+                    <Card>
+                      <Alert
+                        message="Password Management Unavailable"
+                        description="Password changes are not available in admin view mode for security reasons. Normal users can change their passwords through this interface."
+                        type="info"
+                        showIcon
+                        icon={<LockOutlined />}
+                      />
+                    </Card>
+                  )}
 
                 </Space>
               </Panel>
@@ -366,6 +420,11 @@ const UserSettingsPage: React.FC = () => {
                           <Tag color={tenantInfo.role === 'admin' ? 'red' : tenantInfo.role === 'owner' ? 'purple' : 'blue'}>
                             {tenantInfo.role === 'admin' ? 'Full Access' : tenantInfo.role === 'owner' ? 'Owner Access' : 'Limited Access'}
                           </Tag>
+                          {isAdminSession && (
+                            <Tag color="orange" icon={<EyeOutlined />}>
+                              Admin View
+                            </Tag>
+                          )}
                         </Space>
                       </div>
                     </Card>

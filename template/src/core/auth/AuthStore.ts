@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { 
+import {
   postUserLogin,
   postUserRegister,
   postUserSignupWithEmail,
@@ -18,10 +18,11 @@ import {
 } from '../stores/base';
 import { eventBus } from '../plugin-system/EventBus';
 import { CORE_EVENTS } from '../../events';
+import { adminAuthService, type AdminLoginResponse } from './AdminAuthService';
+import type { User } from '../types';
 import type {
   AuthState,
   AuthActions,
-  User,
   LoginCredentials,
   RegisterData,
   SignupWithEmailData,
@@ -44,6 +45,8 @@ export const useAuthStore = create<AuthStore>()(
       // Core auth state
       user: null,
       token: null,
+      isAdminSession: false,
+      adminMetadata: null,
 
       // Request lifecycle state (from base utilities)
       ...createInitialRequestState(),
@@ -144,8 +147,9 @@ export const useAuthStore = create<AuthStore>()(
           set({
             user: null,
             token: null,
+            isAdminSession: false,
+            adminMetadata: null,
             loading: false,
-            isAuthenticated: false,
             currentRequest: null,
             error: null
           });
@@ -166,15 +170,15 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const response = await putRefreshAccessToken({ refreshToken: token });
           const { user: newUser, token: newToken } = response.data.data;
-          
-          set({ 
-            user: newUser, 
-            token: newToken, 
-            loading: false, 
-            currentRequest: null, 
-            error: null 
+
+          set({
+            user: newUser,
+            token: newToken,
+            loading: false,
+            currentRequest: null,
+            error: null
           });
-          
+
           // Update stored auth data
           const authData = { userId: newUser.id, authToken: newToken, refreshToken: newToken };
           setItem('authToken', authData);
@@ -214,9 +218,9 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const response = await postUserSignupComplete(data);
           const { user, token } = response.data.data;
-          
+
           set({ user, token, loading: false, currentRequest: null, error: null });
-          
+
           // Store auth data for the new API helper
           const authData = { userId: user.id, token, refreshToken: token };
           setItem('authToken', authData);
@@ -261,24 +265,97 @@ export const useAuthStore = create<AuthStore>()(
       clearError: (): void => {
         set({ error: null });
       },
+
+      // Admin authentication methods
+      loginWithAdminToken: async (token: string, tenantId?: string): Promise<void> => {
+        const { setLoading, setError } = get();
+        setLoading(true, AuthRequestType.ADMIN_LOGIN);
+
+        try {
+          const response: AdminLoginResponse = await adminAuthService.validateAdminToken(token, tenantId);
+
+          // Transform admin user response to User type to match interface
+          const adminUser: User = {
+            id: response.user.id,
+            email: response.user.email,
+            emailVerified: true, // Admin users are always verified
+            status: 'active' as const,
+            profile: {
+              firstName: response.user.profile.firstName,
+              lastName: response.user.profile.lastName,
+              displayName: response.user.profile.displayName,
+              timezone: 'UTC', // Default for admin users
+              locale: 'en-US' // Default for admin users
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isAdminUser: response.user.isAdminUser
+          };
+
+          set({
+            user: adminUser,
+            token: response.accessToken,
+            isAdminSession: true,
+            adminMetadata: {
+              token,
+              forcedTenantId: tenantId,
+              loginTime: new Date().toISOString(),
+              accessLevel: 'read-only'
+            },
+            loading: false,
+            currentRequest: null,
+            error: null
+          });
+
+          // Clean URL to remove token from browser history
+          adminAuthService.cleanUrl();
+
+          // Emit admin login event
+          eventBus.emit(CORE_EVENTS.USER_LOGGED_IN, {
+            user: response.user,
+            isAdminSession: true,
+            tenant: response.tenant
+          });
+
+        } catch (error: unknown) {
+          const appError = createErrorFromResponse(error, 'Admin login failed');
+          setError(appError);
+          throw error;
+        }
+      },
+
+      clearAdminSession: (): void => {
+        set({
+          isAdminSession: false,
+          adminMetadata: null
+        });
+      },
+
+      isAdminUser: (): boolean => {
+        const { isAdminSession, user } = get();
+        return isAdminSession || (user?.isAdminUser === true);
+      },
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ 
-        user: state.user, 
-        token: state.token 
+      partialize: (state) => ({
+        // Don't persist admin sessions across browser sessions
+        user: state.isAdminSession ? null : state.user,
+        token: state.isAdminSession ? null : state.token,
+        isAdminSession: false,
+        adminMetadata: null
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
           // Store auth data in the format expected by the new API helper
-          const authData = { 
-            userId: state.user?.id || '', 
-            authToken: state.token, 
-            refreshToken: state.token 
+          const authData = {
+            userId: state.user?.id || '',
+            authToken: state.token,
+            refreshToken: state.token
           };
           setItem('authToken', authData);
         }
-      },
+      }
     }
   )
 );
@@ -290,18 +367,18 @@ if (typeof window !== 'undefined') {
     const { logout } = useAuthStore.getState();
     logout();
   });
-  
+
   // Optional: Set up periodic token refresh
   const setupTokenRefresh = () => {
     const refreshInterval = 15 * 60 * 1000; // 15 minutes
-    
+
     setInterval(() => {
       const { isAuthenticated, token } = useAuthStore.getState();
-      
+
       if (isAuthenticated && token) {
         // Check if token is close to expiry (optional - requires JWT parsing)
         // For now, we rely on the 401 interceptor for refresh
-        
+
         // You could add JWT token expiry checking here
         // const tokenPayload = parseJwtPayload(token);
         // const expiryTime = tokenPayload.exp * 1000;
@@ -312,7 +389,7 @@ if (typeof window !== 'undefined') {
       }
     }, refreshInterval);
   };
-  
+
   // Start token refresh monitoring
   setupTokenRefresh();
 }

@@ -53,6 +53,11 @@ interface TenantState extends RequestState {
   getCurrentUserRole: () => TenantRole | null;
   clearError: () => void;
 
+  // Admin mode utilities
+  isAdminMode: () => boolean;
+  canSwitchToTenant: (tenantId: string) => boolean;
+  getAdminForcedTenant: () => string | null;
+
   // Request state management
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -87,12 +92,23 @@ export const useTenantStore = create<TenantState>()(
 
       // Switch tenant context
       switchTenant: async (tenantId: string) => {
-        const { setLoading, setError, setCurrentRequest } = get();
+        const { setLoading, setError, setCurrentRequest, canSwitchToTenant, getAdminForcedTenant } = get();
 
         try {
           setLoading(true);
           setError(null);
           setCurrentRequest('switchTenant');
+
+          // Check if admin is forced to a specific tenant
+          const forcedTenantId = getAdminForcedTenant();
+          if (forcedTenantId && tenantId !== forcedTenantId) {
+            throw new Error('Admin session is restricted to a specific tenant');
+          }
+
+          // Validate tenant switching permissions
+          if (!canSwitchToTenant(tenantId)) {
+            throw new Error('You do not have permission to access this tenant');
+          }
 
           const result = await tenantService.switchTenant(tenantId);
           const tenant = result.tenant;
@@ -432,14 +448,45 @@ export const useTenantStore = create<TenantState>()(
       },
 
       getCurrentUserRole: () => {
-        const { currentTenant, tenantUsers } = get();
+        const { currentTenant, tenantUsers, isAdminMode } = get();
         if (!currentTenant) return null;
 
         const currentUserId = useAuthStore.getState().user?.id;
         if (!currentUserId) return null;
 
+        // Admin users have full access (owner level)
+        if (isAdminMode()) {
+          return 'owner';
+        }
+
         const currentUser = tenantUsers.find(u => u.userId === currentUserId);
         return currentUser?.tenantRole || null;
+      },
+
+      // Admin mode utilities
+      isAdminMode: () => {
+        const authState = useAuthStore.getState();
+        return authState.isAdminSession || authState.isAdminUser();
+      },
+
+      canSwitchToTenant: (tenantId: string) => {
+        const { isAdminMode, userTenants } = get();
+
+        // Admin users can switch to any tenant
+        if (isAdminMode()) {
+          return true;
+        }
+
+        // Regular users can only switch to their accessible tenants
+        return userTenants.some(t => t.id === tenantId);
+      },
+
+      getAdminForcedTenant: () => {
+        const authState = useAuthStore.getState();
+        if (authState.isAdminSession && authState.adminMetadata?.forcedTenantId) {
+          return authState.adminMetadata.forcedTenantId;
+        }
+        return null;
       }
     }),
     {

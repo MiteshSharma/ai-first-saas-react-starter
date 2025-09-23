@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Spin } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
 import { usePermissions } from '../hooks/usePermissions';
+import { useAdminPermissions } from '../../../core/auth/useAdminPermissions';
 import { PermissionGuardProps, AccessContext } from '../types';
 
 // Re-export for convenience
@@ -39,6 +40,12 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     error,
   } = usePermissions();
 
+  const {
+    hasAdminAccess,
+    canAccessResource,
+    canPerformWriteOperations
+  } = useAdminPermissions();
+
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [checkingPermissions, setCheckingPermissions] = useState(true);
 
@@ -53,27 +60,60 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       try {
         let result = false;
 
-        // Check single permission
-        if (permission) {
-          result = await hasPermission(permission, context);
-        }
-        // Check multiple permissions
-        else if (permissions && permissions.length > 0) {
-          if (operator === 'AND') {
-            result = await hasAllPermissions(permissions, context);
+        // Admin users get special treatment
+        if (hasAdminAccess()) {
+          // Check if admin can access this resource
+          const resourceContext = {
+            tenantId: context?.tenantId,
+            workspaceId: context?.workspaceId,
+            resourceId: context?.resourceId,
+            resourceType: context?.resourceType
+          };
+
+          if (canAccessResource(resourceContext)) {
+            // For write permissions, check admin write capabilities
+            const isWritePermission = permission?.includes('write') ||
+                                     permission?.includes('create') ||
+                                     permission?.includes('update') ||
+                                     permission?.includes('delete') ||
+                                     (permissions && permissions.some(p =>
+                                       p.includes('write') || p.includes('create') ||
+                                       p.includes('update') || p.includes('delete')
+                                     ));
+
+            if (isWritePermission) {
+              result = canPerformWriteOperations();
+            } else {
+              // Admin users can read everything they have access to
+              result = true;
+            }
           } else {
-            result = await hasAnyPermission(permissions, context);
+            result = false;
           }
-        }
-        // Check roles (simplified - would need role store integration)
-        else if (roles && roles.length > 0) {
-          // For now, assume access if roles are specified
-          // In full implementation, this would check user's roles
-          result = true;
-        }
-        // Default to true if no restrictions specified
-        else {
-          result = true;
+        } else {
+          // Regular permission checks for non-admin users
+          // Check single permission
+          if (permission) {
+            result = await hasPermission(permission, context);
+          }
+          // Check multiple permissions
+          else if (permissions && permissions.length > 0) {
+            if (operator === 'AND') {
+              result = await hasAllPermissions(permissions, context);
+            } else {
+              result = await hasAnyPermission(permissions, context);
+            }
+          }
+          // Check roles (simplified - would need role store integration)
+          else if (roles && roles.length > 0) {
+            // For now, assume access if roles are specified
+            // In full implementation, this would check user's roles
+            result = true;
+          }
+          // Default to true if no restrictions specified
+          else {
+            result = true;
+          }
         }
 
         setHasAccess(result);
@@ -95,6 +135,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
+    hasAdminAccess,
+    canAccessResource,
+    canPerformWriteOperations,
   ]);
 
   // Show loading state

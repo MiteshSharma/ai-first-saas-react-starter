@@ -9,6 +9,7 @@ import { LayoutProvider, useLayout } from './LayoutContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import { RouteGuard } from '../core/routing/RouteGuard';
+import { AdminModeIndicator } from '../core/auth/AdminModeIndicator';
 
 const { Content } = Layout;
 
@@ -76,6 +77,9 @@ const MainLayoutInner: React.FC<MainLayoutInnerProps> = ({ children }) => {
                 overflow: 'auto'
               }}
             >
+              {/* Admin Mode Indicator */}
+              <AdminModeIndicator />
+
               <div
                 style={{
                   background: theme === 'dark' ? '#1f1f1f' : '#fff',
