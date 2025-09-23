@@ -39,8 +39,8 @@ export {
   EnhancedPermissionGate,
   ActionPermissionGate,
   RolePermissionGate,
-  WorkspacePermissionGate as WorkspacePermissionGate,
-  TenantPermissionGate as TenantPermissionGate,
+  WorkspacePermissionGate,
+  TenantPermissionGate,
 } from './components/PermissionGate';
 
 export {
@@ -62,11 +62,7 @@ export { PermissionViewer } from './components/PermissionViewer';
 export { RBACDashboard } from './pages/RBACDashboard';
 
 // Services
-export { permissionService } from './services/permissionService';
-export { roleService } from './services/roleService';
-
-// API
-export { rbacMockHandlers, rbacMockUtils } from './api/mockHandlers';
+// Note: Services removed - using local event-driven evaluation only
 
 // Utilities
 export { default as rbacUtils } from './utils/rbacUtils';

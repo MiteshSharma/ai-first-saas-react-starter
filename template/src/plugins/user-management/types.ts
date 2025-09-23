@@ -71,6 +71,30 @@ export interface UserWithTenantInfo extends User {
   permissions?: string[];
 }
 
+// User permissions from tenant management
+export interface UserPermissions {
+  userId: string;
+  tenantId: string;
+  tenantName?: string;
+  tenantRole: string;
+  workspaces: WorkspacePermission[];
+}
+
+export interface WorkspacePermission {
+  workspaceId: string;
+  workspaceName: string;
+  role: string;
+  groupIds: string[];
+  effectivePermissions: Permission[];
+}
+
+export interface Permission {
+  id: string;
+  name: string;
+  resource: string;
+  action: string;
+}
+
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
   language: string;
@@ -178,6 +202,7 @@ export interface UserManagementState {
   currentUser: User | null;
   userPreferences: UserPreferences | null;
   securitySettings: SecuritySettings | null;
+  userPermissions: UserPermissions | null;
 
   // User list data
   users: UserWithTenantInfo[];

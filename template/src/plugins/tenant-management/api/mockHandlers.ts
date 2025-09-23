@@ -300,11 +300,13 @@ export class TenantMockHandlers {
         id: 'user-1',
         tenantId,
         userId: 'user-1',
-        tenantRole: 'owner',
+        tenantRole: 'admin',
         workspaces: [
           {
             workspaceId: 'workspace-1',
-            groupIds: ['owner-group'],
+            workspaceName: 'Default Workspace',
+            role: 'admin',
+            groupIds: ['admin-group'],
             effectivePermissions: [
               { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
               { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
@@ -313,6 +315,25 @@ export class TenantMockHandlers {
           }
         ],
         joinedAt: '2024-01-01T00:00:00Z'
+      },
+      {
+        id: 'user-2',
+        tenantId,
+        userId: 'user-2',
+        tenantRole: 'member',
+        workspaces: [
+          {
+            workspaceId: 'workspace-1',
+            workspaceName: 'Default Workspace',
+            role: 'member',
+            groupIds: ['member-group'],
+            effectivePermissions: [
+              { id: 'project.read', name: 'Read Project', resource: 'project', action: 'read' },
+              { id: 'workspace.read', name: 'Read Workspace', resource: 'workspace', action: 'read' }
+            ]
+          }
+        ],
+        joinedAt: '2024-02-15T00:00:00Z'
       }
     ];
   }
@@ -340,7 +361,12 @@ export class TenantMockHandlers {
    */
   static async removeUser(tenantId: string, userId: string): Promise<void> {
     await mockApiDelay();
-    // Mock implementation - just simulate the delay
+
+    // Mock implementation - log the removal for debugging
+    console.log(`Mock: Removing user ${userId} from tenant ${tenantId}`);
+
+    // In a real implementation, this would remove the user from the tenant
+    // For mock purposes, we just simulate the delay and operation success
   }
 
   /**
@@ -349,26 +375,119 @@ export class TenantMockHandlers {
   static async updateUserRole(tenantId: string, userId: string, role: TenantRole): Promise<TenantUser> {
     await mockApiDelay();
 
-    return {
+    // Define mock users data for consistency
+    const mockUsers = {
+      'user-1': {
+        id: 'user-1',
+        tenantId,
+        userId: 'user-1',
+        workspaces: [
+          {
+            workspaceId: 'workspace-1',
+            workspaceName: 'Default Workspace',
+            groupIds: ['admin-group'],
+          }
+        ],
+        joinedAt: '2024-01-01T00:00:00Z'
+      },
+      'user-2': {
+        id: 'user-2',
+        tenantId,
+        userId: 'user-2',
+        workspaces: [
+          {
+            workspaceId: 'workspace-1',
+            workspaceName: 'Default Workspace',
+            groupIds: ['member-group'],
+          }
+        ],
+        joinedAt: '2024-02-15T00:00:00Z'
+      }
+    };
+
+    // Get base user data or create new user if not found
+    const baseUser = mockUsers[userId as keyof typeof mockUsers] || {
       id: userId,
       tenantId,
       userId,
-      tenantRole: role,
       workspaces: [
         {
           workspaceId: 'workspace-1',
-          groupIds: role === 'owner' ? ['owner-group'] : ['member-group'],
-          effectivePermissions: role === 'owner' ? [
-            { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
-            { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
-            { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
-          ] : [
-            { id: 'project.read', name: 'Read Project', resource: 'project', action: 'read' }
-          ]
+          workspaceName: 'Default Workspace',
+          groupIds: ['member-group'],
         }
       ],
-      joinedAt: '2024-01-01T00:00:00Z'
+      joinedAt: new Date().toISOString()
     };
+
+    // Determine workspace role and permissions based on tenant role
+    const workspaceRole = (role === 'admin' || role === 'owner') ? 'admin' : 'member';
+    const groupIds = (role === 'admin' || role === 'owner') ? ['admin-group'] : ['member-group'];
+    const effectivePermissions = (role === 'admin' || role === 'owner') ? [
+      { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+      { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
+      { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
+    ] : [
+      { id: 'project.read', name: 'Read Project', resource: 'project', action: 'read' },
+      { id: 'workspace.read', name: 'Read Workspace', resource: 'workspace', action: 'read' }
+    ];
+
+    return {
+      ...baseUser,
+      tenantRole: role,
+      workspaces: baseUser.workspaces.map(workspace => ({
+        ...workspace,
+        role: workspaceRole,
+        groupIds,
+        effectivePermissions
+      }))
+    };
+  }
+
+  /**
+   * Update member workspace permissions
+   */
+  static async updateMemberWorkspacePermissions(
+    tenantId: string,
+    userId: string,
+    permissions: { workspaceId: string; role: string }[]
+  ): Promise<TenantUser> {
+    await mockApiDelay();
+
+    // Get existing tenant members to find the user
+    const existingMembers = await this.getTenantMembers(tenantId);
+    const existingUser = existingMembers.find(u => u.userId === userId);
+
+    if (!existingUser) {
+      throw new Error('User not found in tenant');
+    }
+
+    // Create updated user with new workspace permissions
+    const updatedUser: TenantUser = {
+      ...existingUser,
+      workspaces: permissions.map(perm => {
+        const workspaceName = perm.workspaceId === 'workspace-1' ? 'Default Workspace' : `Workspace ${perm.workspaceId}`;
+        const groupIds = perm.role === 'admin' ? ['admin-group'] : ['member-group'];
+        const effectivePermissions = perm.role === 'admin' ? [
+          { id: 'workspace.manage', name: 'Manage Workspace', resource: 'workspace', action: 'manage' },
+          { id: 'project.create', name: 'Create Project', resource: 'project', action: 'create' },
+          { id: 'user.invite', name: 'Invite User', resource: 'user', action: 'invite' }
+        ] : [
+          { id: 'project.read', name: 'Read Project', resource: 'project', action: 'read' },
+          { id: 'workspace.read', name: 'Read Workspace', resource: 'workspace', action: 'read' }
+        ];
+
+        return {
+          workspaceId: perm.workspaceId,
+          workspaceName,
+          role: perm.role as 'admin' | 'member',
+          groupIds,
+          effectivePermissions
+        };
+      })
+    };
+
+    return updatedUser;
   }
 
   /**

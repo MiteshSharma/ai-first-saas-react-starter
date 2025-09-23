@@ -147,10 +147,10 @@ export interface PermissionState {
   error: string | null;
 
   // Actions
-  loadPermissions: () => Promise<void>;
+  setPermissions: (permissions: any[]) => void;
   setUserPermissionsFromEvent: (permissions: string[], role: string, context: AccessContext) => void;
-  checkPermission: (permission: string, context: AccessContext) => Promise<boolean>;
-  checkMultiplePermissions: (check: BulkPermissionCheck) => Promise<PermissionCheckResult[]>;
+  checkPermission: (permission: string, context: AccessContext) => boolean;
+  checkMultiplePermissions: (permissions: string[], context: AccessContext, requireAll?: boolean) => boolean;
   clearError: () => void;
 
   // Helper methods

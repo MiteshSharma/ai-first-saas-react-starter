@@ -103,6 +103,17 @@ export class TenantService {
   }
 
   /**
+   * Update member workspace permissions
+   */
+  async updateMemberWorkspacePermissions(
+    tenantId: string,
+    userId: string,
+    permissions: { workspaceId: string; role: string }[]
+  ): Promise<TenantUser> {
+    return TenantBackendHelper.updateMemberWorkspacePermissions(tenantId, userId, permissions);
+  }
+
+  /**
    * Get tenant workspaces
    */
   async getTenantWorkspaces(tenantId: string): Promise<any[]> {

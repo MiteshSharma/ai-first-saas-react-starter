@@ -5,8 +5,10 @@ import { setupMocks } from './mocks';
 import { initAllPerformanceMonitoring } from './core/services/performance';
 
 // Suppress ResizeObserver errors (common with Ant Design components)
+// eslint-disable-next-line no-console
 const originalConsoleError = console.error;
-console.error = (...args: any[]) => {
+// eslint-disable-next-line no-console
+console.error = (...args: unknown[]) => {
   const errorMessage = args[0];
   if (
     typeof errorMessage === 'string' &&

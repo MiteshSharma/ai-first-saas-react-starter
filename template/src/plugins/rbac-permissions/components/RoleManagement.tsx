@@ -32,13 +32,10 @@ import {
   DeleteOutlined,
   SettingOutlined,
   SecurityScanOutlined,
-  TeamOutlined,
-  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { usePermissions } from '../hooks/usePermissions';
 import { PermissionGuard } from './PermissionGuard';
-import { Role, Permission, RoleTemplate } from '../types';
-import { SYSTEM_ROLES, ROLE_TEMPLATES } from '../constants';
+import { Role, CreateRoleRequest } from '../types';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -137,7 +134,7 @@ export const RoleManagement: React.FC<RoleManagementProps> = ({
     }
   };
 
-  const handleSaveRole = async (values: any) => {
+  const handleSaveRole = async (values: CreateRoleRequest) => {
     try {
       const roleData: Partial<Role> = {
         name: values.name,
@@ -265,7 +262,7 @@ export const RoleManagement: React.FC<RoleManagementProps> = ({
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: Role) => (
+      render: (_: unknown, record: Role) => (
         <Space>
           <PermissionGuard permission="role.update">
             <Tooltip title="Edit Role">

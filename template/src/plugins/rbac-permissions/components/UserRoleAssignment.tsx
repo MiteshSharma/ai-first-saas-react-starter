@@ -27,11 +27,9 @@ import {
 import {
   UserAddOutlined,
   EditOutlined,
-  DeleteOutlined,
   SearchOutlined,
   TeamOutlined,
   UserOutlined,
-  SafetyOutlined,
 } from '@ant-design/icons';
 import { usePermissions } from '../hooks/usePermissions';
 import { PermissionGuard } from './PermissionGuard';
@@ -193,7 +191,7 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({
     setIsModalVisible(true);
   };
 
-  const handleSaveAssignment = async (values: any) => {
+  const handleSaveAssignment = async (values: { roleIds: string[] }) => {
     try {
       if (!selectedUser) return;
 
@@ -246,7 +244,7 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({
     setBulkAssignVisible(true);
   };
 
-  const handleBulkAssignSave = async (values: any) => {
+  const handleBulkAssignSave = async (values: { roleIds: string[]; replaceExisting: boolean }) => {
     try {
       const selectedRoles = availableRoles.filter(role =>
         values.roleIds.includes(role.id)
@@ -310,7 +308,7 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({
       key: 'status',
       render: (status: string) => (
         <Badge
-          status={getUserStatusColor(status) as any}
+          status={getUserStatusColor(status) as "success" | "processing" | "error" | "default" | "warning"}
           text={status.charAt(0).toUpperCase() + status.slice(1)}
         />
       ),
@@ -353,7 +351,7 @@ export const UserRoleAssignment: React.FC<UserRoleAssignmentProps> = ({
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: UserWithRoles) => (
+      render: (_: unknown, record: UserWithRoles) => (
         <Space>
           <PermissionGuard permission="role.assign">
             <Tooltip title="Assign Roles">

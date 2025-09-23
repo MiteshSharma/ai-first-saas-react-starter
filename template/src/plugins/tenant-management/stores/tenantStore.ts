@@ -14,7 +14,6 @@ import {
   TenantInvitation,
   CreateTenantRequest,
   UpdateTenantRequest,
-  Permission,
   TENANT_EVENTS
 } from '../types';
 import { tenantService } from '../services/tenantService';
@@ -47,6 +46,7 @@ interface TenantState extends RequestState {
   inviteUser: (tenantId: string, email: string, role: TenantRole) => Promise<TenantInvitation>;
   removeUser: (tenantId: string, userId: string) => Promise<void>;
   updateUserRole: (tenantId: string, userId: string, role: TenantRole) => Promise<void>;
+  updateMemberWorkspacePermissions: (tenantId: string, userId: string, permissions: { workspaceId: string; role: string }[]) => Promise<void>;
 
   // Utilities
   canAccessFeature: (feature: keyof TenantSettings['features']) => boolean;
@@ -60,8 +60,9 @@ interface TenantState extends RequestState {
 }
 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let eventBus: any = null;
-let coreContextSetCurrentTenant: ((tenant: any) => void) | null = null;
+let coreContextSetCurrentTenant: ((tenant: Tenant | null) => void) | null = null;
 
 export const useTenantStore = create<TenantState>()(
   persist(
@@ -103,6 +104,7 @@ export const useTenantStore = create<TenantState>()(
             try {
               coreContextSetCurrentTenant(tenant);
             } catch (coreError) {
+              // eslint-disable-next-line no-console
               console.warn('Failed to update tenant in CoreContext:', coreError);
             }
           }
@@ -262,6 +264,7 @@ export const useTenantStore = create<TenantState>()(
 
             if (currentUserMember) {
               // Emit tenant-level permissions event
+              // eslint-disable-next-line no-console
               console.log('[Tenant Store] Emitting USER_PERMISSIONS_LOADED event:', {
                 userId: currentUserId,
                 tenantId: tenantId,
@@ -278,9 +281,9 @@ export const useTenantStore = create<TenantState>()(
               });
 
               // Also emit workspace-specific permissions for each workspace
-              if (currentUserMember.workspaces) {
+              if (currentUserMember.workspaces && eventBus) {
                 currentUserMember.workspaces.forEach(workspace => {
-                  eventBus.emit('workspace.permissions.loaded', {
+                  eventBus!.emit('workspace.permissions.loaded', {
                     userId: currentUserId,
                     tenantId: tenantId,
                     workspaceId: workspace.workspaceId,
@@ -389,6 +392,36 @@ export const useTenantStore = create<TenantState>()(
         }
       },
 
+      // Update member workspace permissions
+      updateMemberWorkspacePermissions: async (tenantId: string, userId: string, permissions: { workspaceId: string; role: string }[]) => {
+        const { setLoading, setError, setCurrentRequest } = get();
+
+        try {
+          setLoading(true);
+          setError(null);
+          setCurrentRequest('updateMemberWorkspacePermissions');
+
+          await tenantService.updateMemberWorkspacePermissions(tenantId, userId, permissions);
+
+          // Emit permissions updated event
+          if (eventBus) {
+            eventBus.emit(TENANT_EVENTS.USER_PERMISSIONS_UPDATED, {
+              tenantId,
+              userId,
+              permissions,
+              timestamp: new Date()
+            });
+          }
+
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to update workspace permissions';
+          setError(errorMessage);
+        } finally {
+          setLoading(false);
+          setCurrentRequest(null);
+        }
+      },
+
       // Utility functions
       canAccessFeature: (feature: keyof TenantSettings['features']): boolean => {
         const { currentTenant } = get();
@@ -421,8 +454,9 @@ export const useTenantStore = create<TenantState>()(
 
 // Initialize store and set up event bus
 export const initializeTenantStore = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   providedEventBus: any,
-  coreSetCurrentTenant?: (tenant: any) => void
+  coreSetCurrentTenant?: (tenant: Tenant | null) => void
 ) => {
   eventBus = providedEventBus;
   coreContextSetCurrentTenant = coreSetCurrentTenant || null;
@@ -440,6 +474,7 @@ export const initializeTenantStore = (
         }
       })
       .catch(error => {
+        // eslint-disable-next-line no-console
         console.error('Failed to load user tenants:', error);
         store.setError('Failed to load tenants');
       });

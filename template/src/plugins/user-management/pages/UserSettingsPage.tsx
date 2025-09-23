@@ -17,13 +17,8 @@ import {
   Avatar,
   Space,
   Collapse,
-  Alert,
-  Badge,
   Tag,
-  Table,
   message,
-  Modal,
-  Upload,
   Tooltip
 } from 'antd';
 import {
@@ -33,38 +28,22 @@ import {
   EyeInvisibleOutlined,
   EyeTwoTone,
   EditOutlined,
-  LogoutOutlined,
-  CameraOutlined,
   SettingOutlined,
   TeamOutlined,
   GlobalOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   CloseOutlined,
   UpOutlined,
-  DownOutlined
+  DownOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
-import { useUserManagementStore } from '../stores/userManagementStore';
-import type { UploadProps } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { useUserManagementStore, useUserManagementData } from '../stores/userManagementStore';
+import type { WorkspacePermission } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Panel } = Collapse;
-const { confirm } = Modal;
 
-interface WorkspaceRole {
-  resource: string;
-  role: string;
-  permissions: string[];
-}
-
-interface Workspace {
-  id: string;
-  name: string;
-  emoji: string;
-  roles: WorkspaceRole[];
-}
 
 const UserSettingsPage: React.FC = () => {
   const [passwordForm] = Form.useForm();
@@ -72,19 +51,19 @@ const UserSettingsPage: React.FC = () => {
   const [editedName, setEditedName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showTwoFactor, setShowTwoFactor] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspacePermission[]>([]);
+
+  const {
+    updateProfile,
+    updateSecuritySettings
+  } = useUserManagementStore();
 
   const {
     currentUser,
-    securitySettings,
-    updateProfile,
-    updateSecuritySettings,
-    enableTwoFactor,
-    uploadAvatar,
+    userPermissions,
     isUpdatingProfile,
-    isUpdatingSecuritySettings,
-    isUploadingAvatar
-  } = useUserManagementStore();
+    isUpdatingSecuritySettings
+  } = useUserManagementData();
 
   useEffect(() => {
     if (currentUser?.profile?.displayName) {
@@ -95,26 +74,11 @@ const UserSettingsPage: React.FC = () => {
     }
   }, [currentUser]);
 
-  // Mock data for workspaces and roles
-  const mockWorkspaces = [
-    {
-      id: '1',
-      name: 'Production Workspace',
-      emoji: '🚀',
-      roles: [
-        { resource: 'Billing', role: 'Admin', permissions: ['read', 'write', 'update', 'delete'] }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Staging Workspace',
-      emoji: '🧪',
-      roles: [
-        { resource: 'Deployments', role: 'Editor', permissions: ['read', 'write', 'update'] },
-        { resource: 'Analytics', role: 'Viewer', permissions: ['read'] }
-      ]
+  useEffect(() => {
+    if (userPermissions?.workspaces) {
+      setWorkspaces(userPermissions.workspaces);
     }
-  ];
+  }, [userPermissions]);
 
   const handleNameSave = async () => {
     if (editedName.trim() && editedName !== currentUser?.profile?.displayName) {
@@ -128,7 +92,7 @@ const UserSettingsPage: React.FC = () => {
     setIsEditingName(false);
   };
 
-  const handlePasswordChange = async (values: any) => {
+  const handlePasswordChange = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
     try {
       await updateSecuritySettings({
         password: values.newPassword
@@ -139,87 +103,6 @@ const UserSettingsPage: React.FC = () => {
       message.error('Failed to update password');
     }
   };
-
-  const handleEnable2FA = async () => {
-    try {
-      const result = await enableTwoFactor();
-      // Show QR code and backup codes in modal
-      Modal.success({
-        title: 'Two-Factor Authentication Enabled',
-        content: (
-          <div>
-            <Alert
-              message="Scan this QR code with your authenticator app"
-              type="info"
-              style={{ marginBottom: 16 }}
-            />
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              {/* QR Code would be displayed here */}
-              <div style={{
-                width: 200,
-                height: 200,
-                background: '#f0f0f0',
-                margin: '0 auto',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                QR Code
-              </div>
-            </div>
-            <Alert
-              message="Save these backup codes"
-              description="Keep these codes in a safe place. You can use them to access your account if you lose your device."
-              type="warning"
-            />
-            <div style={{ marginTop: 16 }}>
-              <Text code>{result.backupCodes?.join(', ')}</Text>
-            </div>
-          </div>
-        ),
-        width: 500
-      });
-    } catch (error) {
-      message.error('Failed to enable two-factor authentication');
-    }
-  };
-
-  const roleColumns: ColumnsType<WorkspaceRole> = [
-    {
-      title: 'Resource',
-      dataIndex: 'resource',
-      key: 'resource',
-      render: (resource) => (
-        <Space>
-          <SettingOutlined />
-          <Text strong>{resource}</Text>
-        </Space>
-      )
-    },
-    {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role) => {
-        const color = role === 'Admin' ? 'red' : role === 'Editor' ? 'blue' : 'default';
-        return <Tag color={color}>{role}</Tag>;
-      }
-    },
-    {
-      title: 'Permissions',
-      dataIndex: 'permissions',
-      key: 'permissions',
-      render: (permissions: string[]) => (
-        <Space wrap>
-          {permissions.map(perm => (
-            <Tag key={perm} color="processing">
-              {perm}
-            </Tag>
-          ))}
-        </Space>
-      )
-    }
-  ];
 
   const mockUser = currentUser || {
     id: '1',
@@ -233,9 +116,10 @@ const UserSettingsPage: React.FC = () => {
     tenantRole: 'Member'
   };
 
-  const mockTenant = {
-    name: 'Tenant 1',
-    role: 'Member'
+  // Get tenant information from user permissions
+  const tenantInfo = {
+    name: userPermissions?.tenantName || 'No tenant assigned',
+    role: userPermissions?.tenantRole || 'Member'
   };
 
   return (
@@ -438,88 +322,6 @@ const UserSettingsPage: React.FC = () => {
                     )}
                   </Card>
 
-                  {/* Two-Factor Authentication Section */}
-                  <Card>
-                    <Space
-                      align="center"
-                      style={{ width: '100%', justifyContent: 'space-between', cursor: 'pointer' }}
-                      onClick={() => setShowTwoFactor(!showTwoFactor)}
-                    >
-                      <Space>
-                        <SafetyOutlined style={{ fontSize: 20, color: '#52c41a' }} />
-                        <div>
-                          <Text strong>Two-Factor Authentication</Text>
-                          <br />
-                          <Space>
-                            <Text type="secondary">Enhanced account security</Text>
-                            {securitySettings?.twoFactorEnabled ? (
-                              <Badge status="success" text="Enabled" />
-                            ) : (
-                              <Badge status="default" text="Disabled" />
-                            )}
-                          </Space>
-                        </div>
-                      </Space>
-                      <Button
-                        type="text"
-                        icon={showTwoFactor ? <UpOutlined /> : <DownOutlined />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowTwoFactor(!showTwoFactor);
-                        }}
-                      />
-                    </Space>
-
-                    {showTwoFactor && (
-                      <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid #f0f0f0' }}>
-                        <Space direction="vertical" style={{ width: '100%' }} size="large">
-                          <Alert
-                            message="Enhanced Security"
-                            description="Add an additional layer of security to your account during login by requiring more than just a password."
-                            type="info"
-                            showIcon
-                          />
-
-                          <Row gutter={16} align="middle">
-                            <Col xs={24} md={12}>
-                              <Space>
-                                <SafetyOutlined style={{ fontSize: 24 }} />
-                                <div>
-                                  <Text strong>2FA Status</Text>
-                                  <br />
-                                  {securitySettings?.twoFactorEnabled ? (
-                                    <Badge status="success" text="Two-factor authentication is enabled" />
-                                  ) : (
-                                    <Badge status="default" text="Two-factor authentication is disabled" />
-                                  )}
-                                </div>
-                              </Space>
-                            </Col>
-                            <Col xs={24} md={12} style={{ textAlign: 'right' }}>
-                              {!securitySettings?.twoFactorEnabled ? (
-                                <Button type="primary" onClick={handleEnable2FA} size="large">
-                                  Enable 2FA
-                                </Button>
-                              ) : (
-                                <Button danger onClick={() => {/* Handle disable 2FA */}}>
-                                  Disable 2FA
-                                </Button>
-                              )}
-                            </Col>
-                          </Row>
-
-                          {securitySettings?.twoFactorEnabled && (
-                            <Alert
-                              message="Two-factor authentication is active"
-                              description="Your account is protected with an additional security layer."
-                              type="success"
-                              showIcon
-                            />
-                          )}
-                        </Space>
-                      </div>
-                    )}
-                  </Card>
                 </Space>
               </Panel>
             </Collapse>
@@ -535,13 +337,13 @@ const UserSettingsPage: React.FC = () => {
             key="access"
           >
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              {/* Organization Access */}
+              {/* Tenant Access */}
               <div>
                 <Title level={4}>
-                  <GlobalOutlined /> Organization Access Role
+                  <GlobalOutlined /> Tenant Access Role
                 </Title>
                 <Paragraph type="secondary">
-                  This role defines the permissions granted to you in the workspaces of your organization.
+                  This role defines the permissions granted to you in the workspaces of your tenant.
                 </Paragraph>
 
                 <Row gutter={16}>
@@ -549,7 +351,7 @@ const UserSettingsPage: React.FC = () => {
                     <Card>
                       <Text type="secondary">Tenant Name</Text>
                       <Title level={5} style={{ margin: '8px 0 0 0' }}>
-                        {mockTenant.name}
+                        {tenantInfo.name}
                       </Title>
                     </Card>
                   </Col>
@@ -559,9 +361,11 @@ const UserSettingsPage: React.FC = () => {
                       <div style={{ marginTop: 8 }}>
                         <Space>
                           <Title level={5} style={{ margin: 0 }}>
-                            {mockTenant.role}
+                            {tenantInfo.role}
                           </Title>
-                          <Tag color="blue">Limited Access</Tag>
+                          <Tag color={tenantInfo.role === 'admin' ? 'red' : tenantInfo.role === 'owner' ? 'purple' : 'blue'}>
+                            {tenantInfo.role === 'admin' ? 'Full Access' : tenantInfo.role === 'owner' ? 'Owner Access' : 'Limited Access'}
+                          </Tag>
                         </Space>
                       </div>
                     </Card>
@@ -572,30 +376,48 @@ const UserSettingsPage: React.FC = () => {
               {/* Workspace Permissions */}
               <div>
                 <Title level={4}>
-                  <SettingOutlined /> Workspace Roles and Permissions
+                  <SettingOutlined /> Workspace Roles
                 </Title>
                 <Paragraph type="secondary">
-                  Your organization role determines your permissions in workspaces.
-                  Each workspace has its own specific roles and permissions.
+                  Your tenant role determines your base permissions, while each workspace may have specific roles assigned to you.
                 </Paragraph>
 
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  {mockWorkspaces.map(workspace => (
-                    <Card key={workspace.id} title={
-                      <Space>
-                        <span style={{ fontSize: '20px' }}>{workspace.emoji}</span>
-                        <Title level={5} style={{ margin: 0 }}>{workspace.name}</Title>
-                      </Space>
-                    }>
-                      <Table
-                        columns={roleColumns}
-                        dataSource={workspace.roles}
-                        rowKey="resource"
-                        pagination={false}
-                        size="small"
-                      />
-                    </Card>
-                  ))}
+                  {workspaces.length > 0 ? (
+                    workspaces.map((workspace: WorkspacePermission) => (
+                      <Card key={workspace.workspaceId} title={
+                        <Space>
+                          <FolderOutlined style={{ color: '#1677ff' }} />
+                          <Title level={5} style={{ margin: 0 }}>{workspace.workspaceName}</Title>
+                        </Space>
+                      }>
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Row justify="space-between" align="middle">
+                            <Col>
+                              <Text type="secondary">Workspace ID:</Text>
+                            </Col>
+                            <Col>
+                              <Text code style={{ fontSize: '12px' }}>{workspace.workspaceId}</Text>
+                            </Col>
+                          </Row>
+                          <Row justify="space-between" align="middle">
+                            <Col>
+                              <Text type="secondary">Workspace Role:</Text>
+                            </Col>
+                            <Col>
+                              <Tag color={workspace.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'capitalize' }}>
+                                {workspace.role}
+                              </Tag>
+                            </Col>
+                          </Row>
+                        </Space>
+                      </Card>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                      <Text type="secondary">No workspace access assigned</Text>
+                    </div>
+                  )}
                 </Space>
               </div>
             </Space>

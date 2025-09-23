@@ -15,99 +15,48 @@ global.fetch = jest.fn();
 describe('PermissionStore', () => {
   beforeEach(() => {
     // Reset store state before each test
-    const { loadPermissions } = usePermissionStore.getState();
+    const { setPermissions } = usePermissionStore.getState();
     act(() => {
-      loadPermissions();
+      setPermissions([]);
     });
 
     // Clear all mocks
     jest.clearAllMocks();
   });
 
-  describe('loadPermissions', () => {
-    it('should load system permissions', async () => {
+  describe('setPermissions', () => {
+    it('should set system permissions', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      await act(async () => {
-        await result.current.loadPermissions();
+      act(() => {
+        result.current.setPermissions(SYSTEM_PERMISSIONS);
       });
 
       expect(result.current.permissions).toEqual(SYSTEM_PERMISSIONS);
-      expect(result.current.loading).toBe(false);
-      expect(result.current.error).toBe(null);
-    });
-
-    it('should handle loading errors gracefully', async () => {
-      // Mock console.error to avoid noise in test output
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      const { result } = renderHook(() => usePermissionStore());
-
-      // Force an error in loadPermissions
-      const originalPermissions = SYSTEM_PERMISSIONS;
-      (global as any).SYSTEM_PERMISSIONS = undefined;
-
-      await act(async () => {
-        try {
-          await result.current.loadPermissions();
-        } catch (error) {
-          // Expected error
-        }
-      });
-
-      expect(result.current.loading).toBe(false);
-      expect(result.current.error).toBe('Failed to load permissions');
-
-      // Restore
-      (global as any).SYSTEM_PERMISSIONS = originalPermissions;
-      consoleSpy.mockRestore();
     });
   });
 
-  describe('loadUserPermissions', () => {
+  describe('setUserPermissionsFromEvent', () => {
     const mockContext: AccessContext = {
       userId: 'user1',
       tenantId: 'tenant1',
       workspaceId: 'workspace1',
     };
 
-    it('should load user permissions successfully', async () => {
-      const mockPermissions = [
-        {
-          ...SYSTEM_PERMISSIONS[0],
-          granted: true,
-          tenantId: 'tenant1',
-          workspaceId: 'workspace1',
-        },
-      ];
-
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockPermissions),
-      });
-
+    it('should set user permissions from event data', () => {
       const { result } = renderHook(() => usePermissionStore());
+      const mockPermissions = ['tenant.read', 'workspace.create'];
 
-      await act(async () => {
-        await result.current.loadUserPermissions(mockContext);
+      act(() => {
+        result.current.setUserPermissionsFromEvent(mockPermissions, 'admin', mockContext);
       });
 
-      expect(result.current.userPermissions).toEqual(mockPermissions);
+      expect(result.current.userPermissions).toHaveLength(2);
+      expect(result.current.userPermissions[0].id).toBe('tenant.read');
+      expect(result.current.userPermissions[0].granted).toBe(true);
+      expect(result.current.userPermissions[0].tenantId).toBe('tenant1');
       expect(result.current.loading).toBe(false);
       expect(result.current.error).toBe(null);
-    });
-
-    it('should fall back to mock permissions on API error', async () => {
-      (fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
-
-      const { result } = renderHook(() => usePermissionStore());
-
-      await act(async () => {
-        await result.current.loadUserPermissions(mockContext);
-      });
-
-      expect(result.current.userPermissions.length).toBeGreaterThan(0);
-      expect(result.current.loading).toBe(false);
     });
   });
 
@@ -118,34 +67,29 @@ describe('PermissionStore', () => {
       workspaceId: 'workspace1',
     };
 
-    beforeEach(async () => {
+    beforeEach(() => {
       const { result } = renderHook(() => usePermissionStore());
 
-      // Set up mock user permissions
-      const mockPermissions = [
-        {
-          ...SYSTEM_PERMISSIONS[0],
-          granted: true,
-          tenantId: 'tenant1',
-          workspaceId: 'workspace1',
-        },
-        {
-          ...SYSTEM_PERMISSIONS[1],
-          granted: false,
-          tenantId: 'tenant1',
-          workspaceId: 'workspace1',
-        },
-      ];
+      // Set up mock user permissions using the event method
+      act(() => {
+        result.current.setUserPermissionsFromEvent(
+          [SYSTEM_PERMISSIONS[0].id, SYSTEM_PERMISSIONS[1].id],
+          'admin',
+          mockContext
+        );
 
-      await act(async () => {
-        result.current.userPermissions = mockPermissions;
+        // Manually set one permission as denied for testing
+        const permissions = result.current.userPermissions;
+        if (permissions.length > 1) {
+          permissions[1].granted = false;
+        }
       });
     });
 
-    it('should return true for granted permissions', async () => {
+    it('should return true for granted permissions', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      const hasPermission = await result.current.checkPermission(
+      const hasPermission = result.current.checkPermission(
         SYSTEM_PERMISSIONS[0].id,
         mockContext
       );
@@ -153,10 +97,10 @@ describe('PermissionStore', () => {
       expect(hasPermission).toBe(true);
     });
 
-    it('should return false for denied permissions', async () => {
+    it('should return false for denied permissions', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      const hasPermission = await result.current.checkPermission(
+      const hasPermission = result.current.checkPermission(
         SYSTEM_PERMISSIONS[1].id,
         mockContext
       );
@@ -164,10 +108,10 @@ describe('PermissionStore', () => {
       expect(hasPermission).toBe(false);
     });
 
-    it('should return false for non-existent permissions', async () => {
+    it('should return false for non-existent permissions', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      const hasPermission = await result.current.checkPermission(
+      const hasPermission = result.current.checkPermission(
         'non.existent',
         mockContext
       );
@@ -175,18 +119,16 @@ describe('PermissionStore', () => {
       expect(hasPermission).toBe(false);
     });
 
-    it('should handle errors gracefully', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    it('should handle errors gracefully', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      // Force an error by passing invalid data
-      const hasPermission = await result.current.checkPermission(
+      // For invalid data, it should return false
+      const hasPermission = result.current.checkPermission(
         null as any,
         mockContext
       );
 
       expect(hasPermission).toBe(false);
-      consoleSpy.mockRestore();
     });
   });
 
@@ -197,84 +139,59 @@ describe('PermissionStore', () => {
       workspaceId: 'workspace1',
     };
 
-    beforeEach(async () => {
+    beforeEach(() => {
       const { result } = renderHook(() => usePermissionStore());
 
-      const mockPermissions = [
-        {
-          ...SYSTEM_PERMISSIONS[0],
-          granted: true,
-          tenantId: 'tenant1',
-          workspaceId: 'workspace1',
-        },
-        {
-          ...SYSTEM_PERMISSIONS[1],
-          granted: false,
-          tenantId: 'tenant1',
-          workspaceId: 'workspace1',
-        },
-      ];
+      act(() => {
+        result.current.setUserPermissionsFromEvent(
+          [SYSTEM_PERMISSIONS[0].id, SYSTEM_PERMISSIONS[1].id],
+          'admin',
+          mockContext
+        );
 
-      await act(async () => {
-        result.current.userPermissions = mockPermissions;
+        // Manually set one permission as denied for testing
+        const permissions = result.current.userPermissions;
+        if (permissions.length > 1) {
+          permissions[1].granted = false;
+        }
       });
     });
 
-    it('should check multiple permissions with OR operator', async () => {
+    it('should check multiple permissions with OR operator', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      const bulkCheck: BulkPermissionCheck = {
-        permissions: [SYSTEM_PERMISSIONS[0].id, SYSTEM_PERMISSIONS[1].id],
-        context: mockContext,
-        operator: 'OR',
-      };
+      const hasAnyPermission = result.current.checkMultiplePermissions(
+        [SYSTEM_PERMISSIONS[0].id, SYSTEM_PERMISSIONS[1].id],
+        mockContext,
+        false // OR logic
+      );
 
-      const results = await result.current.checkMultiplePermissions(bulkCheck);
-
-      expect(results).toHaveLength(2);
-      expect(results[0].granted).toBe(true);
-      expect(results[1].granted).toBe(false);
+      expect(hasAnyPermission).toBe(true); // At least one permission granted
     });
 
-    it('should check multiple permissions with AND operator', async () => {
+    it('should check multiple permissions with AND operator', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      const bulkCheck: BulkPermissionCheck = {
-        permissions: [SYSTEM_PERMISSIONS[0].id, SYSTEM_PERMISSIONS[1].id],
-        context: mockContext,
-        operator: 'AND',
-      };
+      const hasAllPermissions = result.current.checkMultiplePermissions(
+        [SYSTEM_PERMISSIONS[0].id, SYSTEM_PERMISSIONS[1].id],
+        mockContext,
+        true // AND logic
+      );
 
-      const results = await result.current.checkMultiplePermissions(bulkCheck);
-
-      expect(results).toHaveLength(2);
-      expect(results[0].granted).toBe(true);
-      expect(results[1].granted).toBe(false);
+      expect(hasAllPermissions).toBe(false); // Not all permissions granted
     });
 
-    it('should handle errors in bulk check', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    it('should handle errors in bulk check', () => {
       const { result } = renderHook(() => usePermissionStore());
 
-      // Force an error
-      const originalCheck = result.current.checkPermission;
-      result.current.checkPermission = jest.fn().mockRejectedValue(new Error('Test error'));
+      // Test with invalid permissions should return false
+      const hasPermissions = result.current.checkMultiplePermissions(
+        ['non.existent.permission'],
+        mockContext,
+        false
+      );
 
-      const bulkCheck: BulkPermissionCheck = {
-        permissions: ['test.permission'],
-        context: mockContext,
-        operator: 'OR',
-      };
-
-      const results = await result.current.checkMultiplePermissions(bulkCheck);
-
-      expect(results).toHaveLength(1);
-      expect(results[0].granted).toBe(false);
-      expect(results[0].reason).toBe('Error checking permission');
-
-      // Restore
-      result.current.checkPermission = originalCheck;
-      consoleSpy.mockRestore();
+      expect(hasPermissions).toBe(false);
     });
   });
 
@@ -395,35 +312,17 @@ describe('PermissionStoreUtils', () => {
   });
 
   describe('initialize', () => {
-    it('should initialize permissions', async () => {
-      const loadPermissionsSpy = jest.spyOn(usePermissionStore.getState(), 'loadPermissions');
+    it('should initialize permissions', () => {
+      const setPermissionsSpy = jest.spyOn(usePermissionStore.getState(), 'setPermissions');
 
-      await permissionStoreUtils.initialize();
+      permissionStoreUtils.initialize();
 
-      expect(loadPermissionsSpy).toHaveBeenCalled();
-    });
-  });
-
-  describe('refreshUserPermissions', () => {
-    it('should refresh user permissions', async () => {
-      const mockContext: AccessContext = {
-        userId: 'user1',
-        tenantId: 'tenant1',
-      };
-
-      const loadUserPermissionsSpy = jest.spyOn(
-        usePermissionStore.getState(),
-        'loadUserPermissions'
-      );
-
-      await permissionStoreUtils.refreshUserPermissions(mockContext);
-
-      expect(loadUserPermissionsSpy).toHaveBeenCalledWith(mockContext);
+      expect(setPermissionsSpy).toHaveBeenCalled();
     });
   });
 
   describe('canPerformAction', () => {
-    it('should check action permission', async () => {
+    it('should check action permission', () => {
       const mockContext: AccessContext = {
         userId: 'user1',
         tenantId: 'tenant1',
@@ -432,9 +331,9 @@ describe('PermissionStoreUtils', () => {
       const checkPermissionSpy = jest.spyOn(
         usePermissionStore.getState(),
         'checkPermission'
-      ).mockResolvedValue(true);
+      ).mockReturnValue(true);
 
-      const result = await permissionStoreUtils.canPerformAction(
+      const result = permissionStoreUtils.canPerformAction(
         'read',
         'workspace',
         mockContext
@@ -446,39 +345,38 @@ describe('PermissionStoreUtils', () => {
   });
 
   describe('hasAnyPermission', () => {
-    it('should return true if user has any permission', async () => {
+    it('should return true if user has any permission', () => {
       const mockContext: AccessContext = {
         userId: 'user1',
         tenantId: 'tenant1',
       };
 
-      const checkPermissionSpy = jest.spyOn(
+      const checkMultiplePermissionsSpy = jest.spyOn(
         usePermissionStore.getState(),
-        'checkPermission'
-      )
-        .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(true);
+        'checkMultiplePermissions'
+      ).mockReturnValue(true);
 
-      const result = await permissionStoreUtils.hasAnyPermission(
+      const result = permissionStoreUtils.hasAnyPermission(
         ['permission1', 'permission2'],
         mockContext
       );
 
+      expect(checkMultiplePermissionsSpy).toHaveBeenCalledWith(['permission1', 'permission2'], mockContext, false);
       expect(result).toBe(true);
     });
 
-    it('should return false if user has no permissions', async () => {
+    it('should return false if user has no permissions', () => {
       const mockContext: AccessContext = {
         userId: 'user1',
         tenantId: 'tenant1',
       };
 
-      const checkPermissionSpy = jest.spyOn(
+      const checkMultiplePermissionsSpy = jest.spyOn(
         usePermissionStore.getState(),
-        'checkPermission'
-      ).mockResolvedValue(false);
+        'checkMultiplePermissions'
+      ).mockReturnValue(false);
 
-      const result = await permissionStoreUtils.hasAnyPermission(
+      const result = permissionStoreUtils.hasAnyPermission(
         ['permission1', 'permission2'],
         mockContext
       );
@@ -488,39 +386,38 @@ describe('PermissionStoreUtils', () => {
   });
 
   describe('hasAllPermissions', () => {
-    it('should return true if user has all permissions', async () => {
+    it('should return true if user has all permissions', () => {
       const mockContext: AccessContext = {
         userId: 'user1',
         tenantId: 'tenant1',
       };
 
-      const checkPermissionSpy = jest.spyOn(
+      const checkMultiplePermissionsSpy = jest.spyOn(
         usePermissionStore.getState(),
-        'checkPermission'
-      ).mockResolvedValue(true);
+        'checkMultiplePermissions'
+      ).mockReturnValue(true);
 
-      const result = await permissionStoreUtils.hasAllPermissions(
+      const result = permissionStoreUtils.hasAllPermissions(
         ['permission1', 'permission2'],
         mockContext
       );
 
+      expect(checkMultiplePermissionsSpy).toHaveBeenCalledWith(['permission1', 'permission2'], mockContext, true);
       expect(result).toBe(true);
     });
 
-    it('should return false if user missing any permission', async () => {
+    it('should return false if user missing any permission', () => {
       const mockContext: AccessContext = {
         userId: 'user1',
         tenantId: 'tenant1',
       };
 
-      const checkPermissionSpy = jest.spyOn(
+      const checkMultiplePermissionsSpy = jest.spyOn(
         usePermissionStore.getState(),
-        'checkPermission'
-      )
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
+        'checkMultiplePermissions'
+      ).mockReturnValue(false);
 
-      const result = await permissionStoreUtils.hasAllPermissions(
+      const result = permissionStoreUtils.hasAllPermissions(
         ['permission1', 'permission2'],
         mockContext
       );

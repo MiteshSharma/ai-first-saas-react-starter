@@ -54,7 +54,9 @@ export interface Permission {
  */
 export interface WorkspaceMembership {
   workspaceId: string;
+  workspaceName: string;
   groupIds: string[];                    // Group IDs user is part of in this workspace
+  role: string;
   effectivePermissions: Permission[];    // Final resolved permissions for this user in this workspace
 }
 
@@ -190,7 +192,8 @@ export const TENANT_EVENTS = {
   USER_INVITED: 'tenant.user.invited',
   USER_REMOVED: 'tenant.user.removed',
   USER_ROLE_UPDATED: 'tenant.user.role_updated',
-  USER_PERMISSIONS_LOADED: 'tenant.permissions.loaded'
+  USER_PERMISSIONS_LOADED: 'tenant.permissions.loaded',
+  USER_PERMISSIONS_UPDATED: 'tenant.permissions.updated'
 } as const;
 
 export type TenantEventType = typeof TENANT_EVENTS[keyof typeof TENANT_EVENTS];

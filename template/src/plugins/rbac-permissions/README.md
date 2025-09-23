@@ -1,19 +1,27 @@
 # RBAC & Permissions Plugin
 
-A comprehensive Role-Based Access Control (RBAC) system for multi-tenant applications with hierarchical permissions and context-aware access control.
+A comprehensive Role-Based Access Control (RBAC) system for multi-tenant applications with hierarchical permissions and event-driven, local permission evaluation.
 
 ## Overview
 
 This plugin provides a complete RBAC solution with:
 
+- **Event-Driven Architecture**: Permissions loaded via events from tenant/workspace management
+- **Local Evaluation**: All permission checks performed synchronously without API calls
 - **Hierarchical Permissions**: System > Tenant > Workspace > Resource scopes
 - **Role-Based Access**: Flexible role definitions with permission inheritance
 - **Context-Aware Security**: Permissions evaluated based on current context
 - **UI Components**: Ready-to-use components for permission management
-- **Mock API**: Development-ready mock handlers
 - **Type Safety**: Full TypeScript support
 
 ## Architecture
+
+### Event-Driven Permission Loading
+
+The RBAC plugin uses an event-driven architecture where permissions are:
+1. Loaded by the tenant-management module when users log in or switch tenants
+2. Broadcast via events to the RBAC permission store
+3. Evaluated locally without any API calls
 
 ### Core Concepts
 
@@ -44,13 +52,18 @@ The plugin requires these peer dependencies:
 npm install zustand react antd @ant-design/icons
 ```
 
-### 2. Initialize the Plugin
+### 2. Initialize the Plugin with Event Bus
 
 ```typescript
-import { RBACPermissionsPlugin } from './plugins/rbac-permissions';
+import { initializePermissionStore } from './plugins/rbac-permissions';
+import { eventBus } from './core/event-bus';
 
-// Initialize the plugin
-await RBACPermissionsPlugin.initialize();
+// Initialize the permission store with event bus
+const cleanup = initializePermissionStore(eventBus);
+
+// The store will now listen for permission events:
+// - TENANT_EVENTS.USER_PERMISSIONS_LOADED
+// - workspace.permissions.loaded
 ```
 
 ### 3. Use Permission Guards
@@ -67,7 +80,7 @@ function ProtectedComponent() {
 }
 ```
 
-### 4. Check Permissions in Code
+### 4. Check Permissions in Code (Synchronous)
 
 ```typescript
 import { usePermissions } from './plugins/rbac-permissions';
@@ -75,13 +88,46 @@ import { usePermissions } from './plugins/rbac-permissions';
 function MyComponent() {
   const { hasPermission } = usePermissions();
 
-  const canEdit = await hasPermission('workspace.update');
+  // Note: Permission checks are now synchronous
+  const canEdit = hasPermission('workspace.update');
 
   return (
     <button disabled={!canEdit}>
       Edit Workspace
     </button>
   );
+}
+```
+
+## Event Integration
+
+### Receiving Permission Events
+
+The RBAC store listens for these events:
+
+#### From Tenant Management
+```typescript
+// Event: TENANT_EVENTS.USER_PERMISSIONS_LOADED
+{
+  userId: string;
+  tenantId: string;
+  tenantRole: string;
+  workspaces: Array<{
+    workspaceId: string;
+    effectivePermissions: Array<{ id: string }>;
+  }>;
+}
+```
+
+#### From Workspace Management
+```typescript
+// Event: workspace.permissions.loaded
+{
+  userId: string;
+  tenantId: string;
+  workspaceId: string;
+  permissions: string[];
+  groupIds: string[];
 }
 ```
 
@@ -179,42 +225,33 @@ import { PermissionViewer } from './plugins/rbac-permissions';
 />
 ```
 
-#### RBACDashboard
-Complete RBAC management dashboard:
-
-```tsx
-import { RBACDashboard } from './plugins/rbac-permissions';
-
-<RBACDashboard defaultTab="overview" />
-```
-
 ## Hooks
 
 ### usePermissions
 
-Main hook for permission checking:
+Main hook for permission checking (all methods are synchronous):
 
 ```typescript
 const {
-  // Permission checking
-  hasPermission,
-  hasAnyPermission,
-  hasAllPermissions,
-  checkBulkPermissions,
+  // Permission checking (synchronous)
+  hasPermission,           // (permission: string, context?: Partial<AccessContext>) => boolean
+  hasAnyPermission,        // (permissions: string[], context?: Partial<AccessContext>) => boolean
+  hasAllPermissions,       // (permissions: string[], context?: Partial<AccessContext>) => boolean
+  checkBulkPermissions,    // (permissions: string[], operator?: 'AND' | 'OR', context?: Partial<AccessContext>) => boolean
 
   // Utilities
-  canPerformAction,
-  getPermissionsByCategory,
-  getEffectivePermissions,
+  canPerformAction,        // (action: string, resource: string, context?: Partial<AccessContext>) => boolean
+  getPermissionsByCategory,// (category: string) => ContextualPermission[]
+  getEffectivePermissions, // (context?: Partial<AccessContext>) => ContextualPermission[]
 
   // State
-  permissions,
-  loading,
-  error,
+  permissions,             // ContextualPermission[]
+  loading,                 // boolean
+  error,                   // string | null
 
   // Actions
-  refreshPermissions,
-  clearError
+  refreshPermissions,      // () => void (compatibility method - does nothing now)
+  clearError              // () => void
 } = usePermissions(defaultContext);
 ```
 
@@ -226,7 +263,7 @@ const workspacePerms = useWorkspacePermissions('workspace-123');
 const tenantPerms = useTenantPermissions('tenant-123');
 const resourcePerms = useResourcePermissions('resource-123', 'document');
 
-// Simple boolean hooks
+// Simple boolean hooks (synchronous)
 const canRead = useHasPermission('workspace.read');
 const canDoAny = useHasAnyPermission(['workspace.read', 'workspace.update']);
 const canDoAll = useHasAllPermissions(['workspace.read', 'workspace.update']);
@@ -236,21 +273,21 @@ const canDoAll = useHasAllPermissions(['workspace.read', 'workspace.update']);
 
 ### usePermissionStore
 
-Zustand store for permission state:
+Zustand store for permission state with local evaluation:
 
 ```typescript
 import { usePermissionStore } from './plugins/rbac-permissions';
 
 const {
-  permissions,
-  userPermissions,
-  loading,
-  error,
-  loadPermissions,
-  loadUserPermissions,
-  checkPermission,
-  checkMultiplePermissions,
-  clearError
+  permissions,                     // Permission[]
+  userPermissions,                 // ContextualPermission[]
+  loading,                         // boolean
+  error,                          // string | null
+  setPermissions,                 // (permissions: any[]) => void
+  setUserPermissionsFromEvent,     // (permissions: string[], role: string, context: AccessContext) => void
+  checkPermission,                // (permission: string, context: AccessContext) => boolean
+  checkMultiplePermissions,       // (permissions: string[], context: AccessContext, requireAll?: boolean) => boolean
+  clearError                      // () => void
 } = usePermissionStore();
 ```
 
@@ -259,35 +296,24 @@ const {
 ```typescript
 import { permissionStoreUtils } from './plugins/rbac-permissions';
 
-// Initialize on app startup
-await permissionStoreUtils.initialize();
+// Initialize on app startup (sets up static permissions)
+permissionStoreUtils.initialize();
 
-// Refresh user permissions
-await permissionStoreUtils.refreshUserPermissions(context);
-
-// Check action permission
-const canEdit = await permissionStoreUtils.canPerformAction('update', 'workspace', context);
+// Check action permission (synchronous)
+const canEdit = permissionStoreUtils.canPerformAction('update', 'workspace', context);
 
 // Get permissions by category
 const userPerms = permissionStoreUtils.getPermissionsByCategory('User Management');
-```
 
-## Mock API
+// Check multiple permissions (synchronous)
+const hasAny = permissionStoreUtils.hasAnyPermission(['user.read', 'user.write'], context);
+const hasAll = permissionStoreUtils.hasAllPermissions(['user.read', 'user.write'], context);
 
-For development and testing, the plugin includes comprehensive mock API handlers:
+// Get effective permissions for context
+const effectivePerms = permissionStoreUtils.getEffectivePermissions(context);
 
-```typescript
-import { rbacMockHandlers, rbacMockUtils } from './plugins/rbac-permissions';
-
-// Use with MSW
-import { setupWorker } from 'msw';
-const worker = setupWorker(...rbacMockHandlers);
-worker.start();
-
-// Test utilities
-rbacMockUtils.resetMockData();
-rbacMockUtils.addTestUser('user-123', ['admin'], { tenantId: 'tenant-123' });
-const permissions = rbacMockUtils.generateUserPermissions(context);
+// Get workspace-specific permissions
+const workspacePerms = permissionStoreUtils.getWorkspacePermissions('workspace-123');
 ```
 
 ## Utilities
@@ -352,19 +378,13 @@ interface Permission {
   updatedAt: ISODate;
 }
 
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: string[];
-  isSystem: boolean;
-  isActive: boolean;
+interface ContextualPermission extends Permission {
   tenantId?: string;
   workspaceId?: string;
-  userCount: number;
-  inheritedFrom?: string;
-  createdAt: ISODate;
-  updatedAt: ISODate;
+  resourceId?: string;
+  resourceType?: string;
+  granted: boolean;
+  inheritedFrom?: string; // Role ID that granted this permission
 }
 
 interface AccessContext {
@@ -374,13 +394,30 @@ interface AccessContext {
   resourceId?: string;
   resourceType?: string;
 }
+
+interface PermissionState {
+  permissions: Permission[];
+  userPermissions: ContextualPermission[];
+  loading: boolean;
+  error: string | null;
+
+  // Actions (all synchronous)
+  setPermissions: (permissions: any[]) => void;
+  setUserPermissionsFromEvent: (permissions: string[], role: string, context: AccessContext) => void;
+  checkPermission: (permission: string, context: AccessContext) => boolean;
+  checkMultiplePermissions: (permissions: string[], context: AccessContext, requireAll?: boolean) => boolean;
+  clearError: () => void;
+
+  // Helper
+  isPermissionApplicableToContext: (permission: ContextualPermission, context: AccessContext) => boolean;
+}
 ```
 
 ### Enums
 
 ```typescript
-type PermissionAction = 'create' | 'read' | 'update' | 'delete' | 'manage' | 'assign' | 'export';
-type PermissionResource = 'tenant' | 'workspace' | 'user' | 'role' | 'settings' | 'audit' | 'dashboard' | 'integration';
+type PermissionAction = 'create' | 'read' | 'update' | 'delete' | 'manage' | 'assign' | 'export' | 'import' | 'approve' | 'reject';
+type PermissionResource = 'tenant' | 'workspace' | 'user' | 'role' | 'settings' | 'audit' | 'dashboard' | 'integration' | 'resource';
 type PermissionScope = 'system' | 'tenant' | 'workspace' | 'resource';
 ```
 
@@ -414,66 +451,6 @@ The plugin includes predefined system permissions:
 - `role.delete` - Delete roles
 - `role.assign` - Assign roles to users
 
-### Settings Management
-- `settings.tenant.read` - Read tenant settings
-- `settings.tenant.update` - Update tenant settings
-
-### Audit & Monitoring
-- `audit.read` - Read audit logs
-- `audit.export` - Export audit data
-
-### Dashboard & Analytics
-- `dashboard.read` - Access dashboards
-- `dashboard.export` - Export dashboard data
-
-### Integration Management
-- `integration.read` - Read integrations
-- `integration.manage` - Manage integrations
-
-## System Roles
-
-Predefined role templates:
-
-### Tenant Owner
-- Full access to tenant resources
-- All tenant, workspace, user, and role permissions
-- Settings and audit access
-
-### Workspace Admin
-- Workspace management
-- User management within workspace
-- Basic settings access
-
-### Member
-- Basic workspace access
-- Dashboard read access
-
-## Testing
-
-The plugin includes comprehensive test coverage:
-
-### Running Tests
-
-```bash
-npm test src/plugins/rbac-permissions
-```
-
-### Test Utilities
-
-```typescript
-import {
-  createMockContext,
-  createMockPermission,
-  createMockRole,
-  TEST_PERMISSIONS,
-  TEST_ROLES
-} from './plugins/rbac-permissions/__tests__/setup';
-
-// Create test data
-const context = createMockContext({ tenantId: 'test-tenant' });
-const permission = createMockPermission({ id: 'test.permission' });
-```
-
 ## Integration Examples
 
 ### With React Router
@@ -489,16 +466,14 @@ import { Route } from 'react-router-dom';
 } />
 ```
 
-### With Form Components
+### With Form Components (Synchronous)
 
 ```tsx
 function UserForm() {
   const { hasPermission } = usePermissions();
-  const [canEdit, setCanEdit] = useState(false);
 
-  useEffect(() => {
-    hasPermission('user.update').then(setCanEdit);
-  }, []);
+  // Permission checks are now synchronous
+  const canEdit = hasPermission('user.update');
 
   return (
     <form>
@@ -514,26 +489,18 @@ function UserForm() {
 ### With Menu Systems
 
 ```tsx
-const menuItems = [
-  {
-    key: 'users',
-    permission: 'user.read',
-    label: 'Users',
-  },
-  {
-    key: 'roles',
-    permission: 'role.read',
-    label: 'Roles',
-  },
-];
-
 function NavigationMenu() {
+  const { hasPermission } = usePermissions();
+
+  const menuItems = [
+    { key: 'users', permission: 'user.read', label: 'Users' },
+    { key: 'roles', permission: 'role.read', label: 'Roles' },
+  ].filter(item => hasPermission(item.permission));
+
   return (
     <Menu>
       {menuItems.map(item => (
-        <PermissionGuard key={item.key} permission={item.permission}>
-          <Menu.Item>{item.label}</Menu.Item>
-        </PermissionGuard>
+        <Menu.Item key={item.key}>{item.label}</Menu.Item>
       ))}
     </Menu>
   );
@@ -577,80 +544,73 @@ const workspaceContext = { workspaceId: currentWorkspace.id };
 <PermissionGuard permission="workspace.manage">
 ```
 
-### 4. Handle Loading States
-```tsx
-<PermissionGuard
-  permission="data.read"
-  loading={dataLoading}
-  showLoader={true}
->
-  <DataTable />
-</PermissionGuard>
-```
-
-### 5. Batch Permission Checks
+### 4. Leverage Synchronous Checks
 ```typescript
-// Good: Single call for multiple permissions
-const results = await checkBulkPermissions(['user.read', 'user.update', 'user.delete']);
+// Good: Direct synchronous check
+const canEdit = hasPermission('user.update');
 
-// Avoid: Multiple individual calls
-const canRead = await hasPermission('user.read');
-const canUpdate = await hasPermission('user.update');
-const canDelete = await hasPermission('user.delete');
+// No longer needed: Async pattern
+// useEffect(() => {
+//   hasPermission('user.update').then(setCanEdit);
+// }, []);
 ```
 
 ## Performance Considerations
 
-### 1. Permission Caching
-- Permissions are cached in Zustand store
-- Use `refreshPermissions()` to update cache
-- Cache persists across page reloads
+### 1. Local Evaluation
+- All permission checks are performed locally in memory
+- No network latency or API calls
+- Instant permission evaluation
 
-### 2. Context Optimization
-- Pass minimal context needed for permission check
-- Avoid unnecessary context changes that trigger re-evaluation
+### 2. Event-Driven Updates
+- Permissions updated automatically via events
+- No polling or manual refresh needed
+- Changes propagate immediately
 
 ### 3. Component Optimization
 - PermissionGuard uses React.memo internally
-- Permissions are checked only when dependencies change
-- Use `showLoader={false}` to disable loading states when not needed
+- Permissions checked only when dependencies change
+- Synchronous checks eliminate async state management
 
-### 4. Bulk Operations
-- Use `checkBulkPermissions` for multiple permission checks
-- Use `hasAnyPermission`/`hasAllPermissions` for logic operations
+### 4. Efficient Store Design
+- Permissions cached in Zustand store
+- Minimal re-renders on permission changes
+- Optimized context comparison
 
 ## Migration Guide
 
-### From Simple Role Checks
+### From Async to Sync Permission Checks
 
-Before:
+Before (Async API-based):
 ```typescript
-if (user.role === 'admin') {
-  // Show admin content
-}
+const [canEdit, setCanEdit] = useState(false);
+
+useEffect(() => {
+  async function checkPermission() {
+    const result = await hasPermission('user.update');
+    setCanEdit(result);
+  }
+  checkPermission();
+}, []);
 ```
 
-After:
-```tsx
-<PermissionGuard permission="admin.access">
-  {/* Admin content */}
-</PermissionGuard>
+After (Sync Local Evaluation):
+```typescript
+const canEdit = hasPermission('user.update');
 ```
 
-### From Custom Permission Logic
+### From API Calls to Event Listeners
 
-Before:
+Before (API-based loading):
 ```typescript
-function checkUserAccess(user, resource) {
-  // Custom permission logic
-  return user.permissions.includes(`${resource}.read`);
-}
+// Load permissions from API
+await permissionService.loadUserPermissions(userId);
 ```
 
-After:
+After (Event-driven):
 ```typescript
-const { hasPermission } = usePermissions();
-const hasAccess = await hasPermission(`${resource}.read`);
+// Permissions loaded automatically via events from tenant/workspace management
+// No manual loading required
 ```
 
 ## Troubleshooting
@@ -658,34 +618,54 @@ const hasAccess = await hasPermission(`${resource}.read`);
 ### Common Issues
 
 1. **Permissions not loading**
-   - Ensure plugin is initialized: `await RBACPermissionsPlugin.initialize()`
-   - Check context is properly set
-   - Verify API endpoints are responding
+   - Ensure event bus is properly initialized with the store
+   - Check that tenant-management is emitting permission events
+   - Verify user has logged in and tenant context is set
 
-2. **Permission checks failing**
+2. **Permission checks returning false**
    - Check permission ID format (`resource.action`)
-   - Verify user has required role assignments
+   - Verify permissions were loaded via events
    - Ensure context matches permission scope
+   - Check the browser console for event logs
 
-3. **Components not re-rendering**
-   - Check permission dependencies in useEffect
-   - Verify context changes trigger re-evaluation
-   - Use `refreshPermissions()` after role changes
+3. **Components not updating**
+   - Permissions are now synchronous - remove async patterns
+   - Check that you're not caching old permission values
+   - Ensure components re-render on context changes
 
-4. **Performance issues**
-   - Use bulk permission checks
-   - Minimize context changes
-   - Consider disabling loading states for non-critical checks
+4. **Events not being received**
+   - Verify event bus is connected
+   - Check event names match exactly
+   - Look for console logs from permission store initialization
 
 ### Debug Mode
 
 Enable debug logging:
 ```typescript
-// Add to development environment
-localStorage.setItem('rbac-debug', 'true');
+// The permission store logs events to console by default
+// Look for messages like:
+// [RBAC Store] Initializing permission store with event listeners
+// [RBAC Store] Received USER_PERMISSIONS_LOADED event
+// [RBAC Store] Received workspace.permissions.loaded event
 ```
 
-This will log permission checks, context changes, and cache operations to the console.
+## Architecture Benefits
+
+### Event-Driven Design
+- **Decoupled**: RBAC doesn't depend on specific API implementations
+- **Flexible**: Easy to integrate with different backend systems
+- **Testable**: Can mock events for testing
+
+### Local Evaluation
+- **Fast**: No network latency
+- **Reliable**: Works offline once permissions are loaded
+- **Secure**: Permissions validated on backend, evaluated on frontend
+- **Simple**: No async complexity in components
+
+### Synchronous API
+- **Predictable**: No race conditions or loading states
+- **Clean**: No async/await or promise handling
+- **Performant**: Direct memory access
 
 ## License
 

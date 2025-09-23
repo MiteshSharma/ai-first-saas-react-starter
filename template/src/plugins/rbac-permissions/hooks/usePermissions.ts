@@ -9,8 +9,6 @@ import { usePermissionStore, permissionStoreUtils } from '../stores/permissionSt
 import { useCoreContext } from '../../../core/context/CoreContext';
 import {
   AccessContext,
-  PermissionCheckResult,
-  BulkPermissionCheck,
   ContextualPermission,
 } from '../types';
 
@@ -18,14 +16,14 @@ import {
  * Hook return type
  */
 interface UsePermissionsReturn {
-  // Permission checking
-  hasPermission: (permission: string, context?: Partial<AccessContext>) => Promise<boolean>;
-  hasAnyPermission: (permissions: string[], context?: Partial<AccessContext>) => Promise<boolean>;
-  hasAllPermissions: (permissions: string[], context?: Partial<AccessContext>) => Promise<boolean>;
-  checkBulkPermissions: (permissions: string[], operator?: 'AND' | 'OR', context?: Partial<AccessContext>) => Promise<PermissionCheckResult[]>;
+  // Permission checking (now synchronous with local evaluation)
+  hasPermission: (permission: string, context?: Partial<AccessContext>) => boolean;
+  hasAnyPermission: (permissions: string[], context?: Partial<AccessContext>) => boolean;
+  hasAllPermissions: (permissions: string[], context?: Partial<AccessContext>) => boolean;
+  checkBulkPermissions: (permissions: string[], operator?: 'AND' | 'OR', context?: Partial<AccessContext>) => boolean;
 
   // Permission utilities
-  canPerformAction: (action: string, resource: string, context?: Partial<AccessContext>) => Promise<boolean>;
+  canPerformAction: (action: string, resource: string, context?: Partial<AccessContext>) => boolean;
   getPermissionsByCategory: (category: string) => ContextualPermission[];
   getEffectivePermissions: (context?: Partial<AccessContext>) => ContextualPermission[];
 
@@ -35,7 +33,7 @@ interface UsePermissionsReturn {
   error: string | null;
 
   // Actions
-  refreshPermissions: () => Promise<void>;
+  refreshPermissions: () => void;
   clearError: () => void;
 }
 
@@ -85,83 +83,70 @@ export const usePermissions = (
   }, [currentUser?.id, currentTenant?.id, currentWorkspace?.id]);
 
   /**
-   * Check if user has specific permission
+   * Check if user has specific permission (now synchronous)
    */
-  const hasPermission = useCallback(async (
+  const hasPermission = useCallback((
     permission: string,
     context?: Partial<AccessContext>
-  ): Promise<boolean> => {
+  ): boolean => {
     if (!isInitialized) return false;
 
     const fullContext = buildContext(context);
-    return await checkPermission(permission, fullContext);
+    return checkPermission(permission, fullContext);
   }, [isInitialized, buildContext, checkPermission]);
 
   /**
-   * Check if user has any of the specified permissions
+   * Check if user has any of the specified permissions (now synchronous)
    */
-  const hasAnyPermission = useCallback(async (
+  const hasAnyPermission = useCallback((
     permissions: string[],
     context?: Partial<AccessContext>
-  ): Promise<boolean> => {
+  ): boolean => {
     if (!isInitialized) return false;
 
     const fullContext = buildContext(context);
-    return await permissionStoreUtils.hasAnyPermission(permissions, fullContext);
+    return permissionStoreUtils.hasAnyPermission(permissions, fullContext);
   }, [isInitialized, buildContext]);
 
   /**
-   * Check if user has all of the specified permissions
+   * Check if user has all of the specified permissions (now synchronous)
    */
-  const hasAllPermissions = useCallback(async (
+  const hasAllPermissions = useCallback((
     permissions: string[],
     context?: Partial<AccessContext>
-  ): Promise<boolean> => {
+  ): boolean => {
     if (!isInitialized) return false;
 
     const fullContext = buildContext(context);
-    return await permissionStoreUtils.hasAllPermissions(permissions, fullContext);
+    return permissionStoreUtils.hasAllPermissions(permissions, fullContext);
   }, [isInitialized, buildContext]);
 
   /**
-   * Check multiple permissions with bulk operation
+   * Check multiple permissions with bulk operation (now synchronous)
    */
-  const checkBulkPermissions = useCallback(async (
+  const checkBulkPermissions = useCallback((
     permissions: string[],
     operator: 'AND' | 'OR' = 'OR',
     context?: Partial<AccessContext>
-  ): Promise<PermissionCheckResult[]> => {
-    if (!isInitialized) {
-      return permissions.map(permission => ({
-        granted: false,
-        reason: 'Permissions not initialized',
-        scope: 'resource' as const,
-        context: buildContext(context),
-      }));
-    }
-
-    const fullContext = buildContext(context);
-    const bulkCheck: BulkPermissionCheck = {
-      permissions,
-      context: fullContext,
-      operator,
-    };
-
-    return await checkMultiplePermissions(bulkCheck);
-  }, [isInitialized, buildContext, checkMultiplePermissions]);
-
-  /**
-   * Check if user can perform specific action on resource
-   */
-  const canPerformAction = useCallback(async (
-    action: string,
-    resource: string,
-    context?: Partial<AccessContext>
-  ): Promise<boolean> => {
+  ): boolean => {
     if (!isInitialized) return false;
 
     const fullContext = buildContext(context);
-    return await permissionStoreUtils.canPerformAction(action, resource, fullContext);
+    return checkMultiplePermissions(permissions, fullContext, operator === 'AND');
+  }, [isInitialized, buildContext, checkMultiplePermissions]);
+
+  /**
+   * Check if user can perform specific action on resource (now synchronous)
+   */
+  const canPerformAction = useCallback((
+    action: string,
+    resource: string,
+    context?: Partial<AccessContext>
+  ): boolean => {
+    if (!isInitialized) return false;
+
+    const fullContext = buildContext(context);
+    return permissionStoreUtils.canPerformAction(action, resource, fullContext);
   }, [isInitialized, buildContext]);
 
   /**
@@ -182,11 +167,12 @@ export const usePermissions = (
   }, [buildContext]);
 
   /**
-   * Refresh user permissions
+   * Refresh user permissions (now synchronous)
    */
-  const refreshPermissions = useCallback(async (): Promise<void> => {
+  const refreshPermissions = useCallback((): void => {
     // Permissions are now refreshed via events from tenant-management
     // This is kept for compatibility but doesn't need to do anything
+    // eslint-disable-next-line no-console
     console.log('Permissions refresh requested - handled by tenant-management events');
   }, []);
 
@@ -246,19 +232,8 @@ export const useHasPermission = (
   permission: string,
   context?: Partial<AccessContext>
 ): boolean => {
-  const [hasAccess, setHasAccess] = useState(false);
   const { hasPermission } = usePermissions(context);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      const result = await hasPermission(permission, context);
-      setHasAccess(result);
-    };
-
-    checkAccess();
-  }, [permission, hasPermission, context]);
-
-  return hasAccess;
+  return hasPermission(permission, context);
 };
 
 /**
@@ -268,19 +243,8 @@ export const useHasAnyPermission = (
   permissions: string[],
   context?: Partial<AccessContext>
 ): boolean => {
-  const [hasAccess, setHasAccess] = useState(false);
   const { hasAnyPermission } = usePermissions(context);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      const result = await hasAnyPermission(permissions, context);
-      setHasAccess(result);
-    };
-
-    checkAccess();
-  }, [permissions, hasAnyPermission, context]);
-
-  return hasAccess;
+  return hasAnyPermission(permissions, context);
 };
 
 /**
@@ -290,19 +254,8 @@ export const useHasAllPermissions = (
   permissions: string[],
   context?: Partial<AccessContext>
 ): boolean => {
-  const [hasAccess, setHasAccess] = useState(false);
   const { hasAllPermissions } = usePermissions(context);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      const result = await hasAllPermissions(permissions, context);
-      setHasAccess(result);
-    };
-
-    checkAccess();
-  }, [permissions, hasAllPermissions, context]);
-
-  return hasAccess;
+  return hasAllPermissions(permissions, context);
 };
 
 export default usePermissions;

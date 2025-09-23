@@ -46,15 +46,11 @@ const AppRoutes: React.FC = () => {
   }, []);
 
   // Combine layout routes with standalone routes
-  const allRoutes = [...routes, ...standaloneRoutes];
+  const allRoutes = React.useMemo(() => [
+    ...routes,
+    ...standaloneRoutes
+  ], [routes, standaloneRoutes]);
   const routeElements = useRoutes(allRoutes);
-
-  // Debug: Log routes for debugging
-  React.useEffect(() => {
-    console.log('Debug - Regular routes:', routes.map(r => r.path));
-    console.log('Debug - Standalone routes:', standaloneRoutes.map(r => r.path));
-    console.log('Debug - All routes:', allRoutes.map(r => r.path));
-  }, [routes, standaloneRoutes, allRoutes]);
 
   // Check if current route is standalone
   const currentPath = window.location.pathname;

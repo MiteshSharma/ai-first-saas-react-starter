@@ -24,7 +24,9 @@ import {
   Modal,
   Form,
   Select,
-  Statistic
+  Statistic,
+  Checkbox,
+  Divider
 } from 'antd';
 import {
   SettingOutlined,
@@ -41,42 +43,280 @@ import {
   CrownOutlined,
   MailOutlined,
   SearchOutlined,
-  FilterOutlined
+  FilterOutlined,
+  SafetyOutlined
 } from '@ant-design/icons';
 import { useTenantStore } from '../stores/tenantStore';
+import { TenantMember, WorkspaceMembership } from '../types';
+import { useAuthStore } from '../../../core/auth/AuthStore';
+import { usePermissions } from '../../../core/permissions/usePermissions';
 import type { ColumnsType } from 'antd/es/table';
+import type { FormInstance } from 'antd/es/form';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
 const { confirm } = Modal;
 
-interface TenantMember {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'member';
-  status: 'active' | 'pending' | 'inactive';
-  workspaces: { id: string; name: string; }[];
-  joinedAt: string;
-  avatar?: string;
-}
+// Using TenantMember from types which extends TenantUser with UI fields
 
 interface InviteMemberForm {
   emails: string[];
   role: 'admin' | 'member';
 }
 
+interface WorkspacePermission {
+  workspaceId: string;
+  role: 'admin' | 'member';
+}
+
+interface WorkspacePermissionsForm {
+  memberEmail: string;
+  tenantRole: 'admin' | 'member';
+  workspaces: WorkspacePermission[];
+}
+
+/**
+ * Workspace Permissions Modal Component
+ */
+interface WorkspacePermissionsModalProps {
+  visible: boolean;
+  onCancel: () => void;
+  onSave: (values: WorkspacePermissionsForm) => void;
+  member: TenantMember | null;
+  allWorkspaces: WorkspaceMembership[];
+  form: FormInstance;
+}
+
+const WorkspacePermissionsModal: React.FC<WorkspacePermissionsModalProps> = ({
+  visible,
+  onCancel,
+  onSave,
+  member,
+  allWorkspaces,
+  form
+}) => {
+  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+
+  // Update selected workspaces when member changes
+  useEffect(() => {
+    if (member) {
+      const workspaceIds = member.workspaces.map(ws => ws.workspaceId);
+      setSelectedWorkspaceIds(workspaceIds);
+      setSelectAll(workspaceIds.length === allWorkspaces.length);
+    }
+  }, [member, allWorkspaces]);
+
+  const handleSelectAllChange = (checked: boolean) => {
+    setSelectAll(checked);
+    if (checked) {
+      setSelectedWorkspaceIds(allWorkspaces.map(ws => ws.workspaceId));
+      // Set all workspaces with default 'member' role
+      const allWorkspacePermissions = allWorkspaces.map(ws => ({
+        workspaceId: ws.workspaceId,
+        role: 'member' as const
+      }));
+      form.setFieldValue('workspaces', allWorkspacePermissions);
+    } else {
+      setSelectedWorkspaceIds([]);
+      form.setFieldValue('workspaces', []);
+    }
+  };
+
+  const handleWorkspaceSelect = (workspaceId: string, checked: boolean) => {
+    let newSelectedIds: string[];
+    if (checked) {
+      newSelectedIds = [...selectedWorkspaceIds, workspaceId];
+      // Add to form with default 'member' role
+      const currentWorkspaces = form.getFieldValue('workspaces') || [];
+      const newWorkspace = { workspaceId, role: 'member' as const };
+      form.setFieldValue('workspaces', [...currentWorkspaces, newWorkspace]);
+    } else {
+      newSelectedIds = selectedWorkspaceIds.filter(id => id !== workspaceId);
+      // Remove from form
+      const currentWorkspaces = form.getFieldValue('workspaces') || [];
+      form.setFieldValue('workspaces', currentWorkspaces.filter((ws: WorkspacePermission) => ws.workspaceId !== workspaceId));
+    }
+
+    setSelectedWorkspaceIds(newSelectedIds);
+    setSelectAll(newSelectedIds.length === allWorkspaces.length);
+  };
+
+  const handleRoleChange = (workspaceId: string, role: 'admin' | 'member') => {
+    const currentWorkspaces = form.getFieldValue('workspaces') || [];
+    const updatedWorkspaces = currentWorkspaces.map((ws: WorkspacePermission) =>
+      ws.workspaceId === workspaceId ? { ...ws, role } : ws
+    );
+    form.setFieldValue('workspaces', updatedWorkspaces);
+  };
+
+  const getCurrentRole = (workspaceId: string): 'admin' | 'member' => {
+    const currentWorkspaces = form.getFieldValue('workspaces') || [];
+    const workspace = currentWorkspaces.find((ws: WorkspacePermission) => ws.workspaceId === workspaceId);
+    return workspace?.role || 'member';
+  };
+
+  if (!member) return null;
+
+  return (
+    <Modal
+      title="Add member to new workspace(s)"
+      open={visible}
+      onCancel={onCancel}
+      width={600}
+      footer={null}
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onSave}
+        initialValues={{
+          memberEmail: member.email,
+          tenantRole: member.tenantRole,
+          workspaces: member.workspaces.map(ws => ({
+            workspaceId: ws.workspaceId,
+            role: ws.role
+          }))
+        }}
+      >
+        {/* User Information Section */}
+        <div style={{ marginBottom: 24 }}>
+          <Space direction="vertical" size={4}>
+            <Text strong>{member.email}</Text>
+            <Space>
+              <Text type="secondary">Tenant role:</Text>
+              <Tag color={member.tenantRole === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'capitalize' }}>
+                {member.tenantRole}
+              </Tag>
+              <Button type="link" size="small" style={{ padding: 0 }}>
+                Change
+              </Button>
+            </Space>
+          </Space>
+        </div>
+
+        <Divider />
+
+        {/* Instructions */}
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary">
+            Choose the workspace(s) you would like to invite this member to. The tenant role defaults each workspace to read-only.
+            You can customize permissions for each within the user's access policy.
+          </Text>
+        </div>
+
+        {/* Select All Workspaces */}
+        <div style={{ marginBottom: 16 }}>
+          <Checkbox
+            checked={selectAll}
+            onChange={(e) => handleSelectAllChange(e.target.checked)}
+          >
+            <Text strong>Select all workspaces</Text>
+          </Checkbox>
+        </div>
+
+        {/* Workspace Selection */}
+        <div style={{ marginBottom: 24 }}>
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            {allWorkspaces.map(workspace => {
+              const isSelected = selectedWorkspaceIds.includes(workspace.workspaceId);
+              const currentRole = getCurrentRole(workspace.workspaceId);
+
+              return (
+                <Row key={workspace.workspaceId} align="middle" justify="space-between" style={{ width: '100%' }}>
+                  <Col>
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={(e) => handleWorkspaceSelect(workspace.workspaceId, e.target.checked)}
+                    >
+                      <Text strong>{workspace.workspaceName}</Text>
+                    </Checkbox>
+                  </Col>
+                  {isSelected && (
+                    <Col>
+                      <Space>
+                        <Text type="secondary">Role:</Text>
+                        <Select
+                          value={currentRole}
+                          onChange={(role) => handleRoleChange(workspace.workspaceId, role)}
+                          style={{ width: 100 }}
+                          size="small"
+                        >
+                          <Option value="member">Member</Option>
+                          <Option value="admin">Admin</Option>
+                        </Select>
+                      </Space>
+                    </Col>
+                  )}
+                </Row>
+              );
+            })}
+          </Space>
+        </div>
+
+        {/* Form Fields (Hidden) */}
+        <Form.Item name="memberEmail" style={{ display: 'none' }}>
+          <Input />
+        </Form.Item>
+
+        <Form.Item name="tenantRole" style={{ display: 'none' }}>
+          <Input />
+        </Form.Item>
+
+        <Form.Item name="workspaces" style={{ display: 'none' }}>
+          <Input />
+        </Form.Item>
+
+        {/* Footer Actions */}
+        <div style={{ textAlign: 'right' }}>
+          <Space>
+            <Button onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              disabled={selectedWorkspaceIds.length === 0}
+            >
+              Add workspace(s)
+            </Button>
+          </Space>
+        </div>
+      </Form>
+    </Modal>
+  );
+};
+
 /**
  * Tenant Settings Page Component
  */
 export const TenantSettingsPage: React.FC = () => {
-  const { currentTenant, updateTenant, loading } = useTenantStore();
+  const {
+    currentTenant,
+    tenantUsers,
+    updateTenant,
+    loading,
+    loadTenantUsers,
+    inviteUser,
+    removeUser,
+    updateMemberWorkspacePermissions
+  } = useTenantStore();
+
+  // Permission checks
+  const { hasPermission } = usePermissions();
+  const canUpdateTenant = hasPermission('tenant', 'update').allowed;
+  const canInviteMembers = hasPermission('tenant.members', 'create').allowed;
+  const canRemoveMembers = hasPermission('tenant.members', 'delete').allowed;
+  const canManagePermissions = hasPermission('tenant.permissions', 'update').allowed;
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [permissionsModalVisible, setPermissionsModalVisible] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<TenantMember | null>(null);
   const [inviteForm] = Form.useForm();
+  const [permissionsForm] = Form.useForm();
 
   // Filter states
   const [searchName, setSearchName] = useState('');
@@ -89,6 +329,13 @@ export const TenantSettingsPage: React.FC = () => {
       setEditedName(currentTenant.name);
     }
   }, [currentTenant]);
+
+  // Load tenant users when tenant changes
+  useEffect(() => {
+    if (currentTenant?.id) {
+      loadTenantUsers(currentTenant.id);
+    }
+  }, [currentTenant?.id, loadTenantUsers]);
 
   /**
    * Handle tenant name save
@@ -127,13 +374,23 @@ export const TenantSettingsPage: React.FC = () => {
       message.success('Tenant ID copied to clipboard');
     } catch (error) {
       // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = currentTenant.id;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      message.success('Tenant ID copied to clipboard');
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = currentTenant.id;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          message.success('Tenant ID copied to clipboard');
+        } else {
+          message.error('Failed to copy tenant ID');
+        }
+      } catch (fallbackError) {
+        message.error('Failed to copy tenant ID');
+      }
     }
   };
 
@@ -141,16 +398,28 @@ export const TenantSettingsPage: React.FC = () => {
    * Handle remove member
    */
   const handleRemoveMember = (member: TenantMember) => {
+    if (!currentTenant?.id) {
+      message.error('No tenant selected');
+      return;
+    }
+
     confirm({
       title: 'Remove member?',
       icon: <ExclamationCircleOutlined />,
-      content: `Are you sure you want to remove ${member.name} from this tenant? This action cannot be undone.`,
+      content: `Are you sure you want to remove ${member.name || member.email} from this tenant? This action cannot be undone.`,
       okText: 'Remove',
       okType: 'danger',
       cancelText: 'Cancel',
-      onOk() {
-        // Handle remove member logic
-        message.success(`${member.name} has been removed from the tenant`);
+      async onOk() {
+        try {
+          await removeUser(currentTenant.id, member.userId);
+          message.success(`${member.name || member.email} has been removed from the tenant`);
+
+          // Reload tenant users to show updated list
+          await loadTenantUsers(currentTenant.id);
+        } catch (error) {
+          message.error('Failed to remove member');
+        }
       }
     });
   };
@@ -159,87 +428,125 @@ export const TenantSettingsPage: React.FC = () => {
    * Handle invite members
    */
   const handleInviteMembers = async (values: InviteMemberForm) => {
+    if (!currentTenant?.id) {
+      message.error('No tenant selected');
+      return;
+    }
+
     try {
-      // Handle invite logic
+      // Send invitations for each email
+      const invitePromises = values.emails.map(email =>
+        inviteUser(currentTenant.id, email, values.role)
+      );
+
+      await Promise.all(invitePromises);
       message.success(`Invitations sent to ${values.emails.length} member(s)`);
       setInviteModalVisible(false);
       inviteForm.resetFields();
+
+      // Reload tenant users to show updated list
+      await loadTenantUsers(currentTenant.id);
     } catch (error) {
       message.error('Failed to send invitations');
     }
   };
 
-  // Mock data
-  const mockTenant = currentTenant || {
-    id: 'tenant_2ecd2f32dewd3e32',
-    name: 'Acme Corporation',
-    slug: 'acme-corp'
+  /**
+   * Handle edit permissions
+   */
+  const handleEditPermissions = (member: TenantMember) => {
+    setSelectedMember(member);
+    setPermissionsModalVisible(true);
+
+    // Pre-populate form with current workspace assignments
+    const initialValues = {
+      memberEmail: member.email,
+      tenantRole: member.tenantRole,
+      workspaces: member.workspaces.map(ws => ({
+        workspaceId: ws.workspaceId,
+        role: ws.role
+      }))
+    };
+
+    permissionsForm.setFieldsValue(initialValues);
   };
 
-  // All available workspaces
-  const allWorkspaces = [
-    { id: '1', name: 'Production' },
-    { id: '2', name: 'Staging' },
-    { id: '3', name: 'Development' },
-    { id: '4', name: 'Marketing' },
-    { id: '5', name: 'Analytics' }
-  ];
-
-  const mockMembers: TenantMember[] = [
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@acme.com',
-      role: 'admin',
-      status: 'active',
-      workspaces: allWorkspaces, // Admin has access to all workspaces
-      joinedAt: '2023-01-15',
-      avatar: undefined
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@acme.com',
-      role: 'member',
-      status: 'active',
-      workspaces: [
-        { id: '1', name: 'Production' },
-        { id: '2', name: 'Staging' },
-        { id: '3', name: 'Development' }
-      ],
-      joinedAt: '2023-02-20',
-      avatar: undefined
-    },
-    {
-      id: '3',
-      name: 'Bob Wilson',
-      email: 'bob@acme.com',
-      role: 'member',
-      status: 'pending',
-      workspaces: [],
-      joinedAt: '2023-03-10',
-      avatar: undefined
+  /**
+   * Handle save workspace permissions
+   */
+  const handleSavePermissions = async (values: WorkspacePermissionsForm) => {
+    if (!currentTenant?.id || !selectedMember) {
+      message.error('No tenant or member selected');
+      return;
     }
-  ];
+
+    try {
+      // Call the actual service to update workspace permissions
+      await updateMemberWorkspacePermissions(
+        currentTenant.id,
+        selectedMember.userId,
+        values.workspaces || []
+      );
+
+      message.success(`Workspace permissions updated for ${selectedMember?.name}`);
+      setPermissionsModalVisible(false);
+      setSelectedMember(null);
+      permissionsForm.resetFields();
+
+      // Reload tenant users to show updated permissions
+      await loadTenantUsers(currentTenant.id);
+    } catch (error) {
+      message.error('Failed to update workspace permissions');
+    }
+  };
+
+  // Get all unique workspaces from all tenant users for modal
+  const allWorkspaces: WorkspaceMembership[] = React.useMemo(() => {
+    const workspaceMap = new Map<string, WorkspaceMembership>();
+
+    tenantUsers.forEach(user => {
+      user.workspaces.forEach(workspace => {
+        if (!workspaceMap.has(workspace.workspaceId)) {
+          workspaceMap.set(workspace.workspaceId, workspace);
+        }
+      });
+    });
+
+    return Array.from(workspaceMap.values());
+  }, [tenantUsers]);
+
+  // Get current user info
+  const currentUser = useAuthStore(state => state.user);
+
+  // Convert TenantUser to TenantMember for UI display
+  const members: TenantMember[] = React.useMemo(() => {
+    return tenantUsers.map(user => ({
+      ...user,
+      name: `User ${user.userId}`, // Generate name from userId
+      email: `user-${user.userId}@example.com`, // Fallback email
+      status: 'active' as const, // Default to active
+      avatar: undefined
+    }));
+  }, [tenantUsers]);
 
   /**
    * Filter members based on current filter states
    */
-  const filteredMembers = mockMembers.filter(member => {
+  const filteredMembers = members.filter(member => {
     // Filter by name
-    if (searchName && !member.name.toLowerCase().includes(searchName.toLowerCase()) &&
-        !member.email.toLowerCase().includes(searchName.toLowerCase())) {
+    if (searchName && !member.name?.toLowerCase().includes(searchName.toLowerCase()) &&
+        !member.email?.toLowerCase().includes(searchName.toLowerCase())) {
       return false;
     }
 
     // Filter by role
-    if (filterRole !== 'all' && member.role !== filterRole) {
+    if (filterRole !== 'all' && member.tenantRole !== filterRole) {
       return false;
     }
 
     // Filter by workspace
     if (filterWorkspace !== 'all') {
-      if (!member.workspaces.some(ws => ws.id === filterWorkspace)) {
+      if (!member.workspaces.some(ws => ws.workspaceId === filterWorkspace)) {
         return false;
       }
     }
@@ -252,9 +559,9 @@ export const TenantSettingsPage: React.FC = () => {
     return true;
   });
 
-  const adminCount = mockMembers.filter(m => m.role === 'admin').length;
-  const memberCount = mockMembers.filter(m => m.role === 'member' && m.status === 'active').length;
-  const pendingCount = mockMembers.filter(m => m.status === 'pending').length;
+  const adminCount = members.filter(m => m.tenantRole === 'admin').length;
+  const memberCount = members.filter(m => m.tenantRole === 'member' && m.status === 'active').length;
+  const inactiveCount = members.filter(m => m.status === 'inactive').length;
 
   /**
    * Reset all filters
@@ -271,29 +578,43 @@ export const TenantSettingsPage: React.FC = () => {
       title: 'Team member',
       dataIndex: 'name',
       key: 'member',
-      render: (name, record) => (
-        <Space>
-          <Avatar src={record.avatar} icon={<UserOutlined />}>
-            {!record.avatar && name[0]}
-          </Avatar>
-          <div>
+      render: (name, record) => {
+        const isCurrentUser = currentUser?.id === record.userId;
+        return (
+          <Space>
+            <Avatar
+              src={record.avatar}
+              icon={<UserOutlined />}
+              style={{
+                border: isCurrentUser ? '2px solid #1677ff' : undefined
+              }}
+            >
+              {!record.avatar && (name?.[0] || record.email?.[0] || 'U')}
+            </Avatar>
             <div>
-              <Text strong>{name}</Text>
-              {record.role === 'admin' && (
-                <CrownOutlined style={{ marginLeft: 8, color: '#faad14' }} />
-              )}
+              <div>
+                <Text strong>{name || record.email}</Text>
+                {record.tenantRole === 'admin' && (
+                  <CrownOutlined style={{ marginLeft: 8, color: '#faad14' }} />
+                )}
+                {isCurrentUser && (
+                  <Tag color="blue" style={{ marginLeft: 8, fontSize: '12px' }}>
+                    You
+                  </Tag>
+                )}
+              </div>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {record.email}
+              </Text>
             </div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.email}
-            </Text>
-          </div>
-        </Space>
-      )
+          </Space>
+        );
+      }
     },
     {
       title: 'Tenant role',
-      dataIndex: 'role',
-      key: 'role',
+      dataIndex: 'tenantRole',
+      key: 'tenantRole',
       render: (role) => (
         <Tag color={role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'capitalize' }}>
           {role}
@@ -301,15 +622,19 @@ export const TenantSettingsPage: React.FC = () => {
       )
     },
     {
-      title: 'Workspaces assigned',
+      title: 'Workspace permissions',
       dataIndex: 'workspaces',
       key: 'workspaces',
-      render: (workspaces: { id: string; name: string; }[]) => (
+      render: (workspaces: WorkspaceMembership[]) => (
         <Space wrap>
           {workspaces.length > 0 ? (
             workspaces.map(workspace => (
-              <Tag key={workspace.id} color="processing">
-                {workspace.name}
+              <Tag
+                key={workspace.workspaceId}
+                color={workspace.role === 'admin' ? 'red' : 'blue'}
+                style={{ margin: '2px' }}
+              >
+                {workspace.workspaceName} - {workspace.role}
               </Tag>
             ))
           ) : (
@@ -330,24 +655,42 @@ export const TenantSettingsPage: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_, record) => (
-        <Dropdown
-          menu={{
-            items: [
-              {
-                key: 'remove',
-                label: 'Remove member',
-                icon: <DeleteOutlined />,
-                danger: true,
-                onClick: () => handleRemoveMember(record)
-              }
-            ]
-          }}
-          trigger={['click']}
-        >
-          <Button type="text" icon={<MoreOutlined />} />
-        </Dropdown>
-      )
+      render: (_, record) => {
+        const menuItems = [];
+
+        if (canManagePermissions) {
+          menuItems.push({
+            key: 'edit-permissions',
+            label: 'Edit permissions',
+            icon: <SafetyOutlined />,
+            onClick: () => handleEditPermissions(record)
+          });
+        }
+
+        if (canRemoveMembers) {
+          menuItems.push({
+            key: 'remove',
+            label: 'Remove member',
+            icon: <DeleteOutlined />,
+            danger: true,
+            onClick: () => handleRemoveMember(record)
+          });
+        }
+
+        // If no permissions, don't show the actions column at all
+        if (menuItems.length === 0) {
+          return null;
+        }
+
+        return (
+          <Dropdown
+            menu={{ items: menuItems }}
+            trigger={['click']}
+          >
+            <Button type="text" icon={<MoreOutlined />} />
+          </Dropdown>
+        );
+      }
     }
   ];
 
@@ -420,7 +763,7 @@ export const TenantSettingsPage: React.FC = () => {
                             size="small"
                             icon={<CloseOutlined />}
                             onClick={() => {
-                              setEditedName(mockTenant.name || '');
+                              setEditedName(currentTenant?.name || '');
                               setIsEditingName(false);
                             }}
                           />
@@ -428,16 +771,18 @@ export const TenantSettingsPage: React.FC = () => {
                       ) : (
                         <Space>
                           <Text strong style={{ fontSize: '16px' }}>
-                            {mockTenant.name}
+                            {currentTenant?.name}
                           </Text>
-                          <Tooltip title="Edit tenant name">
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<EditOutlined />}
-                              onClick={() => setIsEditingName(true)}
-                            />
-                          </Tooltip>
+                          {canUpdateTenant && (
+                            <Tooltip title="Edit tenant name">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => setIsEditingName(true)}
+                              />
+                            </Tooltip>
+                          )}
                         </Space>
                       )}
                     </Col>
@@ -451,7 +796,7 @@ export const TenantSettingsPage: React.FC = () => {
                     <Col>
                       <Space>
                         <Text code style={{ fontSize: '14px' }}>
-                          {mockTenant.id}
+                          {currentTenant?.id}
                         </Text>
                         <Tooltip title="Copy tenant ID">
                           <Button
@@ -503,10 +848,9 @@ export const TenantSettingsPage: React.FC = () => {
                 <Col xs={24} sm={8}>
                   <Card>
                     <Statistic
-                      title="Pending invites"
-                      value={pendingCount}
+                      title="Inactive members"
+                      value={inactiveCount}
                       prefix={<MailOutlined style={{ color: '#faad14' }} />}
-                      suffix={<Text type="secondary" style={{ fontSize: '12px' }}>/ 5 available</Text>}
                     />
                   </Card>
                 </Col>
@@ -552,8 +896,8 @@ export const TenantSettingsPage: React.FC = () => {
                     >
                       <Option value="all">All workspaces</Option>
                       {allWorkspaces.map(workspace => (
-                        <Option key={workspace.id} value={workspace.id}>
-                          {workspace.name}
+                        <Option key={workspace.workspaceId} value={workspace.workspaceId}>
+                          {workspace.workspaceName}
                         </Option>
                       ))}
                     </Select>
@@ -568,8 +912,8 @@ export const TenantSettingsPage: React.FC = () => {
                       >
                         <Option value="all">All status</Option>
                         <Option value="active">Active</Option>
-                        <Option value="pending">Pending</Option>
                         <Option value="inactive">Inactive</Option>
+                        <Option value="suspended">Suspended</Option>
                       </Select>
                       <Button onClick={handleResetFilters}>
                         Clear
@@ -591,13 +935,15 @@ export const TenantSettingsPage: React.FC = () => {
                   </Space>
                 }
                 extra={
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => setInviteModalVisible(true)}
-                  >
-                    Invite member
-                  </Button>
+                  canInviteMembers && (
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => setInviteModalVisible(true)}
+                    >
+                      Invite member
+                    </Button>
+                  )
                 }
               >
                 <Table
@@ -665,6 +1011,20 @@ export const TenantSettingsPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Workspace Permissions Modal */}
+      <WorkspacePermissionsModal
+        visible={permissionsModalVisible}
+        onCancel={() => {
+          setPermissionsModalVisible(false);
+          setSelectedMember(null);
+          permissionsForm.resetFields();
+        }}
+        onSave={handleSavePermissions}
+        member={selectedMember}
+        allWorkspaces={allWorkspaces}
+        form={permissionsForm}
+      />
     </div>
   );
 };

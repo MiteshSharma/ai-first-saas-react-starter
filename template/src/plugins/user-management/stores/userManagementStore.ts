@@ -19,8 +19,10 @@ import {
   UserPreferences,
   SecuritySettings,
   UploadAvatarResponse,
+  UserPermissions,
   USER_MANAGEMENT_EVENTS,
 } from '../types';
+import { TENANT_EVENTS } from '../../tenant-management/types';
 import { AUDIT_PLUGIN_EVENTS, AUDIT_ACTIONS } from '../../../events';
 import InvitationService from '../services/InvitationService';
 import UserService from '../services/UserService';
@@ -66,6 +68,7 @@ export const useUserManagementStore = create<UserManagementStoreState>()(
       currentUser: null,
       userPreferences: null,
       securitySettings: null,
+      userPermissions: null,
 
       // User list data
       users: [],
@@ -546,6 +549,7 @@ export const useUserManagementStore = create<UserManagementStoreState>()(
           currentUser: null,
           userPreferences: null,
           securitySettings: null,
+          userPermissions: null,
           users: [],
           userFilters: {},
           usersLoading: false,
@@ -597,6 +601,7 @@ export const useUserManagementData = () => useUserManagementStore((state) => ({
   currentUser: state.currentUser,
   userPreferences: state.userPreferences,
   securitySettings: state.securitySettings,
+  userPermissions: state.userPermissions,
   users: state.users,
   userFilters: state.userFilters,
   usersLoading: state.usersLoading,
@@ -650,5 +655,36 @@ export const initializeUserManagementStore = (providedEventBus: any) => {
       });
   });
 
-  return unsubscribeAuthSuccess;
+  // Listen to USER_PERMISSIONS_LOADED events from tenant management
+  const unsubscribePermissions = eventBus.on(
+    TENANT_EVENTS.USER_PERMISSIONS_LOADED,
+    ({ userId, tenantId, tenantRole, workspaces }: any) => {
+      console.log('[User Store] Received USER_PERMISSIONS_LOADED event:', {
+        userId,
+        tenantId,
+        tenantRole,
+        workspaceCount: workspaces?.length || 0
+      });
+
+      // Get tenant name from tenant context or store (we'll use a placeholder for now)
+      const tenantName = `Tenant ${tenantId}`;
+
+      // Update user permissions in the store
+      const userPermissions: UserPermissions = {
+        userId,
+        tenantId,
+        tenantName,
+        tenantRole,
+        workspaces: workspaces || []
+      };
+
+      useUserManagementStore.setState({ userPermissions });
+    }
+  );
+
+  // Return cleanup function
+  return () => {
+    unsubscribeAuthSuccess();
+    unsubscribePermissions();
+  };
 };

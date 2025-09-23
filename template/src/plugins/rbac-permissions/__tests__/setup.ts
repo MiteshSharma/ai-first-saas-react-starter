@@ -6,15 +6,11 @@
 
 import '@testing-library/jest-dom';
 
-// Mock MSW (Mock Service Worker) for API mocking
-import { rest } from 'msw';
+// Mock MSW (Mock Service Worker) - minimal setup for tests
 import { setupServer } from 'msw/node';
 
-// Import mock handlers
-import { rbacMockHandlers } from '../services/mockHandlers';
-
-// Setup MSW server with our RBAC handlers
-export const server = setupServer(...rbacMockHandlers);
+// Setup MSW server with empty handlers (no API calls anymore)
+export const server = setupServer();
 
 // Start server before all tests
 beforeAll(() => {
@@ -164,13 +160,11 @@ export const createMockStoreState = (overrides = {}) => ({
   userPermissions: [],
   loading: false,
   error: null,
-  loadPermissions: jest.fn(),
-  loadUserPermissions: jest.fn(),
+  setPermissions: jest.fn(),
+  setUserPermissionsFromEvent: jest.fn(),
   checkPermission: jest.fn(),
   checkMultiplePermissions: jest.fn(),
   clearError: jest.fn(),
-  generateMockUserPermissions: jest.fn(),
-  getMockUserRoles: jest.fn(),
   isPermissionApplicableToContext: jest.fn(),
   ...overrides,
 });

@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useCoreContext } from '../../../core/context/CoreContext';
 import { useWorkspaceStore } from '../stores/workspaceStore';
+import { usePermissions } from '../../../core/permissions/usePermissions';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -37,6 +38,10 @@ const { TabPane } = Tabs;
 export const WorkspaceSettingsPage: React.FC = () => {
   const { state: { currentWorkspace } } = useCoreContext();
   const { updateWorkspace, loading } = useWorkspaceStore();
+
+  // Permission checks
+  const { hasPermission } = usePermissions();
+  const canUpdateWorkspace = hasPermission('workspace', 'update').allowed;
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -84,13 +89,23 @@ export const WorkspaceSettingsPage: React.FC = () => {
       message.success('Workspace ID copied to clipboard');
     } catch (error) {
       // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = currentWorkspace.id;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      message.success('Workspace ID copied to clipboard');
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = currentWorkspace.id;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          message.success('Workspace ID copied to clipboard');
+        } else {
+          message.error('Failed to copy workspace ID');
+        }
+      } catch (fallbackError) {
+        message.error('Failed to copy workspace ID');
+      }
     }
   };
 
@@ -178,14 +193,16 @@ export const WorkspaceSettingsPage: React.FC = () => {
                           <Text strong style={{ fontSize: '16px' }}>
                             {mockWorkspace.name}
                           </Text>
-                          <Tooltip title="Edit workspace name">
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<EditOutlined />}
-                              onClick={() => setIsEditingName(true)}
-                            />
-                          </Tooltip>
+                          {canUpdateWorkspace && (
+                            <Tooltip title="Edit workspace name">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => setIsEditingName(true)}
+                              />
+                            </Tooltip>
+                          )}
                         </Space>
                       )}
                     </Col>

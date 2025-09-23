@@ -4,7 +4,7 @@
  * Predefined permissions, roles, and system constants for RBAC system
  */
 
-import { Permission, Role, RoleTemplate, PermissionAction, PermissionResource } from './types';
+import { Permission, Role, RoleTemplate } from './types';
 
 // ============================================================================
 // System Permissions

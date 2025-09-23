@@ -9,9 +9,11 @@
  */
 
 import type { User } from '../types';
+import type { TenantContext, WorkspaceContext } from './EventBus';
 
 // Re-export User type for plugin compatibility
 export type { User } from '../types';
+export type { TenantContext, WorkspaceContext } from './EventBus';
 
 // Core services that plugins can access
 export interface AuthContext {
@@ -42,8 +44,8 @@ export interface LayoutContext {
 
 // Core context interface for plugins (minimal interface to avoid circular deps)
 export interface CoreContextInterface {
-  setCurrentTenant: (tenant: any) => void;
-  setCurrentWorkspace: (workspace: any) => void;
+  setCurrentTenant: (tenant: TenantContext | null) => void;
+  setCurrentWorkspace: (workspace: WorkspaceContext | null) => void;
 }
 
 // Context provided to plugins by core

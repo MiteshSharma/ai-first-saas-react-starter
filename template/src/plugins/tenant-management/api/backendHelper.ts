@@ -200,6 +200,26 @@ export class TenantBackendHelper {
   }
 
   /**
+   * Update user workspace permissions
+   */
+  static async updateMemberWorkspacePermissions(
+    tenantId: string,
+    userId: string,
+    permissions: { workspaceId: string; role: string }[]
+  ): Promise<TenantUser> {
+    if (isMockMode()) {
+      const mockHandlers = await getMockHandlers();
+      return mockHandlers.updateMemberWorkspacePermissions(tenantId, userId, permissions);
+    }
+
+    const endpoint = TENANT_ENDPOINTS.UPDATE_MEMBER_WORKSPACE_PERMISSIONS
+      .replace(':tenantId', tenantId)
+      .replace(':userId', userId);
+    const response = await apiHelper.put(endpoint, { permissions });
+    return (response.data as { data: TenantUser }).data;
+  }
+
+  /**
    * Get tenant workspaces
    */
   static async getTenantWorkspaces(tenantId: string): Promise<any[]> {

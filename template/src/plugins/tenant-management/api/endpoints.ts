@@ -31,6 +31,9 @@ export const TENANT_ENDPOINTS = {
   // User tenant operations
   GET_USER_TENANTS: '/users/:userId/tenants',
 
+  // Workspace permissions
+  UPDATE_MEMBER_WORKSPACE_PERMISSIONS: '/tenants/:tenantId/members/:userId/workspace-permissions',
+
   // Testing endpoints
   TEST_ISOLATION: '/test/tenant-isolation',
   GET_DATA_SOURCES: '/data-sources',

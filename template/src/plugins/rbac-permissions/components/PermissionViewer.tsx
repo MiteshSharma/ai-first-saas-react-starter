@@ -4,7 +4,7 @@
  * Display user permissions in an organized, searchable format
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -12,7 +12,6 @@ import {
   Select,
   Space,
   Tag,
-  Tooltip,
   Typography,
   Alert,
   Badge,
@@ -30,7 +29,6 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  InfoCircleOutlined,
   FolderOutlined,
   FileOutlined,
   DownloadOutlined,
@@ -105,21 +103,17 @@ export const PermissionViewer: React.FC<PermissionViewerProps> = ({
 
     filteredPermissions.forEach(permission => {
       let groupKey: string;
-      let groupName: string;
 
       switch (groupBy) {
         case 'scope':
           groupKey = permission.scope;
-          groupName = permission.scope.charAt(0).toUpperCase() + permission.scope.slice(1);
           break;
         case 'resource':
           groupKey = permission.resource;
-          groupName = permission.resource.charAt(0).toUpperCase() + permission.resource.slice(1);
           break;
         case 'category':
         default:
           groupKey = permission.category;
-          groupName = permission.category;
           break;
       }
 
@@ -381,6 +375,7 @@ export const PermissionViewer: React.FC<PermissionViewerProps> = ({
             value={groupBy}
             onChange={(value) => {
               // This would trigger a prop change in parent component
+              // eslint-disable-next-line no-console
               console.log('Group by changed:', value);
             }}
             style={{ width: '100%' }}
@@ -396,6 +391,7 @@ export const PermissionViewer: React.FC<PermissionViewerProps> = ({
             value={viewMode}
             onChange={(value) => {
               // This would trigger a prop change in parent component
+              // eslint-disable-next-line no-console
               console.log('View mode changed:', value);
             }}
             style={{ width: '100%' }}

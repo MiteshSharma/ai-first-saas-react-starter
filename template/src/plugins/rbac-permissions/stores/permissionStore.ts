@@ -10,10 +10,7 @@ import {
   PermissionState,
   ContextualPermission,
   AccessContext,
-  BulkPermissionCheck,
-  PermissionCheckResult,
 } from '../types';
-import { permissionService } from '../services/permissionService';
 import { TENANT_EVENTS } from '../../tenant-management/types';
 
 /**
@@ -31,25 +28,10 @@ export const usePermissionStore = create<PermissionState>()(
       error: null,
 
       /**
-       * Load all available permissions
+       * Set static permissions (no API call needed)
        */
-      loadPermissions: async () => {
-        set({ loading: true, error: null });
-
-        try {
-          const permissions = await permissionService.getPermissions();
-
-          set({
-            permissions,
-            loading: false
-          });
-        } catch (error) {
-          console.error('Failed to load permissions:', error);
-          set({
-            error: 'Failed to load permissions',
-            loading: false
-          });
-        }
+      setPermissions: (permissions: any[]) => {
+        set({ permissions });
       },
 
       /**
@@ -88,31 +70,38 @@ export const usePermissionStore = create<PermissionState>()(
       },
 
       /**
-       * Check if user has specific permission
+       * Check if user has specific permission (local evaluation)
        */
-      checkPermission: async (permission: string, context: AccessContext): Promise<boolean> => {
-        try {
-          return await permissionService.checkPermission(permission, context);
-        } catch (error) {
-          console.error('Failed to check permission:', error);
-          return false;
-        }
+      checkPermission: (permission: string, context: AccessContext): boolean => {
+        const state = usePermissionStore.getState();
+
+        // Find matching permission in user permissions
+        const hasPermission = state.userPermissions.some(userPerm => {
+          // Check if permission ID matches
+          if (userPerm.id !== permission) return false;
+
+          // Check if permission is granted
+          if (!userPerm.granted) return false;
+
+          // Check if permission applies to the context
+          return state.isPermissionApplicableToContext(userPerm, context);
+        });
+
+        return hasPermission;
       },
 
       /**
-       * Check multiple permissions with AND/OR logic
+       * Check multiple permissions with local evaluation
        */
-      checkMultiplePermissions: async (check: BulkPermissionCheck): Promise<PermissionCheckResult[]> => {
-        try {
-          return await permissionService.checkMultiplePermissions(check);
-        } catch (error) {
-          console.error('Failed to check multiple permissions:', error);
-          return check.permissions.map(() => ({
-            granted: false,
-            reason: 'Error checking permission',
-            scope: 'resource' as const,
-            context: check.context,
-          }));
+      checkMultiplePermissions: (permissions: string[], context: AccessContext, requireAll = false): boolean => {
+        const state = usePermissionStore.getState();
+
+        if (requireAll) {
+          // AND logic: all permissions must be granted
+          return permissions.every(permission => state.checkPermission(permission, context));
+        } else {
+          // OR logic: at least one permission must be granted
+          return permissions.some(permission => state.checkPermission(permission, context));
         }
       },
 
@@ -227,27 +216,29 @@ export const initializePermissionStore = (providedEventBus: any) => {
 };
 
 /**
- * Permission store utilities for common operations
+ * Permission store utilities for common operations (all local evaluation)
  */
 export const permissionStoreUtils = {
   /**
-   * Initialize permissions on app startup
+   * Initialize permissions with static data (no API call)
    */
-  initialize: async () => {
+  initialize: () => {
     const store = usePermissionStore.getState();
-    await store.loadPermissions();
+    // Set up any static permissions if needed
+    store.setPermissions([]);
   },
 
-
   /**
-   * Check if user can perform action on resource
+   * Check if user can perform action on resource (local evaluation)
    */
-  canPerformAction: async (
+  canPerformAction: (
     action: string,
     resource: string,
     context: AccessContext
-  ): Promise<boolean> => {
-    return await permissionService.canPerformAction(action, resource, context);
+  ): boolean => {
+    const store = usePermissionStore.getState();
+    const permission = `${resource}.${action}`;
+    return store.checkPermission(permission, context);
   },
 
   /**
@@ -261,23 +252,25 @@ export const permissionStoreUtils = {
   },
 
   /**
-   * Check if user has any permission from a list
+   * Check if user has any permission from a list (local evaluation)
    */
-  hasAnyPermission: async (
+  hasAnyPermission: (
     permissions: string[],
     context: AccessContext
-  ): Promise<boolean> => {
-    return await permissionService.hasAnyPermission(permissions, context);
+  ): boolean => {
+    const store = usePermissionStore.getState();
+    return store.checkMultiplePermissions(permissions, context, false);
   },
 
   /**
-   * Check if user has all permissions from a list
+   * Check if user has all permissions from a list (local evaluation)
    */
-  hasAllPermissions: async (
+  hasAllPermissions: (
     permissions: string[],
     context: AccessContext
-  ): Promise<boolean> => {
-    return await permissionService.hasAllPermissions(permissions, context);
+  ): boolean => {
+    const store = usePermissionStore.getState();
+    return store.checkMultiplePermissions(permissions, context, true);
   },
 
   /**
@@ -301,20 +294,20 @@ export const permissionStoreUtils = {
   },
 
   /**
-   * Check if user has permission in specific workspace
+   * Check if user has permission in specific workspace (local evaluation)
    */
-  hasWorkspacePermission: async (
+  hasWorkspacePermission: (
     permission: string,
     workspaceId: string,
     tenantId?: string
-  ): Promise<boolean> => {
+  ): boolean => {
     const store = usePermissionStore.getState();
     const context: AccessContext = {
-      userId: 'current', // This will be resolved by the check
+      userId: 'current',
       workspaceId,
       tenantId
     };
-    return await store.checkPermission(permission, context);
+    return store.checkPermission(permission, context);
   },
 };
 
