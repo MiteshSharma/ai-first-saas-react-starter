@@ -1,0 +1,881 @@
+openapi: 3.0.3
+info:
+  title: AI-First SaaS React Starter - Core API
+  description: |
+    Core API endpoints for authentication and system monitoring.
+
+    This API provides essential core functionality including user authentication,
+    admin authentication, and system health monitoring.
+
+    Note: User management, tenant management, and workspace management APIs
+    are provided by their respective plugin modules and documented separately.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@company.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.company.com/v1
+    description: Production server
+  - url: https://staging-api.company.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ==========================================
+  # AUTHENTICATION ENDPOINTS
+  # ==========================================
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      operationId: postUserLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginPayload'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account
+      operationId: postUserRegister
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPayload'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/signup/email:
+    post:
+      tags:
+        - Authentication
+      summary: Email signup
+      description: Begin email-based signup process
+      operationId: postSignupEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupEmailPayload'
+      responses:
+        '200':
+          description: Signup email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/signup/resend:
+    post:
+      tags:
+        - Authentication
+      summary: Resend signup email
+      description: Resend verification email for signup
+      operationId: postSignupResend
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendEmailPayload'
+      responses:
+        '200':
+          description: Verification email resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/signup/complete:
+    post:
+      tags:
+        - Authentication
+      summary: Complete signup
+      description: Complete the signup process with token
+      operationId: postSignupComplete
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSignupPayload'
+      responses:
+        '201':
+          description: Signup completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/password-reset/request:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Request password reset email
+      operationId: postPasswordResetRequest
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestPayload'
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/password-reset/complete:
+    post:
+      tags:
+        - Authentication
+      summary: Complete password reset
+      description: Complete password reset with token and new password
+      operationId: postPasswordResetComplete
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetCompletePayload'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change password
+      description: Change user password (requires authentication)
+      operationId: postChangePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordPayload'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout user and invalidate token
+      operationId: postUserLogout
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh authentication token
+      description: Refresh JWT token using refresh token
+      operationId: postRefreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenPayload'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/verify-email:
+    post:
+      tags:
+        - Authentication
+      summary: Verify email
+      description: Verify user email with token
+      operationId: postVerifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailPayload'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/sso/callback:
+    post:
+      tags:
+        - Authentication
+      summary: SSO callback
+      description: Handle SSO authentication callback
+      operationId: postSSOCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SSOCallbackPayload'
+      responses:
+        '200':
+          description: SSO authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # ADMIN AUTHENTICATION ENDPOINTS
+  # ==========================================
+
+  /auth/admin-token:
+    post:
+      tags:
+        - Admin Authentication
+      summary: Validate admin token
+      description: Validate admin authentication token
+      operationId: postValidateAdminToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTokenPayload'
+      responses:
+        '200':
+          description: Admin token valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # SYSTEM ENDPOINTS
+  # ==========================================
+
+  /system/health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check system health status
+      operationId: getSystemHealth
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /system/status:
+    get:
+      tags:
+        - System
+      summary: System status
+      description: Get detailed system status information
+      operationId: getSystemStatus
+      responses:
+        '200':
+          description: System status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatusResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+tags:
+  - name: Authentication
+    description: User authentication operations
+  - name: Admin Authentication
+    description: Admin authentication operations
+  - name: System
+    description: System monitoring and health check operations
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ==========================================
+    # AUTHENTICATION SCHEMAS
+    # ==========================================
+
+    LoginPayload:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: securePassword123
+
+    RegisterPayload:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: securePassword123
+        firstName:
+          type: string
+          minLength: 1
+          example: John
+        lastName:
+          type: string
+          minLength: 1
+          example: Doe
+
+    SignupEmailPayload:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    ResendEmailPayload:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    CompleteSignupPayload:
+      type: object
+      required:
+        - token
+        - password
+        - firstName
+        - lastName
+      properties:
+        token:
+          type: string
+          example: signup_token_here
+        password:
+          type: string
+          minLength: 8
+          example: securePassword123
+        firstName:
+          type: string
+          minLength: 1
+          example: John
+        lastName:
+          type: string
+          minLength: 1
+          example: Doe
+
+    PasswordResetRequestPayload:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    PasswordResetCompletePayload:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+          example: reset_token_here
+        password:
+          type: string
+          minLength: 8
+          example: newSecurePassword123
+
+    ChangePasswordPayload:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          example: currentPassword123
+        newPassword:
+          type: string
+          minLength: 8
+          example: newSecurePassword123
+
+    RefreshTokenPayload:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: refresh_token_here
+
+    VerifyEmailPayload:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          example: email_verification_token
+
+    SSOCallbackPayload:
+      type: object
+      required:
+        - provider
+        - code
+      properties:
+        provider:
+          type: string
+          enum: [google, github, microsoft]
+          example: google
+        code:
+          type: string
+          example: sso_auth_code
+
+    AdminTokenPayload:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          example: admin_token_here
+
+    # ==========================================
+    # RESPONSE SCHEMAS
+    # ==========================================
+
+    AuthResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - user
+            - token
+            - refreshToken
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            token:
+              type: string
+              example: jwt_token_here
+            refreshToken:
+              type: string
+              example: refresh_token_here
+        message:
+          type: string
+          example: Login successful
+
+    AdminTokenResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - valid
+            - permissions
+          properties:
+            valid:
+              type: boolean
+              example: true
+            permissions:
+              type: array
+              items:
+                type: string
+              example: ["admin:read", "admin:write"]
+        message:
+          type: string
+          example: Admin token validated
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          example: 2023-12-01T10:00:00Z
+        details:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [connected, disconnected]
+              example: connected
+            redis:
+              type: string
+              enum: [connected, disconnected]
+              example: connected
+
+    SystemStatusResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - version
+            - uptime
+            - environment
+          properties:
+            version:
+              type: string
+              example: 1.0.0
+            uptime:
+              type: number
+              example: 3600
+            environment:
+              type: string
+              enum: [development, staging, production]
+              example: production
+            memoryUsage:
+              type: object
+              properties:
+                used:
+                  type: number
+                  example: 134217728
+                total:
+                  type: number
+                  example: 268435456
+
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - firstName
+        - lastName
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: user123
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        avatar:
+          type: string
+          format: uri
+          example: https://example.com/avatar.jpg
+        emailVerified:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: 2023-12-01T10:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2023-12-01T10:00:00Z
+
+    # ==========================================
+    # ERROR SCHEMAS
+    # ==========================================
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: An error occurred
+        code:
+          type: string
+          example: ERROR_CODE
+        details:
+          type: object
+          additionalProperties: true
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+        - errors
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: Email is required
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized - Authentication required or failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Not found - Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflict - Resource already exists or conflict occurred
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

@@ -1,0 +1,998 @@
+openapi: 3.0.3
+info:
+  title: AI-First SaaS React Starter - User Management API
+  description: |
+    User Management API for comprehensive user profile and preference management.
+
+    This API provides streamlined user management functionality focusing on:
+    - User profile management (name, display preferences)
+    - User preferences and settings
+    - User search and filtering within tenants
+    - Basic user information retrieval
+
+    **Simplified Model:**
+    - Focuses on core user profile and preference management
+    - Removed complex invitation and security features for simplicity
+    - Supports multi-tenant user lookup and filtering
+    - Provides essential CRUD operations for user data
+
+    **Access Control:**
+    - Users can manage their own profiles and preferences
+    - Tenant admins can view and manage tenant member profiles
+    - Role-based access control ensures appropriate permissions
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@company.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.company.com/v1
+    description: Production server
+  - url: https://staging-api.company.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ==========================================
+  # TENANT USER ENDPOINTS
+  # ==========================================
+
+  /api/tenants/{tenantId}/users:
+    get:
+      tags:
+        - Tenant Users
+      summary: Get tenant users
+      description: |
+        Retrieve all users within a specific tenant with filtering and search capabilities.
+
+        **Features:**
+        - Paginated results for large user lists
+        - Full-text search across user names and emails
+        - Filter by user roles, status, and workspace membership
+        - Sort by various user attributes
+        - Include tenant-specific user information
+
+        **Access Control:**
+        - Tenant members can view basic user information
+        - Admins can view detailed user information including roles
+        - Owners have full access to all user data
+
+        **Use Cases:**
+        - Team member discovery and contact lookup
+        - User directory for collaboration
+        - Administrative user management
+        - Reporting and analytics on user base
+      operationId: getTenantUsers
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID to retrieve users from
+          schema:
+            type: string
+            example: "tenant-123"
+        - name: search
+          in: query
+          description: Search term for user names, emails, or display names
+          required: false
+          schema:
+            type: string
+            example: "john doe"
+        - name: role
+          in: query
+          description: Filter users by their tenant role
+          required: false
+          schema:
+            type: string
+            enum: [owner, admin, member, guest]
+            example: "admin"
+        - name: status
+          in: query
+          description: Filter users by account status
+          required: false
+          schema:
+            type: string
+            enum: [active, inactive, suspended]
+            example: "active"
+        - name: workspaceId
+          in: query
+          description: Filter users who have access to a specific workspace
+          required: false
+          schema:
+            type: string
+            example: "workspace-456"
+        - name: lastLoginAfter
+          in: query
+          description: Filter users who logged in after this date (ISO 8601)
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2024-01-01T00:00:00Z"
+        - name: lastLoginBefore
+          in: query
+          description: Filter users who logged in before this date (ISO 8601)
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2024-12-31T23:59:59Z"
+        - name: page
+          in: query
+          description: Page number for pagination (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of users per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sortBy
+          in: query
+          description: Field to sort users by
+          required: false
+          schema:
+            type: string
+            enum: [displayName, email, createdAt, lastLogin, role]
+            default: displayName
+        - name: sortOrder
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: Tenant users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # USER PROFILE ENDPOINTS
+  # ==========================================
+
+  /api/users/{id}:
+    get:
+      tags:
+        - User Profiles
+      summary: Get user by ID
+      description: |
+        Retrieve detailed information about a specific user.
+
+        **Returned Information:**
+        - Basic profile information (name, email, avatar)
+        - Account status and verification status
+        - Tenant roles and workspace permissions (if accessible)
+        - Last login and activity information
+        - Timezone and locale preferences
+
+        **Access Control:**
+        - Users can always view their own profile
+        - Tenant members can view basic info of other tenant members
+        - Admins can view detailed info of tenant members
+        - Cross-tenant access is restricted based on permissions
+
+        **Privacy:**
+        - Sensitive information is filtered based on viewer permissions
+        - Personal preferences may be hidden from other users
+        - Contact information visibility respects privacy settings
+      operationId: getUserById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            example: "user-123"
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithTenantInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/{id}/profile:
+    put:
+      tags:
+        - User Profiles
+      summary: Update user profile
+      description: |
+        Update a user's profile information including personal details and display preferences.
+
+        **Updatable Fields:**
+        - First name, last name, and display name
+        - Timezone and locale settings
+        - Profile visibility preferences
+
+        **Access Control:**
+        - Users can update their own profile
+        - Tenant admins can update basic info for tenant members
+        - Some fields may require additional verification
+
+        **Validation:**
+        - Display name must be unique within tenant (if required)
+        - Timezone must be a valid IANA timezone identifier
+        - Locale must be a supported locale code
+
+        **Side Effects:**
+        - Profile changes are immediately visible to other users
+        - Some changes may trigger notification emails
+        - Audit logs are created for security-sensitive changes
+      operationId: updateUserProfile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            example: "user-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/UserWithTenantInfo'
+                  message:
+                    type: string
+                    example: "Profile updated successfully"
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Conflict - Display name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # USER PREFERENCES ENDPOINTS
+  # ==========================================
+
+  /api/users/{id}/preferences:
+    get:
+      tags:
+        - User Preferences
+      summary: Get user preferences
+      description: |
+        Retrieve a user's application preferences and settings.
+
+        **Preference Categories:**
+        - **Theme**: Light, dark, or system preference
+        - **Language**: Interface language preference
+        - **Timezone**: Default timezone for date/time display
+        - **Notifications**: Email and in-app notification settings
+        - **Dashboard**: Layout preferences and default widgets
+
+        **Access Control:**
+        - Users can view their own preferences
+        - Admins may view limited preference info for support purposes
+        - Some preferences may be restricted or enforced by organization policy
+
+        **Defaults:**
+        - New users get system-wide default preferences
+        - Preferences can inherit from tenant-level settings
+        - Fallback values ensure the application always works
+      operationId: getUserPreferences
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            example: "user-123"
+      responses:
+        '200':
+          description: User preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/UserPreferences'
+                required:
+                  - success
+                  - data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - User Preferences
+      summary: Update user preferences
+      description: |
+        Update a user's application preferences and settings.
+
+        **Update Behavior:**
+        - Partial updates are supported (only specified fields are changed)
+        - Invalid values are rejected with detailed error messages
+        - Changes take effect immediately for the user's session
+        - Some preference changes may require a page refresh
+
+        **Validation:**
+        - Theme values must be valid (light, dark, system)
+        - Language codes must be supported by the application
+        - Timezone values must be valid IANA timezone identifiers
+        - Notification preferences must conform to allowed settings
+
+        **Side Effects:**
+        - UI theme changes are applied immediately
+        - Language changes may require interface reload
+        - Notification settings affect email delivery
+        - Dashboard preferences update user's workspace layout
+      operationId: updateUserPreferences
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            example: "user-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserPreferencesRequest'
+      responses:
+        '200':
+          description: User preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/UserPreferences'
+                  message:
+                    type: string
+                    example: "Preferences updated successfully"
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ==========================================
+    # USER SCHEMAS
+    # ==========================================
+
+    User:
+      type: object
+      description: Basic user information
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+          example: "user-123"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "john.doe@company.com"
+        emailVerified:
+          type: boolean
+          description: Whether the user's email has been verified
+          example: true
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          description: Current account status
+          example: active
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last profile update timestamp
+          example: "2024-01-20T14:22:00Z"
+      required:
+        - id
+        - email
+        - emailVerified
+        - status
+        - profile
+        - createdAt
+        - updatedAt
+
+    UserProfile:
+      type: object
+      description: User profile information
+      properties:
+        firstName:
+          type: string
+          description: User's first name
+          example: "John"
+        lastName:
+          type: string
+          description: User's last name
+          example: "Doe"
+        displayName:
+          type: string
+          description: Display name shown to other users
+          example: "John Doe"
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to user's profile picture
+          example: "https://cdn.company.com/avatars/user-123.jpg"
+        timezone:
+          type: string
+          description: User's preferred timezone (IANA identifier)
+          example: "America/New_York"
+        locale:
+          type: string
+          description: User's preferred language/locale
+          example: "en-US"
+      required:
+        - firstName
+        - lastName
+        - displayName
+        - timezone
+        - locale
+
+    UserWithTenantInfo:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          description: User information with tenant-specific details
+          properties:
+            tenantRole:
+              type: string
+              enum: [owner, admin, member, guest]
+              description: User's role within the current tenant context
+              nullable: true
+              example: "admin"
+            workspaceRoles:
+              type: array
+              description: User's roles across different workspaces
+              nullable: true
+              items:
+                type: object
+                properties:
+                  workspaceId:
+                    type: string
+                    example: "workspace-456"
+                  role:
+                    type: string
+                    example: "developer"
+                required:
+                  - workspaceId
+                  - role
+            lastLogin:
+              type: string
+              format: date-time
+              nullable: true
+              description: Last login timestamp
+              example: "2024-01-18T09:15:00Z"
+            permissions:
+              type: array
+              description: User's effective permissions in current context
+              nullable: true
+              items:
+                type: string
+              example: ["users:read", "workspace:write", "admin:access"]
+
+    # ==========================================
+    # PREFERENCE SCHEMAS
+    # ==========================================
+
+    UserPreferences:
+      type: object
+      description: User application preferences and settings
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+          description: UI theme preference
+          example: "dark"
+        language:
+          type: string
+          description: Interface language preference
+          example: "en-US"
+        timezone:
+          type: string
+          description: Default timezone for date/time display
+          example: "America/New_York"
+        notifications:
+          $ref: '#/components/schemas/NotificationPreferences'
+        dashboard:
+          $ref: '#/components/schemas/DashboardPreferences'
+      required:
+        - theme
+        - language
+        - timezone
+        - notifications
+        - dashboard
+
+    NotificationPreferences:
+      type: object
+      description: Notification delivery preferences
+      properties:
+        email:
+          type: object
+          description: Email notification settings
+          properties:
+            invitations:
+              type: boolean
+              description: Receive email for team invitations
+              example: true
+            updates:
+              type: boolean
+              description: Receive email for system updates
+              example: true
+            security:
+              type: boolean
+              description: Receive email for security events
+              example: true
+            marketing:
+              type: boolean
+              description: Receive marketing emails
+              example: false
+          required:
+            - invitations
+            - updates
+            - security
+            - marketing
+        inApp:
+          type: object
+          description: In-application notification settings
+          properties:
+            mentions:
+              type: boolean
+              description: Show notifications when mentioned
+              example: true
+            updates:
+              type: boolean
+              description: Show notifications for system updates
+              example: true
+            security:
+              type: boolean
+              description: Show notifications for security events
+              example: true
+          required:
+            - mentions
+            - updates
+            - security
+      required:
+        - email
+        - inApp
+
+    DashboardPreferences:
+      type: object
+      description: Dashboard layout and display preferences
+      properties:
+        layout:
+          type: string
+          enum: [grid, list]
+          description: Default dashboard layout
+          example: "grid"
+        defaultWorkspace:
+          type: string
+          nullable: true
+          description: Default workspace to show on login
+          example: "workspace-456"
+        widgets:
+          type: array
+          description: Enabled dashboard widgets
+          items:
+            type: string
+          example: ["recent-activity", "team-members", "notifications"]
+      required:
+        - layout
+        - widgets
+
+    # ==========================================
+    # REQUEST SCHEMAS
+    # ==========================================
+
+    UpdateUserProfileRequest:
+      type: object
+      description: Request to update user profile information
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Updated first name
+          example: "John"
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Updated last name
+          example: "Smith"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Updated display name
+          example: "John Smith"
+        timezone:
+          type: string
+          description: Updated timezone (IANA identifier)
+          example: "America/Los_Angeles"
+        locale:
+          type: string
+          description: Updated language/locale preference
+          example: "en-US"
+      # Note: All fields are optional for partial updates
+
+    UpdateUserPreferencesRequest:
+      type: object
+      description: Request to update user preferences (all fields optional for partial updates)
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+          description: UI theme preference
+          example: "dark"
+        language:
+          type: string
+          description: Interface language preference
+          example: "en-US"
+        timezone:
+          type: string
+          description: Default timezone preference
+          example: "America/New_York"
+        notifications:
+          type: object
+          description: Partial notification preferences update
+          properties:
+            email:
+              type: object
+              properties:
+                invitations:
+                  type: boolean
+                updates:
+                  type: boolean
+                security:
+                  type: boolean
+                marketing:
+                  type: boolean
+            inApp:
+              type: object
+              properties:
+                mentions:
+                  type: boolean
+                updates:
+                  type: boolean
+                security:
+                  type: boolean
+        dashboard:
+          type: object
+          description: Partial dashboard preferences update
+          properties:
+            layout:
+              type: string
+              enum: [grid, list]
+            defaultWorkspace:
+              type: string
+              nullable: true
+            widgets:
+              type: array
+              items:
+                type: string
+
+    # ==========================================
+    # RESPONSE SCHEMAS
+    # ==========================================
+
+    UserListResponse:
+      type: object
+      description: Paginated list of users with filtering information
+      properties:
+        users:
+          type: array
+          description: Array of users matching the criteria
+          items:
+            $ref: '#/components/schemas/UserWithTenantInfo'
+        total:
+          type: integer
+          description: Total number of users matching filters
+          example: 150
+        page:
+          type: integer
+          description: Current page number (1-based)
+          example: 1
+        limit:
+          type: integer
+          description: Number of users per page
+          example: 20
+        filters:
+          $ref: '#/components/schemas/UserSearchFilters'
+      required:
+        - users
+        - total
+        - page
+        - limit
+        - filters
+
+    UserSearchFilters:
+      type: object
+      description: Applied search and filter criteria
+      properties:
+        search:
+          type: string
+          nullable: true
+          description: Applied search term
+          example: "john"
+        role:
+          type: string
+          nullable: true
+          enum: [owner, admin, member, guest]
+          description: Applied role filter
+          example: "admin"
+        status:
+          type: string
+          nullable: true
+          enum: [active, inactive, suspended]
+          description: Applied status filter
+          example: "active"
+        tenantId:
+          type: string
+          nullable: true
+          description: Applied tenant filter
+          example: "tenant-123"
+        workspaceId:
+          type: string
+          nullable: true
+          description: Applied workspace filter
+          example: "workspace-456"
+        lastLoginAfter:
+          type: string
+          format: date-time
+          nullable: true
+          description: Applied last login after filter
+          example: "2024-01-01T00:00:00Z"
+        lastLoginBefore:
+          type: string
+          format: date-time
+          nullable: true
+          description: Applied last login before filter
+          example: "2024-12-31T23:59:59Z"
+
+    # ==========================================
+    # ERROR SCHEMAS
+    # ==========================================
+
+    ApiError:
+      type: object
+      description: Standard error response format
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          example: false
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The specified user was not found"
+        error:
+          type: object
+          description: Additional error details
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "USER_NOT_FOUND"
+            details:
+              type: object
+              description: Additional context about the error
+              additionalProperties: true
+          example:
+            code: "USER_NOT_FOUND"
+            details:
+              userId: "user-123"
+      required:
+        - success
+        - message
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Invalid display name: must be between 1 and 100 characters"
+            error:
+              code: "INVALID_DISPLAY_NAME"
+              details:
+                field: "displayName"
+                value: ""
+
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Authentication required"
+            error:
+              code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Insufficient permissions to access user information"
+            error:
+              code: "INSUFFICIENT_PERMISSIONS"
+              details:
+                requiredPermission: "users:read"
+
+    NotFound:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "The specified user was not found"
+            error:
+              code: "USER_NOT_FOUND"
+              details:
+                userId: "user-123"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "An unexpected error occurred while processing the request"
+            error:
+              code: "INTERNAL_SERVER_ERROR"
+
+tags:
+  - name: Tenant Users
+    description: |
+      User discovery and management within tenant organizations.
+
+      Provides comprehensive user search and filtering capabilities for finding
+      and managing team members within specific tenant contexts.
+
+  - name: User Profiles
+    description: |
+      Individual user profile management and information retrieval.
+
+      Handles basic user information including personal details, contact information,
+      and account status. Supports both self-service and administrative management.
+
+  - name: User Preferences
+    description: |
+      User application preferences and personalization settings.
+
+      Manages user-specific application settings including theme preferences,
+      notification settings, language/locale, and dashboard customizations.

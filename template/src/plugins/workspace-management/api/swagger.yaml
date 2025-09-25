@@ -1,0 +1,827 @@
+openapi: 3.0.3
+info:
+  title: AI-First SaaS React Starter - Workspace Management API
+  description: |
+    Workspace Management API for collaborative workspace organization within tenants.
+
+    This API provides comprehensive workspace management functionality including:
+    - Workspace creation, retrieval, and updates within tenants
+    - Workspace settings and configuration management
+    - Basic workspace organization and filtering
+
+    **Workspace Model:**
+    - Workspaces are collaborative environments within tenants
+    - Each workspace has a type (project, department, team, client)
+    - Workspaces support various visibility and access control settings
+    - Settings control workspace behavior and features
+
+    **Simplified Focus:**
+    - Core workspace CRUD operations
+    - Essential settings management
+    - Basic filtering and search capabilities
+    - No complex member management (handled at tenant level)
+    - No complex activity tracking or statistics
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@company.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.company.com/v1
+    description: Production server
+  - url: https://staging-api.company.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ==========================================
+  # TENANT WORKSPACE ENDPOINTS
+  # ==========================================
+
+  /tenants/{tenantId}/workspaces:
+    get:
+      tags:
+        - Workspaces
+      summary: Get tenant workspaces
+      description: |
+        Retrieve all workspaces within a specific tenant with filtering and sorting capabilities.
+
+        **Features:**
+        - Filter by workspace status, type, or search term
+        - Sort by various workspace attributes
+        - Includes basic workspace information and member counts
+        - Respects user permissions for workspace visibility
+
+        **Access Control:**
+        - Users can see workspaces they have access to
+        - Admins can see all tenant workspaces
+        - Private workspaces are filtered based on membership
+
+        **Use Cases:**
+        - Workspace selection and navigation
+        - Administrative workspace overview
+        - Project and team discovery
+      operationId: getTenantWorkspaces
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID to retrieve workspaces from
+          schema:
+            type: string
+            example: "tenant-123"
+        - name: status
+          in: query
+          description: Filter workspaces by status (can specify multiple)
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/WorkspaceStatus'
+          style: form
+          explode: false
+          example: ["active", "archived"]
+        - name: type
+          in: query
+          description: Filter workspaces by type (can specify multiple)
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/WorkspaceType'
+          style: form
+          explode: false
+          example: ["project", "team"]
+        - name: search
+          in: query
+          description: Search term for workspace names and descriptions
+          required: false
+          schema:
+            type: string
+            example: "development"
+        - name: sortBy
+          in: query
+          description: Field to sort workspaces by
+          required: false
+          schema:
+            type: string
+            enum: [name, createdAt, updatedAt, memberCount]
+            default: name
+        - name: sortOrder
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: Workspaces retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkspaceWithMembers'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Workspaces
+      summary: Create new workspace
+      description: |
+        Create a new workspace within a tenant.
+
+        **Workspace Creation:**
+        - Workspace is created within the specified tenant
+        - Creator automatically becomes workspace admin
+        - Initial settings are applied based on workspace type
+        - Default permissions are set up
+
+        **Requirements:**
+        - User must have workspace creation permissions in the tenant
+        - Workspace name must be unique within the tenant
+        - Workspace type determines available features and settings
+
+        **Post-creation:**
+        - Creator gains full administrative access
+        - Workspace is immediately available for use
+        - Other tenant members can be invited based on visibility settings
+      operationId: createWorkspace
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID to create workspace in
+          schema:
+            type: string
+            example: "tenant-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspacePayload'
+      responses:
+        '201':
+          description: Workspace created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/WorkspaceWithMembers'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Conflict - Workspace name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # WORKSPACE ENDPOINTS
+  # ==========================================
+
+  /workspaces/{workspaceId}:
+    get:
+      tags:
+        - Workspaces
+      summary: Get workspace details
+      description: |
+        Retrieve detailed information about a specific workspace.
+
+        **Returned Information:**
+        - Complete workspace profile and settings
+        - User's role and permissions within the workspace
+        - Member count and basic workspace metrics
+        - Available features based on tenant subscription
+
+        **Access Control:**
+        - User must have access to the workspace
+        - Private workspaces require explicit membership
+        - Some information may be restricted based on user role
+      operationId: getWorkspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          description: Workspace ID
+          schema:
+            type: string
+            example: "workspace-123"
+      responses:
+        '200':
+          description: Workspace details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/WorkspaceWithMembers'
+                required:
+                  - success
+                  - data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Workspaces
+      summary: Update workspace
+      description: |
+        Update workspace information and configuration.
+
+        **Permissions Required:**
+        - Workspace admin: Can update all workspace information
+        - Workspace editor: Can update basic information (name, description)
+        - Tenant admin: Can update workspace settings and status
+
+        **Updateable Fields:**
+        - Basic information (name, description)
+        - Status (active, archived)
+        - Settings and configuration options
+
+        **Restrictions:**
+        - Cannot change workspace type after creation
+        - Status changes may require additional permissions
+        - Some settings may be restricted by tenant subscription
+      operationId: updateWorkspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          description: Workspace ID
+          schema:
+            type: string
+            example: "workspace-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspacePayload'
+      responses:
+        '200':
+          description: Workspace updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/WorkspaceWithMembers'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # WORKSPACE SETTINGS ENDPOINTS
+  # ==========================================
+
+  /workspaces/{workspaceId}/settings:
+    put:
+      tags:
+        - Workspace Settings
+      summary: Update workspace settings
+      description: |
+        Update specific workspace settings and configurations.
+
+        **Categories of Settings:**
+        - **Visibility**: Public, tenant, or private workspace access
+        - **Join Policy**: How users can join the workspace
+        - **Features**: Feature flags and workspace-specific configurations
+        - **Permissions**: Default roles and access controls
+
+        **Access Control:**
+        - Workspace admins can update most settings
+        - Some settings may require tenant-level permissions
+        - Feature settings may be restricted by subscription plan
+
+        **Validation:**
+        - Visibility and join policy combinations are validated
+        - Feature settings must be compatible with tenant subscription
+        - Permission settings must follow organizational policies
+      operationId: updateWorkspaceSettings
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          description: Workspace ID
+          schema:
+            type: string
+            example: "workspace-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceSettings'
+      responses:
+        '200':
+          description: Workspace settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/WorkspaceSettings'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ==========================================
+    # WORKSPACE SCHEMAS
+    # ==========================================
+
+    Workspace:
+      type: object
+      description: Basic workspace information
+      properties:
+        id:
+          type: string
+          description: Unique workspace identifier
+          example: "workspace-123"
+        tenantId:
+          type: string
+          description: Parent tenant ID
+          example: "tenant-123"
+        name:
+          type: string
+          description: Workspace display name
+          example: "Development Team"
+        type:
+          $ref: '#/components/schemas/WorkspaceType'
+        status:
+          $ref: '#/components/schemas/WorkspaceStatus'
+        settings:
+          $ref: '#/components/schemas/WorkspaceSettings'
+        createdAt:
+          type: string
+          format: date-time
+          description: Workspace creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-20T14:22:00Z"
+      required:
+        - id
+        - tenantId
+        - name
+        - type
+        - status
+        - settings
+        - createdAt
+        - updatedAt
+
+    WorkspaceWithMembers:
+      allOf:
+        - $ref: '#/components/schemas/Workspace'
+        - type: object
+          description: Extended workspace with additional computed properties
+          properties:
+            description:
+              type: string
+              nullable: true
+              description: Workspace description
+              example: "Main development workspace for the product team"
+            visibility:
+              $ref: '#/components/schemas/WorkspaceVisibility'
+            joinPolicy:
+              $ref: '#/components/schemas/WorkspaceJoinPolicy'
+            memberCount:
+              type: integer
+              nullable: true
+              description: Number of workspace members
+              example: 15
+            isOwner:
+              type: boolean
+              nullable: true
+              description: Whether current user is workspace owner
+              example: true
+            canManage:
+              type: boolean
+              nullable: true
+              description: Whether current user can manage workspace
+              example: true
+
+    WorkspaceType:
+      type: string
+      description: Type of workspace for organizational purposes
+      enum:
+        - project
+        - department
+        - team
+        - client
+      example: project
+
+    WorkspaceStatus:
+      type: string
+      description: Current workspace status
+      enum:
+        - active
+        - archived
+        - deleted
+      example: active
+
+    WorkspaceVisibility:
+      type: string
+      description: Workspace visibility and access level
+      enum:
+        - private
+        - tenant
+        - public
+      example: tenant
+
+    WorkspaceJoinPolicy:
+      type: string
+      description: How users can join the workspace
+      enum:
+        - open
+        - request
+        - invite_only
+      example: request
+
+    WorkspaceSettings:
+      type: object
+      description: Workspace configuration and preferences
+      properties:
+        visibility:
+          $ref: '#/components/schemas/WorkspaceVisibility'
+        joinPolicy:
+          $ref: '#/components/schemas/WorkspaceJoinPolicy'
+        features:
+          type: object
+          description: Feature flags and configurations
+          additionalProperties:
+            oneOf:
+              - type: boolean
+              - type: string
+              - type: number
+          example:
+            discussionsEnabled: true
+            maxStorageGB: 50
+            integrationLevel: "advanced"
+        permissions:
+          type: object
+          description: Default permission settings
+          properties:
+            defaultRole:
+              type: string
+              description: Default role for new members
+              enum: [admin, editor, viewer]
+              example: viewer
+            allowGuestAccess:
+              type: boolean
+              description: Whether to allow guest users
+              example: false
+            requireApproval:
+              type: boolean
+              description: Whether member additions require approval
+              example: true
+          required:
+            - defaultRole
+            - allowGuestAccess
+            - requireApproval
+      required:
+        - visibility
+        - joinPolicy
+        - permissions
+
+    # ==========================================
+    # REQUEST SCHEMAS
+    # ==========================================
+
+    CreateWorkspacePayload:
+      type: object
+      description: Request to create a new workspace
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Workspace name
+          example: "Development Team"
+        type:
+          $ref: '#/components/schemas/WorkspaceType'
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Optional workspace description
+          example: "Main development workspace for the product team"
+        settings:
+          type: object
+          description: Initial workspace settings (partial)
+          properties:
+            visibility:
+              $ref: '#/components/schemas/WorkspaceVisibility'
+            joinPolicy:
+              $ref: '#/components/schemas/WorkspaceJoinPolicy'
+            features:
+              type: object
+              additionalProperties:
+                oneOf:
+                  - type: boolean
+                  - type: string
+                  - type: number
+            permissions:
+              type: object
+              properties:
+                defaultRole:
+                  type: string
+                  enum: [admin, editor, viewer]
+                allowGuestAccess:
+                  type: boolean
+                requireApproval:
+                  type: boolean
+      required:
+        - name
+        - type
+
+    UpdateWorkspacePayload:
+      type: object
+      description: Request to update workspace information
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Updated workspace name
+          example: "Product Development Team"
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Updated workspace description
+          example: "Enhanced development workspace with new capabilities"
+        status:
+          $ref: '#/components/schemas/WorkspaceStatus'
+        settings:
+          $ref: '#/components/schemas/WorkspaceSettings'
+
+    # ==========================================
+    # FILTER SCHEMAS
+    # ==========================================
+
+    WorkspaceListFilter:
+      type: object
+      description: Filtering criteria for workspace lists
+      properties:
+        status:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceStatus'
+          description: Filter by workspace status
+          example: ["active", "archived"]
+        type:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceType'
+          description: Filter by workspace type
+          example: ["project", "team"]
+        search:
+          type: string
+          description: Search term for names and descriptions
+          example: "development"
+        sortBy:
+          type: string
+          enum: [name, createdAt, updatedAt, memberCount]
+          description: Field to sort by
+          example: name
+        sortOrder:
+          type: string
+          enum: [asc, desc]
+          description: Sort order
+          example: asc
+
+    # ==========================================
+    # ERROR SCHEMAS
+    # ==========================================
+
+    ApiError:
+      type: object
+      description: Standard error response format
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          example: false
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The specified workspace was not found"
+        error:
+          type: object
+          description: Additional error details
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "WORKSPACE_NOT_FOUND"
+            details:
+              type: object
+              description: Additional context about the error
+              additionalProperties: true
+          example:
+            code: "WORKSPACE_NOT_FOUND"
+            details:
+              workspaceId: "workspace-123"
+      required:
+        - success
+        - message
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Invalid workspace name: must be between 1 and 100 characters"
+            error:
+              code: "INVALID_WORKSPACE_NAME"
+              details:
+                field: "name"
+                value: ""
+
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Authentication required"
+            error:
+              code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Insufficient permissions to access this workspace"
+            error:
+              code: "INSUFFICIENT_PERMISSIONS"
+              details:
+                requiredRole: "editor"
+                userRole: "viewer"
+
+    NotFound:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "The specified workspace was not found"
+            error:
+              code: "WORKSPACE_NOT_FOUND"
+              details:
+                workspaceId: "workspace-123"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "An unexpected error occurred while processing the request"
+            error:
+              code: "INTERNAL_SERVER_ERROR"
+
+tags:
+  - name: Workspaces
+    description: |
+      Core workspace management operations for collaborative environments.
+
+      Workspaces are collaborative spaces within tenants where teams can organize
+      their work, share resources, and collaborate on projects. Each workspace has
+      a specific type and purpose within the organization.
+
+  - name: Workspace Settings
+    description: |
+      Workspace configuration and customization endpoints.
+
+      Settings control workspace behavior, access policies, feature availability,
+      and member permissions. They provide flexibility while maintaining security
+      and organizational policies.

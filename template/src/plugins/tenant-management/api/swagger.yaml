@@ -1,0 +1,1313 @@
+openapi: 3.0.3
+info:
+  title: AI-First SaaS React Starter - Tenant Management API
+  description: |
+    Tenant Management API for multi-tenant SaaS applications.
+
+    This API provides comprehensive tenant (organization) management functionality including:
+    - Tenant creation, retrieval, and updates
+    - Tenant settings and configuration
+    - Member management and role-based access control
+    - Workspace permissions management
+
+    **Multi-tenancy Model:**
+    - Each tenant represents an organization/company
+    - Users can belong to multiple tenants with different roles
+    - Workspaces are created within tenants
+    - Role-based permissions control access at both tenant and workspace levels
+
+    **Permission Model:**
+    - Tenant-level roles: owner, admin, member, guest
+    - Workspace-level permissions are managed per user per workspace
+    - Effective permissions are resolved based on tenant role and workspace-specific permissions
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@company.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.company.com/v1
+    description: Production server
+  - url: https://staging-api.company.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ==========================================
+  # TENANT MANAGEMENT ENDPOINTS
+  # ==========================================
+
+  /tenants:
+    get:
+      tags:
+        - Tenants
+      summary: Get user's tenants
+      description: |
+        Retrieve all tenants that the current authenticated user has access to.
+
+        This includes tenants where the user is:
+        - An owner, admin, member, or guest
+        - Has been invited but hasn't yet accepted
+        - Has access to any workspaces within the tenant
+
+        Results are sorted by the user's role (owners first, then admins, etc.)
+        and by tenant creation date.
+      operationId: getUserTenants
+      parameters:
+        - name: status
+          in: query
+          description: Filter tenants by status
+          required: false
+          schema:
+            $ref: '#/components/schemas/TenantStatus'
+        - name: role
+          in: query
+          description: Filter by user's role in the tenant
+          required: false
+          schema:
+            $ref: '#/components/schemas/TenantRole'
+        - name: sortBy
+          in: query
+          description: Sort tenants by field
+          required: false
+          schema:
+            type: string
+            enum: [name, createdAt, updatedAt, role]
+            default: name
+        - name: sortOrder
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: Tenants retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+                required:
+                  - success
+                  - data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Tenants
+      summary: Create new tenant
+      description: |
+        Create a new tenant organization.
+
+        The authenticated user automatically becomes the owner of the new tenant.
+        A default workspace is created within the tenant unless specified otherwise.
+
+        **Requirements:**
+        - User must have sufficient permissions to create tenants
+        - Tenant slug must be unique across the system
+        - Tenant name must be unique within the user's accessible tenants
+
+        **Post-creation:**
+        - User is assigned as tenant owner
+        - Default workspace is created
+        - Initial settings are applied based on the user's subscription
+      operationId: createTenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Tenant'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Conflict - Tenant name or slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tenants/{tenantId}:
+    get:
+      tags:
+        - Tenants
+      summary: Get tenant details
+      description: |
+        Retrieve detailed information about a specific tenant.
+
+        **Returned Information:**
+        - Complete tenant profile and settings
+        - User's role and permissions within the tenant
+        - Subscription and billing information
+        - Available features based on subscription plan
+
+        **Access Control:**
+        - User must be a member of the tenant
+        - Some sensitive information may be restricted based on user role
+      operationId: getTenant
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+      responses:
+        '200':
+          description: Tenant details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Tenant'
+                required:
+                  - success
+                  - data
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Tenants
+      summary: Update tenant
+      description: |
+        Update tenant information and settings.
+
+        **Permissions Required:**
+        - Tenant owner: Can update all tenant information
+        - Tenant admin: Can update most settings except critical ones
+        - Other roles: Cannot update tenant information
+
+        **Updateable Fields:**
+        - Basic information (name, description)
+        - Settings (branding, timezone, currency, language)
+        - Feature configurations (based on subscription plan)
+
+        **Restrictions:**
+        - Tenant slug cannot be changed after creation
+        - Some settings may be restricted by subscription plan
+        - Critical settings may require additional verification
+      operationId: updateTenant
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Tenant updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Tenant'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # TENANT SETTINGS ENDPOINTS
+  # ==========================================
+
+  /tenants/{tenantId}/settings:
+    put:
+      tags:
+        - Tenant Settings
+      summary: Update tenant settings
+      description: |
+        Update specific tenant settings and configurations.
+
+        **Categories of Settings:**
+        - **Branding**: Logo, colors, favicon
+        - **Localization**: Timezone, currency, language
+        - **Features**: Feature flags and configurations
+        - **Security**: Security policies and requirements
+
+        **Access Control:**
+        - Owners and admins can update most settings
+        - Some security settings may require owner-level access
+        - Settings may be restricted by subscription plan
+      operationId: updateTenantSettings
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantSettings'
+      responses:
+        '200':
+          description: Tenant settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TenantSettings'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # TENANT MEMBER MANAGEMENT ENDPOINTS
+  # ==========================================
+
+  /tenants/{tenantId}/members:
+    get:
+      tags:
+        - Tenant Members
+      summary: Get tenant members
+      description: |
+        Retrieve all members of a specific tenant with their roles and permissions.
+
+        **Returned Information:**
+        - Member profile information
+        - Tenant-level role (owner, admin, member, guest)
+        - Workspace memberships and permissions
+        - Join date and status
+
+        **Filtering and Sorting:**
+        - Filter by role, status, or workspace membership
+        - Sort by name, join date, or role
+        - Search by name or email
+      operationId: getTenantMembers
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+        - name: role
+          in: query
+          description: Filter members by tenant role
+          required: false
+          schema:
+            $ref: '#/components/schemas/TenantRole'
+        - name: workspaceId
+          in: query
+          description: Filter members who have access to specific workspace
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Search members by name or email
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Tenant members retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TenantUser'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+                required:
+                  - success
+                  - data
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tenants/{tenantId}/members/invite:
+    post:
+      tags:
+        - Tenant Members
+      summary: Invite member to tenant
+      description: |
+        Send an invitation to join the tenant organization.
+
+        **Invitation Process:**
+        1. System validates the email and role
+        2. Invitation email is sent to the specified address
+        3. Invitation expires after a configurable period (default: 7 days)
+        4. Invitee can accept the invitation to join the tenant
+
+        **Permissions Required:**
+        - Owners can invite anyone with any role
+        - Admins can invite members and guests
+        - Members cannot send invitations
+
+        **Invitation Features:**
+        - Automatic workspace assignment based on role
+        - Custom invitation message
+        - Expiration date configuration
+        - Resend capability
+      operationId: inviteTenantMember
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberRequest'
+      responses:
+        '201':
+          description: Invitation sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TenantInvitation'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: User is already a member or has pending invitation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tenants/{tenantId}/members/{userId}:
+    put:
+      tags:
+        - Tenant Members
+      summary: Update member role
+      description: |
+        Update a tenant member's role and permissions.
+
+        **Role Updates:**
+        - Owners can change any member's role
+        - Admins can change member and guest roles
+        - Cannot demote the last owner
+        - Cannot change your own role
+
+        **Permission Changes:**
+        - Role changes affect tenant-level permissions immediately
+        - Workspace permissions are preserved unless explicitly changed
+        - Some roles may have mandatory workspace access
+      operationId: updateTenantMemberRole
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+        - name: userId
+          in: path
+          required: true
+          description: User ID of the member to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRoleRequest'
+      responses:
+        '200':
+          description: Member role updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TenantUser'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Tenant Members
+      summary: Remove member from tenant
+      description: |
+        Remove a member from the tenant organization.
+
+        **Removal Process:**
+        - Member is removed from all tenant workspaces
+        - Access to tenant resources is immediately revoked
+        - Member's data within the tenant may be retained based on settings
+        - Cannot remove the last owner of the tenant
+
+        **Permissions Required:**
+        - Owners can remove any member
+        - Admins can remove members and guests
+        - Members cannot remove other members
+        - Users cannot remove themselves if they're the last owner
+      operationId: removeTenantMember
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+        - name: userId
+          in: path
+          required: true
+          description: User ID of the member to remove
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Member removed from tenant successfully"
+                required:
+                  - success
+        '400':
+          description: Cannot remove member (e.g., last owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # USER TENANT ENDPOINTS
+  # ==========================================
+
+  /users/{userId}/tenants:
+    get:
+      tags:
+        - User Tenants
+      summary: Get user's tenant memberships
+      description: |
+        Retrieve all tenants that a specific user belongs to.
+
+        **Access Control:**
+        - Users can view their own tenant memberships
+        - Tenant owners/admins can view memberships of their members
+        - System administrators can view any user's memberships
+
+        **Use Cases:**
+        - User profile management
+        - Cross-tenant permission auditing
+        - Account consolidation processes
+      operationId: getUserTenantMemberships
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User ID to retrieve tenant memberships for
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User tenant memberships retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+                required:
+                  - success
+                  - data
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # WORKSPACE PERMISSION ENDPOINTS
+  # ==========================================
+
+  /tenants/{tenantId}/members/{userId}/workspace-permissions:
+    put:
+      tags:
+        - Workspace Permissions
+      summary: Update member workspace permissions
+      description: |
+        Update a member's permissions for specific workspaces within the tenant.
+
+        **Permission Model:**
+        - Each user can have different permissions per workspace
+        - Permissions are granted through group memberships
+        - Effective permissions are resolved at runtime
+        - Tenant-level roles may override workspace permissions
+
+        **Update Types:**
+        - Add/remove workspace access
+        - Change group memberships within workspaces
+        - Update role assignments per workspace
+        - Bulk permission updates across multiple workspaces
+
+        **Access Control:**
+        - Tenant owners can update any member's workspace permissions
+        - Tenant admins can update permissions for members and guests
+        - Workspace owners can manage permissions within their workspaces
+      operationId: updateMemberWorkspacePermissions
+      parameters:
+        - $ref: '#/components/parameters/TenantIdPath'
+        - name: userId
+          in: path
+          required: true
+          description: User ID of the member
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspacePermissionsRequest'
+      responses:
+        '200':
+          description: Workspace permissions updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TenantUser'
+                required:
+                  - success
+                  - data
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TenantIdPath:
+      name: tenantId
+      in: path
+      required: true
+      description: Unique tenant identifier
+      schema:
+        type: string
+        example: "tenant-123"
+
+  schemas:
+    # ==========================================
+    # TENANT SCHEMAS
+    # ==========================================
+
+    Tenant:
+      type: object
+      description: Complete tenant organization information
+      properties:
+        id:
+          type: string
+          description: Unique tenant identifier
+          example: "tenant-123"
+        name:
+          type: string
+          description: Human-readable tenant name
+          example: "Acme Corporation"
+        slug:
+          type: string
+          description: URL-safe tenant identifier
+          example: "acme-corp"
+        status:
+          $ref: '#/components/schemas/TenantStatus'
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+        subscription:
+          $ref: '#/components/schemas/TenantSubscription'
+        createdAt:
+          type: string
+          format: date-time
+          description: Tenant creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-20T14:22:00Z"
+      required:
+        - id
+        - name
+        - slug
+        - status
+        - settings
+        - subscription
+        - createdAt
+        - updatedAt
+
+    TenantStatus:
+      type: string
+      description: Current status of the tenant
+      enum:
+        - active
+        - suspended
+        - deleted
+      example: active
+
+    TenantSettings:
+      type: object
+      description: Tenant configuration and preferences
+      properties:
+        branding:
+          $ref: '#/components/schemas/TenantBranding'
+        timezone:
+          type: string
+          description: Default timezone for the tenant
+          example: "America/New_York"
+        currency:
+          type: string
+          description: Default currency code
+          example: "USD"
+        language:
+          type: string
+          description: Default language code
+          example: "en-US"
+        features:
+          type: object
+          description: Feature flags and configurations
+          additionalProperties:
+            oneOf:
+              - type: boolean
+              - type: string
+              - type: number
+          example:
+            ssoEnabled: true
+            maxUsers: 100
+            customBranding: "premium"
+      required:
+        - branding
+        - timezone
+        - currency
+        - language
+
+    TenantBranding:
+      type: object
+      description: Tenant visual branding configuration
+      properties:
+        logo:
+          type: string
+          format: uri
+          description: URL to tenant logo
+          nullable: true
+          example: "https://cdn.company.com/logos/acme-corp.png"
+        primaryColor:
+          type: string
+          description: Primary brand color (hex code)
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#2563eb"
+        secondaryColor:
+          type: string
+          description: Secondary brand color (hex code)
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#64748b"
+        favicon:
+          type: string
+          format: uri
+          description: URL to tenant favicon
+          nullable: true
+          example: "https://cdn.company.com/favicons/acme-corp.ico"
+      required:
+        - primaryColor
+        - secondaryColor
+
+    TenantSubscription:
+      type: object
+      description: Tenant subscription and billing information
+      properties:
+        plan:
+          $ref: '#/components/schemas/TenantPlan'
+        status:
+          type: string
+          enum: [active, inactive, cancelled, suspended]
+          example: active
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+          example: monthly
+        expiresAt:
+          type: string
+          format: date-time
+          description: Subscription expiration date
+          nullable: true
+          example: "2024-12-31T23:59:59Z"
+      required:
+        - plan
+        - status
+        - billingCycle
+
+    TenantPlan:
+      type: string
+      description: Subscription plan type
+      enum:
+        - free
+        - starter
+        - professional
+        - enterprise
+      example: professional
+
+    # ==========================================
+    # TENANT USER SCHEMAS
+    # ==========================================
+
+    TenantUser:
+      type: object
+      description: User membership within a tenant with role and workspace permissions
+      properties:
+        id:
+          type: string
+          description: Unique tenant membership ID
+          example: "tenant-user-123"
+        tenantId:
+          type: string
+          description: Tenant ID
+          example: "tenant-123"
+        userId:
+          type: string
+          description: Global user ID
+          example: "user-456"
+        tenantRole:
+          $ref: '#/components/schemas/TenantRole'
+        joinedAt:
+          type: string
+          format: date-time
+          description: When the user joined this tenant
+          example: "2024-01-15T10:30:00Z"
+        workspaces:
+          type: array
+          description: User's workspace memberships within this tenant
+          items:
+            $ref: '#/components/schemas/WorkspaceMembership'
+      required:
+        - id
+        - tenantId
+        - userId
+        - tenantRole
+        - joinedAt
+        - workspaces
+
+    TenantRole:
+      type: string
+      description: User's role within the tenant organization
+      enum:
+        - owner
+        - admin
+        - member
+        - guest
+      example: admin
+
+    WorkspaceMembership:
+      type: object
+      description: User's membership and permissions within a specific workspace
+      properties:
+        workspaceId:
+          type: string
+          description: Workspace ID
+          example: "workspace-789"
+        workspaceName:
+          type: string
+          description: Human-readable workspace name
+          example: "Development Team"
+        groupIds:
+          type: array
+          description: Group IDs the user belongs to in this workspace
+          items:
+            type: string
+          example: ["group-dev", "group-reviewers"]
+        role:
+          type: string
+          description: User's role within this workspace
+          example: "developer"
+        effectivePermissions:
+          type: array
+          description: Resolved permissions for this user in this workspace
+          items:
+            $ref: '#/components/schemas/Permission'
+      required:
+        - workspaceId
+        - workspaceName
+        - groupIds
+        - role
+        - effectivePermissions
+
+    Permission:
+      type: object
+      description: Individual permission definition
+      properties:
+        id:
+          type: string
+          description: Unique permission ID
+          example: "perm-123"
+        name:
+          type: string
+          description: Human-readable permission name
+          example: "Read Documents"
+        resource:
+          type: string
+          description: Resource type this permission applies to
+          nullable: true
+          example: "document"
+        action:
+          type: string
+          description: Action this permission allows
+          nullable: true
+          example: "read"
+      required:
+        - id
+        - name
+
+    # ==========================================
+    # INVITATION SCHEMAS
+    # ==========================================
+
+    TenantInvitation:
+      type: object
+      description: Tenant membership invitation
+      properties:
+        id:
+          type: string
+          description: Unique invitation ID
+          example: "invite-123"
+        tenantId:
+          type: string
+          description: Target tenant ID
+          example: "tenant-123"
+        email:
+          type: string
+          format: email
+          description: Invited user's email address
+          example: "john.doe@example.com"
+        role:
+          $ref: '#/components/schemas/TenantRole'
+        invitedBy:
+          type: string
+          description: ID of user who sent the invitation
+          example: "user-789"
+        createdAt:
+          type: string
+          format: date-time
+          description: Invitation creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        expiresAt:
+          type: string
+          format: date-time
+          description: Invitation expiration timestamp
+          example: "2024-01-22T10:30:00Z"
+        status:
+          type: string
+          enum: [pending, accepted, expired, cancelled]
+          example: pending
+      required:
+        - id
+        - tenantId
+        - email
+        - role
+        - invitedBy
+        - createdAt
+        - expiresAt
+        - status
+
+    # ==========================================
+    # REQUEST SCHEMAS
+    # ==========================================
+
+    CreateTenantRequest:
+      type: object
+      description: Request to create a new tenant
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Tenant name
+          example: "Acme Corporation"
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: "^[a-z0-9-]+$"
+          description: URL-safe tenant identifier
+          example: "acme-corp"
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+      required:
+        - name
+        - slug
+
+    UpdateTenantRequest:
+      type: object
+      description: Request to update tenant information
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Updated tenant name
+          example: "Acme Corporation Ltd"
+        settings:
+          $ref: '#/components/schemas/TenantSettings'
+
+    InviteMemberRequest:
+      type: object
+      description: Request to invite a new member to the tenant
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address of the person to invite
+          example: "john.doe@example.com"
+        role:
+          $ref: '#/components/schemas/TenantRole'
+        message:
+          type: string
+          maxLength: 500
+          description: Custom invitation message
+          nullable: true
+          example: "Welcome to our team! We're excited to have you join us."
+        workspaceIds:
+          type: array
+          description: Workspaces to grant initial access to
+          items:
+            type: string
+          example: ["workspace-789", "workspace-456"]
+      required:
+        - email
+        - role
+
+    UpdateMemberRoleRequest:
+      type: object
+      description: Request to update a member's role
+      properties:
+        tenantRole:
+          $ref: '#/components/schemas/TenantRole'
+      required:
+        - tenantRole
+
+    UpdateWorkspacePermissionsRequest:
+      type: object
+      description: Request to update member's workspace permissions
+      properties:
+        workspaces:
+          type: array
+          description: Workspace permission updates
+          items:
+            type: object
+            properties:
+              workspaceId:
+                type: string
+                example: "workspace-789"
+              groupIds:
+                type: array
+                items:
+                  type: string
+                example: ["group-dev", "group-reviewers"]
+              role:
+                type: string
+                example: "developer"
+            required:
+              - workspaceId
+      required:
+        - workspaces
+
+    # ==========================================
+    # UTILITY SCHEMAS
+    # ==========================================
+
+    PaginationInfo:
+      type: object
+      description: Pagination metadata
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 20
+        total:
+          type: integer
+          description: Total number of items
+          example: 150
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 8
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+
+    # ==========================================
+    # ERROR SCHEMAS
+    # ==========================================
+
+    ApiError:
+      type: object
+      description: Standard error response format
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          example: false
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The specified tenant was not found"
+        error:
+          type: object
+          description: Additional error details
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "TENANT_NOT_FOUND"
+            details:
+              type: object
+              description: Additional context about the error
+              additionalProperties: true
+          example:
+            code: "TENANT_NOT_FOUND"
+            details:
+              tenantId: "tenant-123"
+      required:
+        - success
+        - message
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Invalid tenant name: must be between 1 and 100 characters"
+            error:
+              code: "INVALID_TENANT_NAME"
+              details:
+                field: "name"
+                value: ""
+
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Authentication required"
+            error:
+              code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "Insufficient permissions to access this tenant"
+            error:
+              code: "INSUFFICIENT_PERMISSIONS"
+              details:
+                requiredRole: "admin"
+                userRole: "member"
+
+    NotFound:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "The specified tenant was not found"
+            error:
+              code: "TENANT_NOT_FOUND"
+              details:
+                tenantId: "tenant-123"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            success: false
+            message: "An unexpected error occurred while processing the request"
+            error:
+              code: "INTERNAL_SERVER_ERROR"
+
+tags:
+  - name: Tenants
+    description: |
+      Core tenant management operations for multi-tenant SaaS applications.
+
+      Tenants represent organizations or companies within the system. Each tenant
+      has its own isolated environment with separate data, users, and configurations.
+
+  - name: Tenant Settings
+    description: |
+      Tenant configuration and customization endpoints.
+
+      Settings control various aspects of the tenant experience including branding,
+      localization, feature flags, and security policies.
+
+  - name: Tenant Members
+    description: |
+      Member management within tenant organizations.
+
+      Handles user membership, roles, permissions, and invitation workflows.
+      Supports role-based access control at both tenant and workspace levels.
+
+  - name: User Tenants
+    description: |
+      User-centric tenant relationship endpoints.
+
+      Allows querying tenant memberships from a user perspective, useful for
+      profile management and cross-tenant operations.
+
+  - name: Workspace Permissions
+    description: |
+      Fine-grained workspace-level permission management.
+
+      Controls user access and permissions within specific workspaces,
+      supporting complex permission models with group-based access control.
