@@ -4,7 +4,7 @@
  * Comprehensive user account and security settings management interface
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Form,
@@ -42,6 +42,7 @@ import {
 } from '@ant-design/icons';
 import { useUserManagementStore, useUserManagementData } from '../stores/userManagementStore';
 import { useAuthStore } from '../../../core/auth/AuthStore';
+import { analytics } from '../../../analytics';
 import type { WorkspacePermission } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -69,16 +70,37 @@ const UserSettingsPage: React.FC = () => {
     isUpdatingSecuritySettings
   } = useUserManagementData();
 
-  const { isAdminSession, adminMetadata, user: authUser } = useAuthStore();
+  const { isAdminSession, user: authUser } = useAuthStore();
+
+  // Use currentUser from store, or fall back to authUser if currentUser is not loaded yet
+  const displayUser = useMemo(() => {
+    return currentUser || (authUser ? {
+      id: authUser.id,
+      email: authUser.email,
+      profile: {
+        displayName: authUser.profile?.displayName ||
+                     `${authUser.profile?.firstName || ''} ${authUser.profile?.lastName || ''}`.trim() ||
+                     'User',
+        firstName: authUser.profile?.firstName || '',
+        lastName: authUser.profile?.lastName || '',
+        avatar: authUser.profile?.avatar || null
+      },
+      tenantRole: 'Member'
+    } : null);
+  }, [currentUser, authUser]);
+
+  // Only initialize editedName when component mounts or when user data actually changes
+  useEffect(() => {
+    if (displayUser?.profile?.displayName && !isEditingName) {
+      setEditedName(displayUser.profile.displayName);
+    }
+  }, [displayUser?.profile?.displayName, isEditingName]);
 
   useEffect(() => {
-    if (currentUser?.profile?.displayName) {
-      setEditedName(currentUser.profile.displayName);
+    if (displayUser?.profile?.avatar) {
+      setAvatarUrl(displayUser.profile.avatar);
     }
-    if (currentUser?.profile?.avatar) {
-      setAvatarUrl(currentUser.profile.avatar);
-    }
-  }, [currentUser]);
+  }, [displayUser?.profile?.avatar]);
 
   useEffect(() => {
     if (userPermissions?.workspaces) {
@@ -87,9 +109,16 @@ const UserSettingsPage: React.FC = () => {
   }, [userPermissions]);
 
   const handleNameSave = async () => {
-    if (editedName.trim() && editedName !== currentUser?.profile?.displayName) {
+    analytics.track('button_click', { button_name: 'Save Name' });
+
+    if (!editedName.trim()) {
+      message.error('Display name cannot be empty');
+      return;
+    }
+
+    if (editedName.trim() !== displayUser?.profile?.displayName) {
       try {
-        await updateProfile({ displayName: editedName });
+        await updateProfile({ displayName: editedName.trim() });
         message.success('Display name updated successfully');
       } catch (error) {
         message.error('Failed to update display name');
@@ -99,6 +128,8 @@ const UserSettingsPage: React.FC = () => {
   };
 
   const handlePasswordChange = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+    analytics.track('button_click', { button_name: 'Update Password' });
+
     try {
       await updateSecuritySettings({
         password: values.newPassword
@@ -110,17 +141,36 @@ const UserSettingsPage: React.FC = () => {
     }
   };
 
-  const mockUser = currentUser || {
-    id: '1',
-    email: 'user@example.com',
-    profile: {
-      displayName: 'John Doe',
-      firstName: 'John',
-      lastName: 'Doe',
-      avatar: null
-    },
-    tenantRole: 'Member'
+  const handleCancelEditName = () => {
+    analytics.track('button_click', { button_name: 'Cancel Edit Name' });
+    setEditedName(displayUser?.profile?.displayName || '');
+    setIsEditingName(false);
   };
+
+  const handleEditName = () => {
+    analytics.track('button_click', { button_name: 'Edit Name' });
+    setEditedName(displayUser?.profile?.displayName || '');
+    setIsEditingName(true);
+  };
+
+  const handleTogglePasswordForm = () => {
+    analytics.track('button_click', { button_name: showChangePassword ? 'Hide Password Form' : 'Show Password Form' });
+    setShowChangePassword(!showChangePassword);
+  };
+
+  const handleResetPasswordForm = () => {
+    analytics.track('button_click', { button_name: 'Reset Password Form' });
+    passwordForm.resetFields();
+  };
+
+  // Early return if no user data available
+  if (!displayUser) {
+    return (
+      <div style={{ padding: '24px', textAlign: 'center' }}>
+        <Text type="secondary">Loading user data...</Text>
+      </div>
+    );
+  }
 
   // Get tenant information from user permissions
   const tenantInfo = {
@@ -171,39 +221,49 @@ const UserSettingsPage: React.FC = () => {
                 src={avatarUrl}
                 icon={!avatarUrl && <UserOutlined />}
               >
-                {!avatarUrl && mockUser.profile.firstName?.[0]}
+                {!avatarUrl && displayUser.profile?.firstName?.[0]}
               </Avatar>
               <div>
                 <Space align="baseline">
                   {isEditingName ? (
-                    <Space>
-                      <Input
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        onPressEnter={handleNameSave}
-                        style={{ width: 200 }}
-                        autoFocus
-                      />
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<CheckCircleOutlined />}
-                        onClick={handleNameSave}
-                        loading={isUpdatingProfile}
-                      />
-                      <Button
-                        size="small"
-                        icon={<CloseOutlined />}
-                        onClick={() => {
-                          setEditedName(mockUser.profile.displayName || '');
-                          setIsEditingName(false);
-                        }}
-                      />
-                    </Space>
+                    <div>
+                      <Space>
+                        <Input
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          onPressEnter={handleNameSave}
+                          style={{
+                            width: 200,
+                            borderColor: !editedName.trim() ? '#ff4d4f' : undefined
+                          }}
+                          status={!editedName.trim() ? 'error' : undefined}
+                          autoFocus
+                          placeholder="Enter display name"
+                        />
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<CheckCircleOutlined />}
+                          onClick={handleNameSave}
+                          loading={isUpdatingProfile}
+                          disabled={!editedName.trim()}
+                        />
+                        <Button
+                          size="small"
+                          icon={<CloseOutlined />}
+                          onClick={handleCancelEditName}
+                        />
+                      </Space>
+                      {!editedName.trim() && (
+                        <div style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '4px' }}>
+                          Display name cannot be empty
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <>
                       <Title level={3} style={{ margin: 0 }}>
-                        {mockUser.profile.displayName}
+                        {displayUser.profile?.displayName || 'No name set'}
                       </Title>
                       {!isAdminSession && (
                         <Tooltip title="Edit display name">
@@ -211,7 +271,7 @@ const UserSettingsPage: React.FC = () => {
                             type="text"
                             size="small"
                             icon={<EditOutlined />}
-                            onClick={() => setIsEditingName(true)}
+                            onClick={handleEditName}
                           />
                         </Tooltip>
                       )}
@@ -219,7 +279,7 @@ const UserSettingsPage: React.FC = () => {
                   )}
                 </Space>
                 <div>
-                  <Text type="secondary">{mockUser.email}</Text>
+                  <Text type="secondary">{displayUser.email}</Text>
                 </div>
               </div>
             </Space>
@@ -260,7 +320,7 @@ const UserSettingsPage: React.FC = () => {
                       <Space
                         align="center"
                         style={{ width: '100%', justifyContent: 'space-between', cursor: 'pointer' }}
-                        onClick={() => setShowChangePassword(!showChangePassword)}
+                        onClick={handleTogglePasswordForm}
                       >
                       <Space>
                         <LockOutlined style={{ fontSize: 20, color: '#1890ff' }} />
@@ -275,7 +335,7 @@ const UserSettingsPage: React.FC = () => {
                         icon={showChangePassword ? <UpOutlined /> : <DownOutlined />}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShowChangePassword(!showChangePassword);
+                          handleTogglePasswordForm();
                         }}
                       />
                     </Space>
@@ -349,7 +409,7 @@ const UserSettingsPage: React.FC = () => {
                             <Button type="primary" htmlType="submit" loading={isUpdatingSecuritySettings}>
                               Update Password
                             </Button>
-                            <Button onClick={() => passwordForm.resetFields()}>
+                            <Button onClick={handleResetPasswordForm}>
                               Reset
                             </Button>
                           </Space>

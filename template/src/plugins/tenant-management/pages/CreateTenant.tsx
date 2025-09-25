@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useTenantStore } from '../stores/tenantStore';
 import { tenantService } from '../services/tenantService';
+import { analytics } from '../../../analytics';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -35,10 +36,13 @@ export const CreateTenant: React.FC = () => {
   const { switchTenant } = useTenantStore();
 
   const handleBack = () => {
+    analytics.track('button_click', { button_name: 'Back from Create Tenant' });
     navigate(-1);
   };
 
   const handleSubmit = async (values: { name: string }) => {
+    analytics.track('button_click', { button_name: 'Create Tenant' });
+
     setLoading(true);
     try {
       // Create the tenant

@@ -21,6 +21,7 @@ import './plugins/audit-logging'; // Audit logging plugin
 import './plugins/user-management'; // User management plugin
 import './plugins/workspace-management';
 import './plugins/rbac-permissions';
+import './plugins/welcome-test';
 
 const AppRoutes: React.FC = () => {
   const [routes, setRoutes] = React.useState(() => getDynamicRoutes());

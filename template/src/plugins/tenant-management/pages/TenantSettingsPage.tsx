@@ -48,6 +48,7 @@ import {
 } from '@ant-design/icons';
 import { useTenantStore } from '../stores/tenantStore';
 import { useAuthStore } from '../../../core/auth/AuthStore';
+import { analytics } from '../../../analytics';
 import { TenantMember, WorkspaceMembership } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import type { FormInstance } from 'antd/es/form';
@@ -156,6 +157,21 @@ const WorkspacePermissionsModal: React.FC<WorkspacePermissionsModalProps> = ({
     return workspace?.role || 'member';
   };
 
+  const handleChangeTenantRole = () => {
+    analytics.track('button_click', { button_name: 'Change Tenant Role' });
+    // TODO: Implement role change functionality
+  };
+
+  const handleCancelPermissions = () => {
+    analytics.track('button_click', { button_name: 'Cancel Permissions' });
+    onCancel();
+  };
+
+  const handleSaveWorkspaces = (values: any) => {
+    analytics.track('button_click', { button_name: 'Add Workspaces' });
+    onSave(values);
+  };
+
   if (!member) return null;
 
   return (
@@ -169,7 +185,7 @@ const WorkspacePermissionsModal: React.FC<WorkspacePermissionsModalProps> = ({
       <Form
         form={form}
         layout="vertical"
-        onFinish={onSave}
+        onFinish={handleSaveWorkspaces}
         initialValues={{
           memberEmail: member.email,
           tenantRole: member.tenantRole,
@@ -188,7 +204,7 @@ const WorkspacePermissionsModal: React.FC<WorkspacePermissionsModalProps> = ({
               <Tag color={member.tenantRole === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'capitalize' }}>
                 {member.tenantRole}
               </Tag>
-              <Button type="link" size="small" style={{ padding: 0 }}>
+              <Button type="link" size="small" style={{ padding: 0 }} onClick={handleChangeTenantRole}>
                 Change
               </Button>
             </Space>
@@ -270,7 +286,7 @@ const WorkspacePermissionsModal: React.FC<WorkspacePermissionsModalProps> = ({
         {/* Footer Actions */}
         <div style={{ textAlign: 'right' }}>
           <Space>
-            <Button onClick={onCancel}>
+            <Button onClick={handleCancelPermissions}>
               Cancel
             </Button>
             <Button
@@ -340,9 +356,17 @@ export const TenantSettingsPage: React.FC = () => {
    * Handle tenant name save
    */
   const handleNameSave = async () => {
-    if (!currentTenant || !editedName.trim()) {
+    analytics.track('button_click', { button_name: 'Save Tenant Name' });
+
+    if (!currentTenant) {
+      message.error('No tenant selected');
       setIsEditingName(false);
-      setEditedName(currentTenant?.name || '');
+      setEditedName('');
+      return;
+    }
+
+    if (!editedName.trim()) {
+      message.error('Tenant name cannot be empty');
       return;
     }
 
@@ -365,7 +389,20 @@ export const TenantSettingsPage: React.FC = () => {
   /**
    * Handle copy tenant ID to clipboard
    */
+  const handleCancelEditName = () => {
+    analytics.track('button_click', { button_name: 'Cancel Edit Tenant Name' });
+    setEditedName(currentTenant?.name || '');
+    setIsEditingName(false);
+  };
+
+  const handleEditName = () => {
+    analytics.track('button_click', { button_name: 'Edit Tenant Name' });
+    setIsEditingName(true);
+  };
+
   const handleCopyTenantId = async () => {
+    analytics.track('button_click', { button_name: 'Copy Tenant ID' });
+
     if (!currentTenant?.id) return;
 
     try {
@@ -426,7 +463,19 @@ export const TenantSettingsPage: React.FC = () => {
   /**
    * Handle invite members
    */
+  const handleShowInviteModal = () => {
+    analytics.track('button_click', { button_name: 'Invite Member' });
+    setInviteModalVisible(true);
+  };
+
+  const handleCancelInviteModal = () => {
+    analytics.track('button_click', { button_name: 'Cancel Invite' });
+    setInviteModalVisible(false);
+  };
+
   const handleInviteMembers = async (values: InviteMemberForm) => {
+    analytics.track('button_click', { button_name: 'Send Invitations' });
+
     if (!currentTenant?.id) {
       message.error('No tenant selected');
       return;
@@ -566,6 +615,7 @@ export const TenantSettingsPage: React.FC = () => {
    * Reset all filters
    */
   const handleResetFilters = () => {
+    analytics.track('button_click', { button_name: 'Clear Filters' });
     setSearchName('');
     setFilterRole('all');
     setFilterWorkspace('all');
@@ -743,30 +793,40 @@ export const TenantSettingsPage: React.FC = () => {
                     </Col>
                     <Col>
                       {isEditingName ? (
-                        <Space>
-                          <Input
-                            value={editedName}
-                            onChange={(e) => setEditedName(e.target.value)}
-                            onPressEnter={handleNameSave}
-                            style={{ width: 200 }}
-                            autoFocus
-                          />
-                          <Button
-                            type="primary"
-                            size="small"
-                            icon={<CheckCircleOutlined />}
-                            onClick={handleNameSave}
-                            loading={loading}
-                          />
-                          <Button
-                            size="small"
-                            icon={<CloseOutlined />}
-                            onClick={() => {
-                              setEditedName(currentTenant?.name || '');
-                              setIsEditingName(false);
-                            }}
-                          />
-                        </Space>
+                        <div>
+                          <Space>
+                            <Input
+                              value={editedName}
+                              onChange={(e) => setEditedName(e.target.value)}
+                              onPressEnter={handleNameSave}
+                              style={{
+                                width: 200,
+                                borderColor: !editedName.trim() ? '#ff4d4f' : undefined
+                              }}
+                              status={!editedName.trim() ? 'error' : undefined}
+                              autoFocus
+                              placeholder="Enter tenant name"
+                            />
+                            <Button
+                              type="primary"
+                              size="small"
+                              icon={<CheckCircleOutlined />}
+                              onClick={handleNameSave}
+                              loading={loading}
+                              disabled={!editedName.trim()}
+                            />
+                            <Button
+                              size="small"
+                              icon={<CloseOutlined />}
+                              onClick={handleCancelEditName}
+                            />
+                          </Space>
+                          {!editedName.trim() && (
+                            <div style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '4px', marginLeft: '0' }}>
+                              Tenant name cannot be empty
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <Space>
                           <Text strong style={{ fontSize: '16px' }}>
@@ -778,7 +838,7 @@ export const TenantSettingsPage: React.FC = () => {
                                 type="text"
                                 size="small"
                                 icon={<EditOutlined />}
-                                onClick={() => setIsEditingName(true)}
+                                onClick={handleEditName}
                               />
                             </Tooltip>
                           )}
@@ -938,7 +998,7 @@ export const TenantSettingsPage: React.FC = () => {
                     <Button
                       type="primary"
                       icon={<PlusOutlined />}
-                      onClick={() => setInviteModalVisible(true)}
+                      onClick={handleShowInviteModal}
                     >
                       Invite member
                     </Button>
@@ -1000,7 +1060,7 @@ export const TenantSettingsPage: React.FC = () => {
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
-              <Button onClick={() => setInviteModalVisible(false)}>
+              <Button onClick={handleCancelInviteModal}>
                 Cancel
               </Button>
               <Button type="primary" htmlType="submit">

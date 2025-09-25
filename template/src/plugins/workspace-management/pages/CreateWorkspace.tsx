@@ -23,6 +23,7 @@ import {
 import { useCoreContext } from '../../../core/context/CoreContext';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import { CreateWorkspacePayload } from '../types';
+import { analytics } from '../../../analytics';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -51,6 +52,8 @@ export const CreateWorkspace: React.FC = () => {
    * Handle form submission
    */
   const handleSubmit = async (values: { name: string; description?: string }) => {
+    analytics.track('button_click', { button_name: 'Create Workspace' });
+
     if (!currentTenant) {
       message.error('No tenant selected');
       return;
@@ -84,6 +87,7 @@ export const CreateWorkspace: React.FC = () => {
    * Handle back navigation
    */
   const handleBack = () => {
+    analytics.track('button_click', { button_name: 'Back from Create Workspace' });
     navigate(-1);
   };
 

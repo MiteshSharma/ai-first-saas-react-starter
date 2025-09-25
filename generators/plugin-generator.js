@@ -16,6 +16,40 @@ class PluginGenerator {
     };
   }
 
+  /**
+   * Helper functions for handling plugin names with dashes
+   */
+  getPluginNameParts(pluginName) {
+    // Extract the base name (part before first dash) for JavaScript identifiers
+    const baseName = pluginName.includes('-') ? pluginName.split('-')[0] : pluginName;
+
+    return {
+      // Original plugin name (used for directories and registration)
+      originalName: pluginName,
+      // Base name for JavaScript identifiers (PascalCase)
+      baseName: this.toPascalCase(baseName),
+      // Base name in lowercase for various uses
+      baseNameLower: baseName.toLowerCase(),
+      // Plugin name in kebab-case for registration
+      kebabName: this.toKebabCase(pluginName),
+      // Plugin name in UPPER_CASE for constants
+      upperName: baseName.toUpperCase()
+    };
+  }
+
+  toPascalCase(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  toKebabCase(str) {
+    // If already kebab-case, return as-is
+    if (str.includes('-')) {
+      return str.toLowerCase();
+    }
+    // Convert PascalCase/camelCase to kebab-case
+    return str.replace(/([A-Z])/g, '-$1').slice(1).toLowerCase();
+  }
+
   async generate(options) {
     if (typeof options === 'string') {
       // Legacy call signature: generate(pluginName, targetDir)
@@ -32,6 +66,7 @@ class PluginGenerator {
 
   async _generatePlugin(pluginName, targetDir = process.cwd()) {
     const pluginDir = path.join(targetDir, 'src', 'plugins', pluginName);
+    const nameparts = this.getPluginNameParts(pluginName);
 
     console.log(`🔌 Generating ${this.options.type} plugin: ${pluginName}`);
 
@@ -39,26 +74,25 @@ class PluginGenerator {
     this.createDirectoryStructure(pluginDir);
 
     // Generate main plugin file
-    this.generatePluginClass(pluginName, pluginDir);
+    this.generatePluginClass(nameparts, pluginDir);
+
+    // Generate core structure (always created)
+    this.generateApiFiles(nameparts, pluginDir);
+    this.generatePluginStore(nameparts, pluginDir);
+    this.generatePluginService(nameparts, pluginDir);
+    this.generatePluginTypes(nameparts, pluginDir);
+    this.generatePluginComponents(nameparts, pluginDir);
 
     // Generate optional components
-    if (this.options.hasStore) {
-      this.generatePluginStore(pluginName, pluginDir);
-    }
-
     if (this.options.hasRoutes) {
-      this.generatePluginRoutes(pluginName, pluginDir);
-    }
-
-    if (this.options.hasComponents) {
-      this.generatePluginComponents(pluginName, pluginDir);
+      this.generatePluginRoutes(nameparts, pluginDir);
     }
 
     // Generate tests
-    this.generatePluginTests(pluginName, pluginDir);
+    this.generatePluginTests(nameparts, pluginDir);
 
     // Generate index file
-    this.generateIndexFile(pluginName, pluginDir);
+    this.generateIndexFile(nameparts, pluginDir);
 
     console.log(`✅ Plugin ${pluginName} generated successfully!`);
     console.log(`📁 Location: ${pluginDir}`);
@@ -72,15 +106,15 @@ class PluginGenerator {
   createDirectoryStructure(pluginDir) {
     const dirs = [
       pluginDir,
+      path.join(pluginDir, 'api'),
       path.join(pluginDir, 'components'),
       path.join(pluginDir, 'hooks'),
+      path.join(pluginDir, 'pages'),
+      path.join(pluginDir, 'services'),
+      path.join(pluginDir, 'stores'),
       path.join(pluginDir, 'types'),
       path.join(pluginDir, '__tests__')
     ];
-
-    if (this.options.hasStore) {
-      dirs.push(path.join(pluginDir, 'stores'));
-    }
 
     dirs.forEach(dir => {
       if (!fs.existsSync(dir)) {
@@ -89,320 +123,423 @@ class PluginGenerator {
     });
   }
 
-  generatePluginClass(pluginName, pluginDir) {
-    const template = this.getPluginTemplate(pluginName);
-    const filePath = path.join(pluginDir, `${pluginName}Plugin.ts`);
+  generatePluginClass(nameparts, pluginDir) {
+    const template = this.getPluginTemplate(nameparts);
+    const filePath = path.join(pluginDir, `${nameparts.baseName}Plugin.ts`);
     fs.writeFileSync(filePath, template);
   }
 
-  generatePluginStore(pluginName, pluginDir) {
-    const template = this.getStoreTemplate(pluginName);
-    const filePath = path.join(pluginDir, 'stores', `${pluginName}Store.ts`);
+  generatePluginStore(nameparts, pluginDir) {
+    const template = this.getStoreTemplate(nameparts);
+    const filePath = path.join(pluginDir, 'stores', `${nameparts.baseName}Store.ts`);
     fs.writeFileSync(filePath, template);
   }
 
-  generatePluginRoutes(pluginName, pluginDir) {
-    const template = this.getRoutesTemplate(pluginName);
-    const filePath = path.join(pluginDir, `${pluginName}Routes.ts`);
+  generatePluginRoutes(nameparts, pluginDir) {
+    const template = this.getRoutesTemplate(nameparts);
+    const filePath = path.join(pluginDir, `${nameparts.baseName}Routes.ts`);
     fs.writeFileSync(filePath, template);
   }
 
-  generatePluginComponents(pluginName, pluginDir) {
-    const template = this.getComponentTemplate(pluginName);
-    const filePath = path.join(pluginDir, 'components', `${pluginName}Dashboard.tsx`);
+  generatePluginComponents(nameparts, pluginDir) {
+    // Generate main dashboard component
+    const dashboardTemplate = this.getComponentTemplate(nameparts);
+    const dashboardPath = path.join(pluginDir, 'components', `${nameparts.baseName}Dashboard.tsx`);
+    fs.writeFileSync(dashboardPath, dashboardTemplate);
+
+    // Generate components index.ts
+    const indexTemplate = this.getComponentsIndexTemplate(nameparts);
+    const indexPath = path.join(pluginDir, 'components', 'index.ts');
+    fs.writeFileSync(indexPath, indexTemplate);
+  }
+
+  generatePluginTests(nameparts, pluginDir) {
+    const template = this.getTestTemplate(nameparts);
+    const filePath = path.join(pluginDir, '__tests__', `${nameparts.baseName}Plugin.test.ts`);
     fs.writeFileSync(filePath, template);
   }
 
-  generatePluginTests(pluginName, pluginDir) {
-    const template = this.getTestTemplate(pluginName);
-    const filePath = path.join(pluginDir, '__tests__', `${pluginName}Plugin.test.ts`);
-    fs.writeFileSync(filePath, template);
-  }
-
-  generateIndexFile(pluginName, pluginDir) {
-    const template = this.getIndexTemplate(pluginName);
+  generateIndexFile(nameparts, pluginDir) {
+    const template = this.getIndexTemplate(nameparts);
     const filePath = path.join(pluginDir, 'index.ts');
     fs.writeFileSync(filePath, template);
   }
 
-  getPluginTemplate(pluginName) {
+  generateApiFiles(nameparts, pluginDir) {
+    // Generate endpoints.ts
+    const endpointsTemplate = this.getEndpointsTemplate(nameparts);
+    fs.writeFileSync(path.join(pluginDir, 'api', 'endpoints.ts'), endpointsTemplate);
+
+    // Generate backendHelper.ts
+    const backendHelperTemplate = this.getBackendHelperTemplate(nameparts);
+    fs.writeFileSync(path.join(pluginDir, 'api', 'backendHelper.ts'), backendHelperTemplate);
+
+    // Generate mockHandlers.ts
+    const mockHandlersTemplate = this.getMockHandlersTemplate(nameparts);
+    fs.writeFileSync(path.join(pluginDir, 'api', 'mockHandlers.ts'), mockHandlersTemplate);
+  }
+
+  generatePluginService(nameparts, pluginDir) {
+    const template = this.getServiceTemplate(nameparts);
+    const filePath = path.join(pluginDir, 'services', `${nameparts.baseNameLower}Service.ts`);
+    fs.writeFileSync(filePath, template);
+  }
+
+  generatePluginTypes(nameparts, pluginDir) {
+    const template = this.getTypesTemplate(nameparts);
+    const filePath = path.join(pluginDir, 'types.ts');
+    fs.writeFileSync(filePath, template);
+  }
+
+  getPluginTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
     return `/**
- * @fileoverview ${pluginName} Plugin
+ * @fileoverview ${baseName} Plugin
  *
- * ${this.options.type === 'feature' ? 'Feature plugin providing' : 'Core service plugin for'} ${pluginName.toLowerCase()} functionality
+ * ${this.options.type === 'feature' ? 'Feature plugin providing' : 'Core service plugin for'} ${originalName} functionality
  * Generated by AI-First SaaS React Starter CLI
  */
 
-import {
-  Plugin,
-  PluginContext,
-  EventListenerConfig,
-  RouteConfig
-} from '../../core/plugins/pluginTypes';
-import { ${this.getEventImports()} } from '../../core/plugins/coreEvents';${this.options.hasStore ? `
-import { use${pluginName}Store } from './stores/${pluginName}Store';` : ''}${this.options.withRoutes ? `
-import { ${pluginName.toLowerCase()}Routes } from './${pluginName}Routes';` : ''}
+import React from 'react';
+import { Plugin, PluginContext } from '../../core/plugin-system/types';
+import { createProtectedRoute } from '../../core/routing/ProtectedRoute';
+import { initialize${baseName}Store } from './stores/${baseName}Store';
+import { ${baseName}Dashboard } from './components';
+import { ${upperName}_EVENTS } from './types';
 
-export class ${pluginName}Plugin implements Plugin {
-  name = '${pluginName}';
-  version = '1.0.0';
-  description = '${pluginName} ${this.options.type === 'feature' ? 'feature' : 'service'} plugin';
-  author = 'AI-First SaaS';
+// Create the ${originalName} plugin
+const ${baseNameLower}Plugin: Plugin = {
+  name: '${kebabName}',
+  version: '1.0.0',
 
-  private unsubscribers: (() => void)[] = [];
+  async init(context: PluginContext) {
+    try {
+      console.log('[${baseName} Plugin] Initializing...');
 
-  async install(context: PluginContext): Promise<void> {
-    console.log(\`Installing \${this.name} plugin...\`);
+      // Initialize ${originalName} store with event bus
+      initialize${baseName}Store(context.eventBus);
 
-    // Plugin installation logic
-    // Initialize any required resources
+      // Register ${originalName} dashboard as a header widget (optional)
+      context.registerDashboardWidget(
+        '${baseNameLower}-overview',
+        () => React.createElement('div', { style: { padding: 16 } }, [
+          React.createElement('h3', { key: 'title' }, '${baseName} Overview'),
+          React.createElement('p', { key: 'description' }, 'Quick ${originalName} overview widget - customize as needed')
+        ]),
+        1 // priority
+      );
+
+      // Listen to core app events
+      const unsubscribeAppInit = context.eventBus.on('core.app.initialized', () => {
+        console.log('[${baseName} Plugin] App initialized');
+        // Handle app initialization if needed
+      });
+
+      // Listen to auth events to handle user context
+      const unsubscribeLogin = context.eventBus.on('core.user.logged_in', () => {
+        console.log('[${baseName} Plugin] User logged in');
+        // Load user-specific ${originalName} data here
+      });
+
+      const unsubscribeLogout = context.eventBus.on('core.user.logged_out', () => {
+        console.log('[${baseName} Plugin] User logged out');
+        // Clear ${originalName} context
+      });
+
+      // Listen to ${originalName}-specific events
+      const unsubscribeItemCreated = context.eventBus.on(${upperName}_EVENTS.ITEM_CREATED, (payload) => {
+        console.log('[${baseName} Plugin] Item created:', payload);
+        // Handle ${originalName} item creation
+      });
+
+      const unsubscribeItemUpdated = context.eventBus.on(${upperName}_EVENTS.ITEM_UPDATED, (payload) => {
+        console.log('[${baseName} Plugin] Item updated:', payload);
+        // Handle ${originalName} item updates
+      });
+
+      const unsubscribeItemDeleted = context.eventBus.on(${upperName}_EVENTS.ITEM_DELETED, (payload) => {
+        console.log('[${baseName} Plugin] Item deleted:', payload);
+        // Handle ${originalName} item deletion
+      });
+
+      // Store cleanup functions (would be used in destroy method)
+      (${baseNameLower}Plugin as { unsubscribers?: (() => void)[] }).unsubscribers = [
+        unsubscribeAppInit,
+        unsubscribeLogin,
+        unsubscribeLogout,
+        unsubscribeItemCreated,
+        unsubscribeItemUpdated,
+        unsubscribeItemDeleted
+      ];
+
+      // Emit plugin-specific initialization event
+      context.eventBus.emit('${baseNameLower}.plugin.initialized', {
+        pluginName: ${baseNameLower}Plugin.name,
+        version: ${baseNameLower}Plugin.version,
+        timestamp: new Date()
+      });
+
+      console.log('[${baseName} Plugin] Successfully initialized');
+    } catch (error) {
+      console.error('[${baseName} Plugin] Failed to initialize:', error);
+      throw error;
+    }
+  },
+
+  async destroy() {
+    try {
+      // Clean up event listeners
+      const unsubscribers = (${baseNameLower}Plugin as { unsubscribers?: (() => void)[] }).unsubscribers || [];
+      unsubscribers.forEach((unsubscribe: () => void) => {
+        try {
+          unsubscribe();
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      });
+
+      console.log('[${baseName} Plugin] Destroyed successfully');
+    } catch (error) {
+      console.error('[${baseName} Plugin] Error during cleanup:', error);
+    }
   }
+};
 
-  async activate(context: PluginContext): Promise<void> {
-    console.log(\`Activating \${this.name} plugin...\`);
-
-    // Subscribe to relevant core events
-    const unsubAuth = context.on(AUTH_EVENTS.USER_LOGIN, this.handleUserLogin);
-    const unsubTenant = context.on(TENANT_EVENTS.TENANT_SWITCHED, this.handleTenantSwitch);
-
-    this.unsubscribers.push(unsubAuth, unsubTenant);
-
-    // Emit plugin activated event
-    context.emit('plugin.activated', {
-      plugin: this.name,
-      features: [${this.getFeaturesList()}]
-    });
-  }
-
-  async deactivate(): Promise<void> {
-    console.log(\`Deactivating \${this.name} plugin...\`);
-
-    // Clean up event listeners
-    this.unsubscribers.forEach(unsubscribe => unsubscribe());
-    this.unsubscribers = [];
-  }${this.options.hasStore ? `
-
-  registerStores(context: PluginContext) {
-    return {
-      ${pluginName.toLowerCase()}: use${pluginName}Store
-    };
-  }` : ''}${this.options.withRoutes ? `
-
-  registerRoutes(context: PluginContext): RouteConfig[] {
-    return ${pluginName.toLowerCase()}Routes(context);
-  }` : ''}
-
-  getEventListeners(): EventListenerConfig[] {
-    return [
-      {
-        eventType: AUTH_EVENTS.USER_LOGIN,
-        handler: this.handleUserLogin,
-        priority: 5
-      },
-      {
-        eventType: TENANT_EVENTS.TENANT_SWITCHED,
-        handler: this.handleTenantSwitch,
-        priority: 5
-      }
-    ];
-  }
-
-  // Event handlers
-  private handleUserLogin = (event: any) => {
-    console.log('${pluginName}: User logged in', event.payload);
-    // Handle user login logic
-  };
-
-  private handleTenantSwitch = (event: any) => {
-    console.log('${pluginName}: Tenant switched', event.payload);
-    // Handle tenant switch logic
-  };
-}
+export default ${baseNameLower}Plugin;
 `;
   }
 
-  getStoreTemplate(pluginName) {
+  getStoreTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
     return `/**
- * @fileoverview ${pluginName} Store
+ * @fileoverview ${baseName} Store with Zustand
  *
- * Zustand store for ${pluginName.toLowerCase()} state management
+ * Manages ${originalName} state and operations
  * Generated by AI-First SaaS React Starter CLI
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import { apiHelper } from '../../../core/api/apiHelper';
-import type { AppError } from '../../../core/stores/base';
+import { persist } from 'zustand/middleware';
+import { ${baseName}Item, Create${baseName}Request, Update${baseName}Request, ${upperName}_EVENTS } from '../types';
+import { ${baseName}Service } from '../services/${baseNameLower}Service';
 
-interface ${pluginName}Item {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+// Base request state for consistent loading/error handling
+interface RequestState {
+  loading: boolean;
+  error: string | null;
+  currentRequest: string | null;
 }
 
-interface ${pluginName}State {
-  // Data
-  items: ${pluginName}Item[];
-  selectedItem: ${pluginName}Item | null;
-
-  // Request state
-  loading: boolean;
-  error: AppError | null;
+interface ${baseName}State extends RequestState {
+  // Core ${originalName} data
+  items: ${baseName}Item[];
+  selectedItem: ${baseName}Item | null;
 
   // Actions
-  fetchItems: () => Promise<void>;
-  createItem: (data: Partial<${pluginName}Item>) => Promise<void>;
-  updateItem: (id: string, data: Partial<${pluginName}Item>) => Promise<void>;
+  setItems: (items: ${baseName}Item[]) => void;
+  setSelectedItem: (item: ${baseName}Item | null) => void;
+  loadItems: () => Promise<void>;
+  createItem: (data: Create${baseName}Request) => Promise<${baseName}Item>;
+  updateItem: (id: string, data: Update${baseName}Request) => Promise<${baseName}Item>;
   deleteItem: (id: string) => Promise<void>;
-  setSelectedItem: (item: ${pluginName}Item | null) => void;
+
+  // Utility actions
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
   clearError: () => void;
+  reset: () => void;
 }
 
-export const use${pluginName}Store = create<${pluginName}State>()(
-  devtools(
+export const use${baseName}Store = create<${baseName}State>()(
+  persist(
     (set, get) => ({
       // Initial state
       items: [],
       selectedItem: null,
       loading: false,
       error: null,
+      currentRequest: null,
 
-      // Actions
-      fetchItems: async () => {
-        set({ loading: true, error: null });
+      // Setters
+      setItems: (items: ${baseName}Item[]) => set({ items }),
+
+      setSelectedItem: (item: ${baseName}Item | null) => set({ selectedItem: item }),
+
+      // Load all items
+      loadItems: async () => {
+        set({ loading: true, error: null, currentRequest: 'loadItems' });
 
         try {
-          const response = await apiHelper.get('/${pluginName.toLowerCase()}/items');
+          const items = await ${baseName}Service.getAll();
           set({
-            items: response.data,
-            loading: false
+            items,
+            loading: false,
+            currentRequest: null
           });
         } catch (error: any) {
           set({
-            error: {
-              message: error.response?.data?.message || 'Failed to fetch items',
-              code: error.response?.data?.code
-            },
-            loading: false
+            error: error.message || 'Failed to load ${originalName} items',
+            loading: false,
+            currentRequest: null
           });
+          throw error;
         }
       },
 
-      createItem: async (data: Partial<${pluginName}Item>) => {
-        set({ loading: true, error: null });
+      // Create new item
+      createItem: async (data: Create${baseName}Request) => {
+        set({ loading: true, error: null, currentRequest: 'createItem' });
 
         try {
-          const response = await apiHelper.post('/${pluginName.toLowerCase()}/items', data);
+          const newItem = await ${baseName}Service.create(data);
           set(state => ({
-            items: [...state.items, response.data],
-            loading: false
+            items: [...state.items, newItem],
+            loading: false,
+            currentRequest: null
           }));
+
+          return newItem;
         } catch (error: any) {
           set({
-            error: {
-              message: error.response?.data?.message || 'Failed to create item',
-              code: error.response?.data?.code
-            },
-            loading: false
+            error: error.message || 'Failed to create ${originalName} item',
+            loading: false,
+            currentRequest: null
           });
+          throw error;
         }
       },
 
-      updateItem: async (id: string, data: Partial<${pluginName}Item>) => {
-        set({ loading: true, error: null });
+      // Update existing item
+      updateItem: async (id: string, data: Update${baseName}Request) => {
+        set({ loading: true, error: null, currentRequest: 'updateItem' });
 
         try {
-          const response = await apiHelper.put(\`/${pluginName.toLowerCase()}/items/\${id}\`, data);
+          const updatedItem = await ${baseName}Service.update(id, data);
           set(state => ({
-            items: state.items.map(item => item.id === id ? response.data : item),
-            selectedItem: state.selectedItem?.id === id ? response.data : state.selectedItem,
-            loading: false
+            items: state.items.map(item => item.id === id ? updatedItem : item),
+            selectedItem: state.selectedItem?.id === id ? updatedItem : state.selectedItem,
+            loading: false,
+            currentRequest: null
           }));
+
+          return updatedItem;
         } catch (error: any) {
           set({
-            error: {
-              message: error.response?.data?.message || 'Failed to update item',
-              code: error.response?.data?.code
-            },
-            loading: false
+            error: error.message || 'Failed to update ${originalName} item',
+            loading: false,
+            currentRequest: null
           });
+          throw error;
         }
       },
 
+      // Delete item
       deleteItem: async (id: string) => {
-        set({ loading: true, error: null });
+        set({ loading: true, error: null, currentRequest: 'deleteItem' });
 
         try {
-          await apiHelper.delete(\`/${pluginName.toLowerCase()}/items/\${id}\`);
+          await ${baseName}Service.delete(id);
           set(state => ({
             items: state.items.filter(item => item.id !== id),
             selectedItem: state.selectedItem?.id === id ? null : state.selectedItem,
-            loading: false
+            loading: false,
+            currentRequest: null
           }));
         } catch (error: any) {
           set({
-            error: {
-              message: error.response?.data?.message || 'Failed to delete item',
-              code: error.response?.data?.code
-            },
-            loading: false
+            error: error.message || 'Failed to delete ${originalName} item',
+            loading: false,
+            currentRequest: null
           });
+          throw error;
         }
       },
 
-      setSelectedItem: (item: ${pluginName}Item | null) => {
-        set({ selectedItem: item });
-      },
+      // Utility actions
+      setLoading: (loading: boolean) => set({ loading }),
 
-      clearError: () => {
-        set({ error: null });
-      }
+      setError: (error: string | null) => set({ error }),
+
+      clearError: () => set({ error: null }),
+
+      reset: () => set({
+        items: [],
+        selectedItem: null,
+        loading: false,
+        error: null,
+        currentRequest: null
+      }),
     }),
-    { name: '${pluginName.toLowerCase()}-store' }
+    {
+      name: '${baseNameLower}-storage',
+      partialize: (state) => ({
+        items: state.items,
+        selectedItem: state.selectedItem
+      }),
+    }
   )
 );
 
-export default use${pluginName}Store;
+// Plugin store initialization function
+let eventBus: any = null;
+
+export const initialize${baseName}Store = (pluginEventBus?: any) => {
+  if (pluginEventBus) {
+    eventBus = pluginEventBus;
+
+    // Listen for relevant events and update store accordingly
+    eventBus.on(${upperName}_EVENTS.LIST_LOADED, (payload: any) => {
+      use${baseName}Store.getState().setItems(payload.items);
+    });
+
+    console.log('[${baseName} Store] Initialized with event bus integration');
+  }
+};
+
+export default use${baseName}Store;
 `;
   }
 
-  getRoutesTemplate(pluginName) {
+  getRoutesTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
     return `/**
- * @fileoverview ${pluginName} Routes
+ * @fileoverview ${baseName} Routes
  *
- * Route configuration for ${pluginName} plugin
+ * Route configuration for ${originalName} plugin
  * Generated by AI-First SaaS React Starter CLI
  */
 
 import { PluginContext, RouteConfig } from '../../core/plugins/pluginTypes';
 
-export const ${pluginName.toLowerCase()}Routes = (context: PluginContext): RouteConfig[] => [
+export const ${baseNameLower}Routes = (context: PluginContext): RouteConfig[] => [
   {
-    path: '/${pluginName.toLowerCase()}',
-    component: () => import('./components/${pluginName}Dashboard').then(m => m.default),
+    path: '/${kebabName}',
+    component: () => import('./components/${baseName}Dashboard').then(m => m.default),
     requiresAuth: true,
     requiresTenant: true,
-    onEnter: () => context.emit('navigation.${pluginName.toLowerCase()}.entered', {}),
-    onExit: () => context.emit('navigation.${pluginName.toLowerCase()}.exited', {})
+    onEnter: () => context.emit('navigation.${kebabName}.entered', {}),
+    onExit: () => context.emit('navigation.${kebabName}.exited', {})
   },
   {
-    path: '/${pluginName.toLowerCase()}/:id',
-    component: () => import('./components/${pluginName}Detail').then(m => m.default),
+    path: '/${kebabName}/:id',
+    component: () => import('./components/${baseName}Detail').then(m => m.default),
     requiresAuth: true,
     requiresTenant: true,
-    onEnter: () => context.emit('navigation.${pluginName.toLowerCase()}.detail.entered', {})
+    onEnter: () => context.emit('navigation.${kebabName}.detail.entered', {})
   }
 ];
 `;
   }
 
-  getComponentTemplate(pluginName) {
+  getComponentTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
     return `/**
- * @fileoverview ${pluginName} Dashboard Component
+ * @fileoverview ${baseName} Dashboard Component
  *
- * Main dashboard component for ${pluginName} plugin
+ * Main dashboard component for ${originalName} plugin
  * Generated by AI-First SaaS React Starter CLI
  */
 
@@ -417,11 +554,11 @@ import {
   Spin
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';${this.options.hasStore ? `
-import { use${pluginName}Store } from '../stores/${pluginName}Store';` : ''}
+import { use${baseName}Store } from '../stores/${baseName}Store';` : ''}
 
 const { Title } = Typography;
 
-export const ${pluginName}Dashboard: React.FC = () => {${this.options.hasStore ? `
+export const ${baseName}Dashboard: React.FC = () => {${this.options.hasStore ? `
   const {
     items,
     loading,
@@ -429,7 +566,7 @@ export const ${pluginName}Dashboard: React.FC = () => {${this.options.hasStore ?
     fetchItems,
     deleteItem,
     clearError
-  } = use${pluginName}Store();
+  } = use${baseName}Store();
 
   useEffect(() => {
     fetchItems();
@@ -504,7 +641,7 @@ export const ${pluginName}Dashboard: React.FC = () => {${this.options.hasStore ?
           alignItems: 'center',
           marginBottom: '24px'
         }}>
-          <Title level={2}>${pluginName} Dashboard</Title>
+          <Title level={2}>${baseName} Dashboard</Title>
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -526,7 +663,7 @@ export const ${pluginName}Dashboard: React.FC = () => {${this.options.hasStore ?
             }}
           />
         </Spin>` : `<div>
-          <p>${pluginName} plugin dashboard content goes here.</p>
+          <p>${baseName} plugin dashboard content goes here.</p>
           <p>Implement your plugin functionality in this component.</p>
         </div>`}
       </Card>
@@ -534,27 +671,28 @@ export const ${pluginName}Dashboard: React.FC = () => {${this.options.hasStore ?
   );
 };
 
-export default ${pluginName}Dashboard;
+export default ${baseName}Dashboard;
 `;
   }
 
-  getTestTemplate(pluginName) {
+  getTestTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
     return `/**
- * @fileoverview ${pluginName} Plugin Tests
+ * @fileoverview ${baseName} Plugin Tests
  *
- * Unit tests for ${pluginName} plugin
+ * Unit tests for ${baseName} plugin
  * Generated by AI-First SaaS React Starter CLI
  */
 
-import { ${pluginName}Plugin } from '../${pluginName}Plugin';
+import { ${baseName}Plugin } from '../${baseName}Plugin';
 import { setupPluginTest } from '../../../core/plugins/__tests__/pluginTestHelper';
 
-describe('${pluginName}Plugin', () => {
-  let plugin: ${pluginName}Plugin;
+describe('${baseName}Plugin', () => {
+  let plugin: ${baseName}Plugin;
   let mockContext: any;
 
   beforeEach(async () => {
-    const setup = await setupPluginTest(${pluginName}Plugin, {
+    const setup = await setupPluginTest(${baseName}Plugin, {
       autoActivate: false
     });
 
@@ -578,9 +716,9 @@ describe('${pluginName}Plugin', () => {
 
   describe('Plugin Metadata', () => {
     it('should have correct plugin information', () => {
-      expect(plugin.name).toBe('${pluginName}');
+      expect(plugin.name).toBe('${originalName}');
       expect(plugin.version).toBe('1.0.0');
-      expect(plugin.description).toContain('${pluginName}');
+      expect(plugin.description).toContain('${baseName}');
       expect(plugin.author).toBe('AI-First SaaS');
     });
   });
@@ -597,8 +735,8 @@ describe('${pluginName}Plugin', () => {
   describe('Store Registration', () => {
     it('should register plugin store', () => {
       const stores = plugin.registerStores(mockContext);
-      expect(stores).toHaveProperty('${pluginName.toLowerCase()}');
-      expect(typeof stores.${pluginName.toLowerCase()}).toBe('function');
+      expect(stores).toHaveProperty('${baseNameLower}');
+      expect(typeof stores.${baseNameLower}).toBe('function');
     });
   });` : ''}${this.options.withRoutes ? `
 
@@ -615,25 +753,51 @@ describe('${pluginName}Plugin', () => {
 `;
   }
 
-  getIndexTemplate(pluginName) {
+  getIndexTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
     return `/**
- * @fileoverview ${pluginName} Plugin Exports
+ * @fileoverview ${baseName} Plugin Entry Point
  *
- * Main exports for ${pluginName} plugin
+ * Main exports for the ${baseNameLower} plugin
  * Generated by AI-First SaaS React Starter CLI
  */
 
-export { ${pluginName}Plugin } from './${pluginName}Plugin';${this.options.hasStore ? `
-export { use${pluginName}Store } from './stores/${pluginName}Store';` : ''}${this.options.withRoutes ? `
-export { ${pluginName.toLowerCase()}Routes } from './${pluginName}Routes';` : ''}${this.options.withComponents ? `
-export { ${pluginName}Dashboard } from './components/${pluginName}Dashboard';` : ''}
+import { PluginManager } from '../../core/plugin-system/PluginManager';
+import ${baseNameLower}Plugin from './${baseName}Plugin';
+
+// Auto-register the plugin
+PluginManager.register(${baseNameLower}Plugin);
+
+// Export the main plugin
+export { default as ${baseNameLower}Plugin } from './${baseName}Plugin';
+
+// Export types
+export * from './types';
+
+// Export services
+export { ${baseName}Service } from './services/${baseNameLower}Service';
+
+// Export store
+export { use${baseName}Store, initialize${baseName}Store } from './stores/${baseName}Store';
+
+// Export components
+export * from './components';
+
+// Export API helpers
+export { ${baseName}BackendHelper } from './api/backendHelper';
+export { ${baseName}MockHandlers } from './api/mockHandlers';
+
+// For backward compatibility
+export default ${baseNameLower}Plugin;
+export { ${baseNameLower}Plugin as ${baseNameLower}ManagementPlugin };
 
 // Plugin metadata
-export const ${pluginName.toUpperCase()}_PLUGIN_INFO = {
-  name: '${pluginName}',
+export const ${upperName}_PLUGIN_INFO = {
+  name: '${originalName}',
   version: '1.0.0',
   type: '${this.options.type}',
-  features: [${this.getFeaturesList()}]
+  features: ['api', 'store', 'components', 'types', 'services']
 };
 `;
   }
@@ -648,6 +812,384 @@ export const ${pluginName.toUpperCase()}_PLUGIN_INFO = {
     if (this.options.withRoutes) features.push('routing');
     if (this.options.withComponents) features.push('ui');
     return features.map(f => `'${f}'`).join(', ');
+  }
+
+  getEndpointsTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
+    return `/**
+ * @fileoverview ${baseName} API Endpoints
+ *
+ * Centralized endpoint definitions for ${originalName} operations
+ * Generated by AI-First SaaS React Starter CLI
+ */
+
+export const ${upperName}_ENDPOINTS = {
+  // ${baseName} operations
+  LIST: '/${baseNameLower}s',
+  GET: '/${baseNameLower}s/:${baseNameLower}Id',
+  CREATE: '/${baseNameLower}s',
+  UPDATE: '/${baseNameLower}s/:${baseNameLower}Id',
+  DELETE: '/${baseNameLower}s/:${baseNameLower}Id',
+
+  // Additional operations (customize as needed)
+  BULK_CREATE: '/${baseNameLower}s/bulk',
+  BULK_UPDATE: '/${baseNameLower}s/bulk',
+  SEARCH: '/${baseNameLower}s/search',
+} as const;
+
+export type ${baseName}EndpointType = typeof ${upperName}_ENDPOINTS[keyof typeof ${upperName}_ENDPOINTS];
+`;
+  }
+
+  getBackendHelperTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
+    return `/**
+ * @fileoverview ${baseName} Backend Helper - API calls with mock/real backend switching
+ *
+ * Helper for making API calls for ${baseNameLower} management operations
+ * Generated by AI-First SaaS React Starter CLI
+ */
+
+import { apiHelper } from '../../../core/api/apiHelper';
+import { ${upperName}_ENDPOINTS } from './endpoints';
+import { ${baseName}Item, Create${baseName}Request, Update${baseName}Request } from '../types';
+
+// Dynamic import for mock handlers to avoid circular dependencies
+let ${baseName}MockHandlers: any = null;
+const isMockMode = () => process.env.REACT_APP_USE_MOCK_API === 'true';
+
+const getMockHandlers = async () => {
+  if (!${baseName}MockHandlers) {
+    const module = await import('./mockHandlers');
+    ${baseName}MockHandlers = module.default;
+  }
+  return ${baseName}MockHandlers;
+};
+
+/**
+ * ${baseName} Backend Helper
+ * Provides API functions for ${baseNameLower} operations
+ */
+export class ${baseName}BackendHelper {
+
+  static async get${baseName}List(): Promise<${baseName}Item[]> {
+    if (isMockMode()) {
+      const mockHandlers = await getMockHandlers();
+      return mockHandlers.get${baseName}List();
+    }
+
+    const response = await apiHelper.get(${upperName}_ENDPOINTS.LIST);
+    return response.data as ${baseName}Item[];
+  }
+
+  static async get${baseName}(id: string): Promise<${baseName}Item> {
+    if (isMockMode()) {
+      const mockHandlers = await getMockHandlers();
+      return mockHandlers.get${baseName}(id);
+    }
+
+    const response = await apiHelper.get(${upperName}_ENDPOINTS.GET.replace(':${baseNameLower}Id', id));
+    return response.data as ${baseName}Item;
+  }
+
+  static async create${baseName}(data: Create${baseName}Request): Promise<${baseName}Item> {
+    if (isMockMode()) {
+      const mockHandlers = await getMockHandlers();
+      return mockHandlers.create${baseName}(data);
+    }
+
+    const response = await apiHelper.post(${upperName}_ENDPOINTS.CREATE, data);
+    return response.data as ${baseName}Item;
+  }
+
+  static async update${baseName}(id: string, data: Update${baseName}Request): Promise<${baseName}Item> {
+    if (isMockMode()) {
+      const mockHandlers = await getMockHandlers();
+      return mockHandlers.update${baseName}(id, data);
+    }
+
+    const response = await apiHelper.put(${upperName}_ENDPOINTS.UPDATE.replace(':${baseNameLower}Id', id), data);
+    return response.data as ${baseName}Item;
+  }
+
+  static async delete${baseName}(id: string): Promise<void> {
+    if (isMockMode()) {
+      const mockHandlers = await getMockHandlers();
+      return mockHandlers.delete${baseName}(id);
+    }
+
+    await apiHelper.delete(${upperName}_ENDPOINTS.DELETE.replace(':${baseNameLower}Id', id));
+  }
+}
+
+export default ${baseName}BackendHelper;
+`;
+  }
+
+  getMockHandlersTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
+    return `/**
+ * @fileoverview ${baseName} Mock Handlers
+ *
+ * Mock API handlers for ${baseNameLower} operations during development
+ * Generated by AI-First SaaS React Starter CLI
+ */
+
+import { ${baseName}Item, Create${baseName}Request, Update${baseName}Request } from '../types';
+
+// Mock data storage
+let mock${baseName}Items: ${baseName}Item[] = [
+  {
+    id: '1',
+    name: 'Sample ${baseName}',
+    description: 'This is a sample ${baseNameLower} item generated by the CLI',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+/**
+ * ${baseName} Mock Handlers
+ * Simulates backend API responses for development
+ */
+export class ${baseName}MockHandlers {
+
+  static async get${baseName}List(): Promise<${baseName}Item[]> {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [...mock${baseName}Items];
+  }
+
+  static async get${baseName}(id: string): Promise<${baseName}Item> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const item = mock${baseName}Items.find(item => item.id === id);
+    if (!item) {
+      throw new Error(\`${baseName} with id \${id} not found\`);
+    }
+    return { ...item };
+  }
+
+  static async create${baseName}(data: Create${baseName}Request): Promise<${baseName}Item> {
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    const newItem: ${baseName}Item = {
+      id: (mock${baseName}Items.length + 1).toString(),
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    mock${baseName}Items.push(newItem);
+    return { ...newItem };
+  }
+
+  static async update${baseName}(id: string, data: Update${baseName}Request): Promise<${baseName}Item> {
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    const index = mock${baseName}Items.findIndex(item => item.id === id);
+    if (index === -1) {
+      throw new Error(\`${baseName} with id \${id} not found\`);
+    }
+
+    const updatedItem: ${baseName}Item = {
+      ...mock${baseName}Items[index],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
+
+    mock${baseName}Items[index] = updatedItem;
+    return { ...updatedItem };
+  }
+
+  static async delete${baseName}(id: string): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    const index = mock${baseName}Items.findIndex(item => item.id === id);
+    if (index === -1) {
+      throw new Error(\`${baseName} with id \${id} not found\`);
+    }
+
+    mock${baseName}Items.splice(index, 1);
+  }
+}
+
+export default ${baseName}MockHandlers;
+`;
+  }
+
+  getServiceTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+
+    return `/**
+ * @fileoverview ${baseName} Service
+ *
+ * Business logic layer for ${baseNameLower} operations
+ * Generated by AI-First SaaS React Starter CLI
+ */
+
+import { ${baseName}BackendHelper } from '../api/backendHelper';
+import { ${baseName}Item, Create${baseName}Request, Update${baseName}Request } from '../types';
+
+/**
+ * ${baseName} Service
+ * Provides business logic for ${baseNameLower} operations
+ */
+export class ${baseName}Service {
+
+  /**
+   * Get all ${baseNameLower} items
+   */
+  static async getAll(): Promise<${baseName}Item[]> {
+    try {
+      return await ${baseName}BackendHelper.get${baseName}List();
+    } catch (error) {
+      console.error('Error fetching ${baseNameLower} list:', error);
+      throw new Error('Failed to fetch ${baseNameLower} list');
+    }
+  }
+
+  /**
+   * Get a single ${baseNameLower} item by ID
+   */
+  static async getById(id: string): Promise<${baseName}Item> {
+    try {
+      return await ${baseName}BackendHelper.get${baseName}(id);
+    } catch (error) {
+      console.error(\`Error fetching ${baseNameLower} \${id}:\`, error);
+      throw new Error(\`Failed to fetch ${baseNameLower} with id \${id}\`);
+    }
+  }
+
+  /**
+   * Create a new ${baseNameLower} item
+   */
+  static async create(data: Create${baseName}Request): Promise<${baseName}Item> {
+    try {
+      // Add any business logic validation here
+      if (!data.name || data.name.trim() === '') {
+        throw new Error('${baseName} name is required');
+      }
+
+      return await ${baseName}BackendHelper.create${baseName}(data);
+    } catch (error) {
+      console.error('Error creating ${baseNameLower}:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a ${baseNameLower} item
+   */
+  static async update(id: string, data: Update${baseName}Request): Promise<${baseName}Item> {
+    try {
+      // Add any business logic validation here
+      if (data.name !== undefined && data.name.trim() === '') {
+        throw new Error('${baseName} name cannot be empty');
+      }
+
+      return await ${baseName}BackendHelper.update${baseName}(id, data);
+    } catch (error) {
+      console.error(\`Error updating ${baseNameLower} \${id}:\`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a ${baseNameLower} item
+   */
+  static async delete(id: string): Promise<void> {
+    try {
+      await ${baseName}BackendHelper.delete${baseName}(id);
+    } catch (error) {
+      console.error(\`Error deleting ${baseNameLower} \${id}:\`, error);
+      throw new Error(\`Failed to delete ${baseNameLower} with id \${id}\`);
+    }
+  }
+}
+
+export default ${baseName}Service;
+`;
+  }
+
+  getTypesTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+    return `/**
+ * @fileoverview ${baseName} Types
+ *
+ * TypeScript type definitions for ${baseNameLower} plugin
+ * Generated by AI-First SaaS React Starter CLI
+ */
+
+// Base ${baseName} item interface
+export interface ${baseName}Item {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Request types for API operations
+export interface Create${baseName}Request {
+  name: string;
+  description?: string;
+}
+
+export interface Update${baseName}Request {
+  name?: string;
+  description?: string;
+}
+
+// Event types for ${baseName} plugin
+export const ${upperName}_EVENTS = {
+  ITEM_CREATED: '${baseNameLower}.item.created',
+  ITEM_UPDATED: '${baseNameLower}.item.updated',
+  ITEM_DELETED: '${baseNameLower}.item.deleted',
+  LIST_LOADED: '${baseNameLower}.list.loaded',
+} as const;
+
+export type ${baseName}EventType = typeof ${upperName}_EVENTS[keyof typeof ${upperName}_EVENTS];
+
+// Event payload types
+export interface ${baseName}ItemCreatedPayload {
+  item: ${baseName}Item;
+}
+
+export interface ${baseName}ItemUpdatedPayload {
+  item: ${baseName}Item;
+  previousData: Partial<${baseName}Item>;
+}
+
+export interface ${baseName}ItemDeletedPayload {
+  itemId: string;
+}
+
+export interface ${baseName}ListLoadedPayload {
+  items: ${baseName}Item[];
+  count: number;
+}
+`;
+  }
+
+  getComponentsIndexTemplate(nameparts) {
+    const { originalName, baseName, baseNameLower, kebabName, upperName } = nameparts;
+    return `/**
+ * @fileoverview ${baseName} Components Exports
+ *
+ * Component exports for the ${baseNameLower} plugin
+ * Generated by AI-First SaaS React Starter CLI
+ */
+
+export { ${baseName}Dashboard } from './${baseName}Dashboard';
+
+// Add more component exports as you create them
+// export { ${baseName}Form } from './${baseName}Form';
+// export { ${baseName}List } from './${baseName}List';
+`;
   }
 }
 

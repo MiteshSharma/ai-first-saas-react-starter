@@ -4,7 +4,7 @@
  * Handles automatic admin login when URL contains admin token parameters
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import { useAuthStore } from './AuthStore';
@@ -23,64 +23,78 @@ export const AdminUrlHandler: React.FC<AdminUrlHandlerProps> = ({ children }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const { loginWithAdminToken, isAuthenticated, isAdminSession } = useAuthStore();
+  const hasProcessedRef = useRef(false);
+
+  // Memoize the admin login handler to avoid recreation
+  const handleAdminLogin = useCallback(async (token: string, tenantId?: string) => {
+    try {
+      await loginWithAdminToken(token, tenantId || undefined);
+      message.success('Admin access granted');
+
+      // Navigate to current path without query params
+      const cleanPath = location.pathname;
+      navigate(cleanPath, { replace: true });
+    } catch (error) {
+      console.error('❌ Admin login failed:', error);
+      message.error('Invalid admin access token');
+      navigate('/login', { replace: true });
+    }
+  }, [loginWithAdminToken, navigate, location.pathname]);
 
   useEffect(() => {
-    console.log('🔍 AdminUrlHandler: Checking URL for admin params');
-    console.log('  - Current URL:', location.search);
-    console.log('  - Is admin session:', isAdminSession);
+    // Early exit if:
+    // 1. Already an admin session
+    // 2. No query parameters
+    // 3. Already processed this URL
+    if (isAdminSession || !location.search || hasProcessedRef.current) {
+      return;
+    }
 
-    const handleAdminLogin = async (token: string, tenantId?: string) => {
-      console.log('🚀 AdminUrlHandler: Starting admin login');
-      console.log('  - Token:', token);
-      console.log('  - TenantId:', tenantId);
+    const urlString = location.search;
 
-      try {
-        await loginWithAdminToken(token, tenantId || undefined);
-        message.success('Admin access granted');
+    // Quick check - if URL doesn't contain 'adminToken', exit early
+    if (!urlString.includes('adminToken')) {
+      return;
+    }
 
-        // Navigate to current path without query params
-        const cleanPath = location.pathname;
-        navigate(cleanPath, { replace: true });
-      } catch (error) {
-        console.error('❌ Admin login failed:', error);
-        message.error('Invalid admin access token');
+    console.log('🔍 AdminUrlHandler: Potential admin URL detected');
+    console.log('  - Current URL:', urlString);
+
+    // Detailed check for admin URL
+    if (adminAuthService.isAdminUrl(urlString)) {
+      console.log('✅ AdminUrlHandler: Confirmed admin URL');
+      const { token, tenantId } = adminAuthService.extractAdminParams(urlString);
+      console.log('📦 AdminUrlHandler: Extracted params:', { token, tenantId });
+
+      if (token) {
+        // Mark as processed to avoid re-processing
+        hasProcessedRef.current = true;
+
+        // Validate token format first
+        if (!adminAuthService.isValidTokenFormat(token)) {
+          message.error('Invalid token format');
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        // If already authenticated with normal account, show warning
+        if (isAuthenticated && !isAdminSession) {
+          message.warning('Logging out current session for admin access');
+        }
+
+        // Attempt admin login
+        handleAdminLogin(token, tenantId || undefined);
+      } else {
+        message.error('No admin token provided');
         navigate('/login', { replace: true });
       }
-    };
-
-    // Only process admin URLs if not already authenticated as admin
-    if (!isAdminSession) {
-      const urlString = location.search;
-      console.log('🔍 AdminUrlHandler: Checking if admin URL:', urlString);
-
-      if (adminAuthService.isAdminUrl(urlString)) {
-        console.log('✅ AdminUrlHandler: Is admin URL!');
-        const { token, tenantId } = adminAuthService.extractAdminParams(urlString);
-        console.log('📦 AdminUrlHandler: Extracted params:', { token, tenantId });
-
-        if (token) {
-          // Validate token format first
-          if (!adminAuthService.isValidTokenFormat(token)) {
-            message.error('Invalid token format');
-            navigate('/login', { replace: true });
-            return;
-          }
-
-          // If already authenticated with normal account, logout first
-          if (isAuthenticated && !isAdminSession) {
-            message.warning('Logging out current session for admin access');
-            // Note: We could add a logout call here if needed
-          }
-
-          // Attempt admin login
-          handleAdminLogin(token, tenantId || undefined);
-        } else {
-          message.error('No admin token provided');
-          navigate('/login', { replace: true });
-        }
-      }
     }
-  }, [location, loginWithAdminToken, isAuthenticated, isAdminSession, navigate]);
+  }, [location.search, isAdminSession, isAuthenticated, navigate, handleAdminLogin]);
+
+  // Reset the processed flag when location changes (but not query params)
+  useEffect(() => {
+    hasProcessedRef.current = false;
+  }, [location.pathname]);
 
   return <>{children}</>;
 };

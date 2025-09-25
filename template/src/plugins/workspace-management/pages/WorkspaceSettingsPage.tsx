@@ -28,6 +28,7 @@ import {
 import { useCoreContext } from '../../../core/context/CoreContext';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import { usePermissions } from '../../../core/permissions/usePermissions';
+import { analytics } from '../../../analytics';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -56,9 +57,17 @@ export const WorkspaceSettingsPage: React.FC = () => {
    * Handle workspace name save
    */
   const handleNameSave = async () => {
-    if (!currentWorkspace || !editedName.trim()) {
+    analytics.track('button_click', { button_name: 'Save Workspace Name' });
+
+    if (!currentWorkspace) {
+      message.error('No workspace selected');
       setIsEditingName(false);
-      setEditedName(currentWorkspace?.name || '');
+      setEditedName('');
+      return;
+    }
+
+    if (!editedName.trim()) {
+      message.error('Workspace name cannot be empty');
       return;
     }
 
@@ -81,7 +90,20 @@ export const WorkspaceSettingsPage: React.FC = () => {
   /**
    * Handle copy workspace ID to clipboard
    */
+  const handleCancelEditName = () => {
+    analytics.track('button_click', { button_name: 'Cancel Edit Workspace Name' });
+    setEditedName(mockWorkspace?.name || '');
+    setIsEditingName(false);
+  };
+
+  const handleEditName = () => {
+    analytics.track('button_click', { button_name: 'Edit Workspace Name' });
+    setIsEditingName(true);
+  };
+
   const handleCopyWorkspaceId = async () => {
+    analytics.track('button_click', { button_name: 'Copy Workspace ID' });
+
     if (!currentWorkspace?.id) return;
 
     try {
@@ -164,30 +186,40 @@ export const WorkspaceSettingsPage: React.FC = () => {
                     </Col>
                     <Col>
                       {isEditingName ? (
-                        <Space>
-                          <Input
-                            value={editedName}
-                            onChange={(e) => setEditedName(e.target.value)}
-                            onPressEnter={handleNameSave}
-                            style={{ width: 200 }}
-                            autoFocus
-                          />
-                          <Button
-                            type="primary"
-                            size="small"
-                            icon={<CheckCircleOutlined />}
-                            onClick={handleNameSave}
-                            loading={loading}
-                          />
-                          <Button
-                            size="small"
-                            icon={<CloseOutlined />}
-                            onClick={() => {
-                              setEditedName(mockWorkspace.name || '');
-                              setIsEditingName(false);
-                            }}
-                          />
-                        </Space>
+                        <div>
+                          <Space>
+                            <Input
+                              value={editedName}
+                              onChange={(e) => setEditedName(e.target.value)}
+                              onPressEnter={handleNameSave}
+                              style={{
+                                width: 200,
+                                borderColor: !editedName.trim() ? '#ff4d4f' : undefined
+                              }}
+                              status={!editedName.trim() ? 'error' : undefined}
+                              autoFocus
+                              placeholder="Enter workspace name"
+                            />
+                            <Button
+                              type="primary"
+                              size="small"
+                              icon={<CheckCircleOutlined />}
+                              onClick={handleNameSave}
+                              loading={loading}
+                              disabled={!editedName.trim()}
+                            />
+                            <Button
+                              size="small"
+                              icon={<CloseOutlined />}
+                              onClick={handleCancelEditName}
+                            />
+                          </Space>
+                          {!editedName.trim() && (
+                            <div style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '4px', marginLeft: '0' }}>
+                              Workspace name cannot be empty
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <Space>
                           <Text strong style={{ fontSize: '16px' }}>
@@ -199,7 +231,7 @@ export const WorkspaceSettingsPage: React.FC = () => {
                                 type="text"
                                 size="small"
                                 icon={<EditOutlined />}
-                                onClick={() => setIsEditingName(true)}
+                                onClick={handleEditName}
                               />
                             </Tooltip>
                           )}
