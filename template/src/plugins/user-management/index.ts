@@ -17,7 +17,6 @@ export { default as userManagementPlugin } from './UserManagementPlugin';
 export * from './types';
 
 // Export services
-export { default as InvitationService } from './services/InvitationService';
 export { default as UserService } from './services/UserService';
 
 // Export store
@@ -38,7 +37,6 @@ export {
   TENANT_ROLES,
   WORKSPACE_ROLES,
   USER_STATUSES,
-  INVITATION_STATUSES,
   THEMES,
   USER_MANAGEMENT_EVENTS,
 } from './types';

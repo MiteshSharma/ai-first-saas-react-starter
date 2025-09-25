@@ -81,7 +81,11 @@ async function generatePage(options) {
           { name: `delete${entityName}` }
         ]
       }
-    ] : []
+    ] : [],
+    // Additional template variables for JSX handlers
+    buttonHandler: '{() => testStore.increment()}',
+    addHandler: `{handleAdd${entityName}}`,
+    styleObject: "{{ marginTop: '24px' }}"
   };
 
   // Generate page component directly in pages folder
@@ -105,9 +109,6 @@ async function generatePage(options) {
   // Update pages index file
   updatePagesIndex(pageName, pagesDir);
 
-  // Update routing (if route config exists)
-  updateRouting({ pageName, route });
-
   console.log(`✅ Generated page: ${pageName}`);
   console.log(`📁 Location: ${pagesDir}`);
   console.log(`📝 Files created:`);
@@ -115,11 +116,10 @@ async function generatePage(options) {
   console.log(`   - ${pageName}.test.tsx`);
   console.log(`📝 Updated:`);
   console.log(`   - pages/index.ts`);
-  console.log(`   - routes/routes.ts`);
 
   // Run formatting
   try {
-    execSync(`npx prettier --write "${pagesDir}/**/*.{ts,tsx}" "src/routes/**/*.{ts,tsx}"`, { stdio: 'inherit' });
+    execSync(`npx prettier --write "${pagesDir}/**/*.{ts,tsx}"`, { stdio: 'inherit' });
     console.log(`✅ Files formatted with Prettier`);
   } catch (error) {
     console.warn(`⚠️  Could not format files: ${error.message}`);

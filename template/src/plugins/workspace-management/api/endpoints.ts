@@ -10,13 +10,9 @@ export const WORKSPACE_ENDPOINTS = {
   GET: '/workspaces/:workspaceId',
   CREATE: '/tenants/:tenantId/workspaces',
   UPDATE: '/workspaces/:workspaceId',
-  DELETE: '/workspaces/:workspaceId',
 
   // Settings operations
-  UPDATE_SETTINGS: '/workspaces/:workspaceId/settings',
-
-  // Context switching
-  SWITCH_CONTEXT: '/workspaces/switch'
+  UPDATE_SETTINGS: '/workspaces/:workspaceId/settings'
 } as const;
 
 export type WorkspaceEndpoint = typeof WORKSPACE_ENDPOINTS[keyof typeof WORKSPACE_ENDPOINTS];

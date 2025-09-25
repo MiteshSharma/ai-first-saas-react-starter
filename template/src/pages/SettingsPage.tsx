@@ -11,7 +11,7 @@ import {
   UserOutlined,
   TeamOutlined,
   ApartmentOutlined,
-  SettingOutlined
+  SettingOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -22,32 +22,33 @@ export const SettingsPage: React.FC = () => {
   const settingsSections = [
     {
       title: 'User Profile',
-      description: 'Manage your personal profile, preferences, and account settings',
+      description:
+        'Manage your personal profile, preferences, and account settings',
       icon: <UserOutlined style={{ fontSize: 24, color: '#1677ff' }} />,
       path: '/settings/profile',
-      available: true
+      available: true,
     },
     {
       title: 'Workspace Settings',
       description: 'Configure workspace settings, members, and preferences',
       icon: <ApartmentOutlined style={{ fontSize: 24, color: '#52c41a' }} />,
       path: '/settings/workspaces',
-      available: true
+      available: true,
     },
     {
       title: 'Tenant Settings',
       description: 'Manage tenant configuration, security, and subscription',
       icon: <TeamOutlined style={{ fontSize: 24, color: '#faad14' }} />,
       path: '/settings/tenants',
-      available: true
+      available: true,
     },
     {
       title: 'User Management',
       description: 'Manage users, invitations, and team members',
       icon: <UserOutlined style={{ fontSize: 24, color: '#722ed1' }} />,
       path: '/users',
-      available: true
-    }
+      available: true,
+    },
   ];
 
   return (
@@ -57,44 +58,45 @@ export const SettingsPage: React.FC = () => {
           <SettingOutlined style={{ marginRight: 8 }} />
           Settings
         </Title>
-        <Text type="secondary">
+        <Text type='secondary'>
           Manage your account, workspace, and application settings
         </Text>
       </div>
 
       <Row gutter={[24, 24]}>
-        {settingsSections.map((section) => (
+        {settingsSections.map(section => (
           <Col xs={24} sm={12} lg={8} key={section.title}>
             <Card
               hoverable
               style={{
                 height: '100%',
                 border: '1px solid #d9d9d9',
-                borderRadius: 8
+                borderRadius: 8,
               }}
               bodyStyle={{
                 padding: 24,
                 display: 'flex',
                 flexDirection: 'column',
-                height: '100%'
+                height: '100%',
               }}
             >
-              <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                <div style={{ textAlign: 'center' }}>
-                  {section.icon}
-                </div>
+              <Space direction='vertical' size={16} style={{ width: '100%' }}>
+                <div style={{ textAlign: 'center' }}>{section.icon}</div>
 
                 <div style={{ textAlign: 'center', flex: 1 }}>
                   <Title level={4} style={{ margin: '8px 0' }}>
                     {section.title}
                   </Title>
-                  <Text type="secondary" style={{ display: 'block', lineHeight: 1.5 }}>
+                  <Text
+                    type='secondary'
+                    style={{ display: 'block', lineHeight: 1.5 }}
+                  >
                     {section.description}
                   </Text>
                 </div>
 
                 <Button
-                  type="primary"
+                  type='primary'
                   block
                   disabled={!section.available}
                   onClick={() => navigate(section.path)}

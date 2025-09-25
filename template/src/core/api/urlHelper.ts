@@ -21,6 +21,7 @@ export const AUTH_SIGNUP_RESEND = '/auth/signup/resend';
 export const AUTH_SIGNUP_COMPLETE = '/auth/signup/complete';
 export const AUTH_PASSWORD_RESET_REQUEST = '/auth/password-reset/request';
 export const AUTH_PASSWORD_RESET_COMPLETE = '/auth/password-reset/complete';
+export const AUTH_CHANGE_PASSWORD = '/auth/change-password';
 export const AUTH_VERIFY_EMAIL = '/auth/verify-email';
 export const AUTH_SSO_CALLBACK = '/auth/sso/callback';
 
@@ -234,6 +235,7 @@ export const getAllEndpoints = () => ({
   AUTH_SIGNUP_COMPLETE,
   AUTH_PASSWORD_RESET_REQUEST,
   AUTH_PASSWORD_RESET_COMPLETE,
+  AUTH_CHANGE_PASSWORD,
   AUTH_VERIFY_EMAIL,
   AUTH_SSO_CALLBACK,
 

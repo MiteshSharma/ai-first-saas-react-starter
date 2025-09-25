@@ -4,11 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import DashboardPage from '../DashboardPage';
 
 const renderWithRouter = (component: React.ReactNode) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
+  return render(<BrowserRouter>{component}</BrowserRouter>);
 };
 
 describe('DashboardPage', () => {

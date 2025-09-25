@@ -24,9 +24,11 @@ export const PasswordResetCompletePage: React.FC = () => {
     setToken(tokenParam);
   }, [searchParams, navigate]);
 
-  const handleSubmit = async (values: Omit<PasswordResetCompleteData, 'token'>) => {
+  const handleSubmit = async (
+    values: Omit<PasswordResetCompleteData, 'token'>
+  ) => {
     if (!token) return;
-    
+
     try {
       clearError();
       await completePasswordReset({ ...values, token });
@@ -41,14 +43,21 @@ export const PasswordResetCompletePage: React.FC = () => {
       <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
         <Card>
           <div style={{ textAlign: 'center' }}>
-            <CheckOutlined style={{ fontSize: '3rem', color: '#52c41a', marginBottom: '1rem' }} />
+            <CheckOutlined
+              style={{
+                fontSize: '3rem',
+                color: '#52c41a',
+                marginBottom: '1rem',
+              }}
+            />
             <Title level={3}>Password Reset Successful</Title>
             <Text>
-              Your password has been successfully reset. You can now log in with your new password.
+              Your password has been successfully reset. You can now log in with
+              your new password.
             </Text>
             <div style={{ marginTop: '2rem' }}>
-              <Link to="/auth/login">
-                <Button type="primary" size="large">
+              <Link to='/auth/login'>
+                <Button type='primary' size='large'>
                   Go to Login
                 </Button>
               </Link>
@@ -63,13 +72,13 @@ export const PasswordResetCompletePage: React.FC = () => {
     return (
       <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
         <Alert
-          message="Invalid Link"
-          description="This password reset link is invalid or expired. Please request a new one."
-          type="error"
+          message='Invalid Link'
+          description='This password reset link is invalid or expired. Please request a new one.'
+          type='error'
           showIcon
           action={
-            <Link to="/auth/password-reset">
-              <Button type="primary" size="small">
+            <Link to='/auth/password-reset'>
+              <Button type='primary' size='small'>
                 Request New Link
               </Button>
             </Link>
@@ -85,12 +94,12 @@ export const PasswordResetCompletePage: React.FC = () => {
         <Title level={2} style={{ textAlign: 'center', marginBottom: '2rem' }}>
           Set New Password
         </Title>
-        
+
         {error && (
           <Alert
-            message="Error"
+            message='Error'
             description={error?.message}
-            type="error"
+            type='error'
             showIcon
             closable
             onClose={clearError}
@@ -100,28 +109,31 @@ export const PasswordResetCompletePage: React.FC = () => {
 
         <Form
           form={form}
-          layout="vertical"
+          layout='vertical'
           onFinish={handleSubmit}
-          autoComplete="off"
+          autoComplete='off'
         >
           <Form.Item
-            name="password"
-            label="New Password"
+            name='password'
+            label='New Password'
             rules={[
               { required: true, message: 'Please enter your new password' },
-              { min: 8, message: 'Password must be at least 8 characters long' }
+              {
+                min: 8,
+                message: 'Password must be at least 8 characters long',
+              },
             ]}
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Enter your new password"
-              size="large"
+              placeholder='Enter your new password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="confirmPassword"
-            label="Confirm New Password"
+            name='confirmPassword'
+            label='Confirm New Password'
             dependencies={['password']}
             rules={[
               { required: true, message: 'Please confirm your new password' },
@@ -137,16 +149,16 @@ export const PasswordResetCompletePage: React.FC = () => {
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Confirm your new password"
-              size="large"
+              placeholder='Confirm your new password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
+              type='primary'
+              htmlType='submit'
+              size='large'
               block
               loading={loading}
             >
@@ -155,8 +167,8 @@ export const PasswordResetCompletePage: React.FC = () => {
           </Form.Item>
 
           <div style={{ textAlign: 'center' }}>
-            <Link to="/auth/login">
-              <Button type="link">Back to Login</Button>
+            <Link to='/auth/login'>
+              <Button type='link'>Back to Login</Button>
             </Link>
           </div>
         </Form>

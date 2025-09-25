@@ -56,18 +56,15 @@ const UserSettingsPage: React.FC = () => {
   const [editedName, setEditedName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>();
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [workspaces, setWorkspaces] = useState<WorkspacePermission[]>([]);
 
   const {
-    updateProfile,
-    updateSecuritySettings
+    updateProfile
   } = useUserManagementStore();
 
   const {
     currentUser,
     userPermissions,
-    isUpdatingProfile,
-    isUpdatingSecuritySettings
+    isUpdatingProfile
   } = useUserManagementData();
 
   const { isAdminSession, user: authUser } = useAuthStore();
@@ -102,11 +99,6 @@ const UserSettingsPage: React.FC = () => {
     }
   }, [displayUser?.profile?.avatar]);
 
-  useEffect(() => {
-    if (userPermissions?.workspaces) {
-      setWorkspaces(userPermissions.workspaces);
-    }
-  }, [userPermissions]);
 
   const handleNameSave = async () => {
     analytics.track('button_click', { button_name: 'Save Name' });
@@ -131,13 +123,19 @@ const UserSettingsPage: React.FC = () => {
     analytics.track('button_click', { button_name: 'Update Password' });
 
     try {
-      await updateSecuritySettings({
-        password: values.newPassword
+      // Import the change password API from core
+      const { postChangePassword } = await import('../../../core/api/backendHelper');
+
+      await postChangePassword({
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
       });
+
       message.success('Password updated successfully');
       passwordForm.resetFields();
+      setShowChangePassword(false);
     } catch (error) {
-      message.error('Failed to update password');
+      message.error('Failed to update password. Please check your current password and try again.');
     }
   };
 
@@ -158,11 +156,6 @@ const UserSettingsPage: React.FC = () => {
     setShowChangePassword(!showChangePassword);
   };
 
-  const handleResetPasswordForm = () => {
-    analytics.track('button_click', { button_name: 'Reset Password Form' });
-    passwordForm.resetFields();
-  };
-
   // Early return if no user data available
   if (!displayUser) {
     return (
@@ -172,11 +165,6 @@ const UserSettingsPage: React.FC = () => {
     );
   }
 
-  // Get tenant information from user permissions
-  const tenantInfo = {
-    name: userPermissions?.tenantName || 'No tenant assigned',
-    role: userPermissions?.tenantRole || 'Member'
-  };
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
@@ -405,18 +393,25 @@ const UserSettingsPage: React.FC = () => {
                             </Col>
                           </Row>
 
-                          <Space>
-                            <Button type="primary" htmlType="submit" loading={isUpdatingSecuritySettings}>
+                          <Form.Item style={{ marginTop: 24 }}>
+                            <Button
+                              type="primary"
+                              htmlType="submit"
+                              size="large"
+                              style={{ marginRight: 8 }}
+                            >
                               Update Password
                             </Button>
-                            <Button onClick={handleResetPasswordForm}>
-                              Reset
+                            <Button
+                              onClick={() => {
+                                setShowChangePassword(false);
+                                passwordForm.resetFields();
+                              }}
+                              size="large"
+                            >
+                              Cancel
                             </Button>
-                          </Space>
-
-                          <div style={{ marginTop: 16 }}>
-                            <a href="/auth/forgot-password">Forgot password?</a>
-                          </div>
+                          </Form.Item>
                         </Form>
                       </div>
                     )}
@@ -439,107 +434,6 @@ const UserSettingsPage: React.FC = () => {
                 </Space>
               </Panel>
             </Collapse>
-          </TabPane>
-
-          <TabPane
-            tab={
-              <span>
-                <TeamOutlined />
-                Access Policy
-              </span>
-            }
-            key="access"
-          >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              {/* Tenant Access */}
-              <div>
-                <Title level={4}>
-                  <GlobalOutlined /> Tenant Access Role
-                </Title>
-                <Paragraph type="secondary">
-                  This role defines the permissions granted to you in the workspaces of your tenant.
-                </Paragraph>
-
-                <Row gutter={16}>
-                  <Col xs={24} sm={12}>
-                    <Card>
-                      <Text type="secondary">Tenant Name</Text>
-                      <Title level={5} style={{ margin: '8px 0 0 0' }}>
-                        {tenantInfo.name}
-                      </Title>
-                    </Card>
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <Card>
-                      <Text type="secondary">Tenant Role</Text>
-                      <div style={{ marginTop: 8 }}>
-                        <Space>
-                          <Title level={5} style={{ margin: 0 }}>
-                            {tenantInfo.role}
-                          </Title>
-                          <Tag color={tenantInfo.role === 'admin' ? 'red' : tenantInfo.role === 'owner' ? 'purple' : 'blue'}>
-                            {tenantInfo.role === 'admin' ? 'Full Access' : tenantInfo.role === 'owner' ? 'Owner Access' : 'Limited Access'}
-                          </Tag>
-                          {isAdminSession && (
-                            <Tag color="orange" icon={<EyeOutlined />}>
-                              Admin View
-                            </Tag>
-                          )}
-                        </Space>
-                      </div>
-                    </Card>
-                  </Col>
-                </Row>
-              </div>
-
-              {/* Workspace Permissions */}
-              <div>
-                <Title level={4}>
-                  <SettingOutlined /> Workspace Roles
-                </Title>
-                <Paragraph type="secondary">
-                  Your tenant role determines your base permissions, while each workspace may have specific roles assigned to you.
-                </Paragraph>
-
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  {workspaces.length > 0 ? (
-                    workspaces.map((workspace: WorkspacePermission) => (
-                      <Card key={workspace.workspaceId} title={
-                        <Space>
-                          <FolderOutlined style={{ color: '#1677ff' }} />
-                          <Title level={5} style={{ margin: 0 }}>{workspace.workspaceName}</Title>
-                        </Space>
-                      }>
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                        <Row justify="space-between" align="middle">
-                            <Col>
-                              <Text type="secondary">Workspace ID:</Text>
-                            </Col>
-                            <Col>
-                              <Text code style={{ fontSize: '12px' }}>{workspace.workspaceId}</Text>
-                            </Col>
-                          </Row>
-                          <Row justify="space-between" align="middle">
-                            <Col>
-                              <Text type="secondary">Workspace Role:</Text>
-                            </Col>
-                            <Col>
-                              <Tag color={workspace.role === 'admin' ? 'red' : 'blue'} style={{ textTransform: 'capitalize' }}>
-                                {workspace.role}
-                              </Tag>
-                            </Col>
-                          </Row>
-                        </Space>
-                      </Card>
-                    ))
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                      <Text type="secondary">No workspace access assigned</Text>
-                    </div>
-                  )}
-                </Space>
-              </div>
-            </Space>
           </TabPane>
         </Tabs>
       </Card>

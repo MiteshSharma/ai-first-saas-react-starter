@@ -49,12 +49,6 @@ export class WorkspaceService {
     return WorkspaceBackendHelper.updateSettings(workspaceId, settings);
   }
 
-  /**
-   * Delete a workspace
-   */
-  static async delete(workspaceId: string): Promise<void> {
-    return WorkspaceBackendHelper.delete(workspaceId);
-  }
 }
 
 export default WorkspaceService;

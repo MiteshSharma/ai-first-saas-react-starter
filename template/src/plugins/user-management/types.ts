@@ -2,7 +2,7 @@
  * @fileoverview User Management Plugin Types
  *
  * Defines all types and interfaces for user management functionality
- * including invitations, user profiles, and security settings
+ * including user profiles and preferences
  */
 
 // ============================================================================
@@ -11,37 +11,6 @@
 
 export type ISODate = string;
 
-// ============================================================================
-// Invitation Types
-// ============================================================================
-
-export interface Invitation {
-  id: string;
-  email: string;
-  tenantId: string;
-  workspaceRoles?: { workspaceId: string; role: string; }[];
-  tenantRole: string;
-  invitedBy: string;
-  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
-  token: string;
-  expiresAt: ISODate;
-  createdAt: ISODate;
-  acceptedAt?: ISODate;
-}
-
-export interface SendInvitationRequest {
-  emails: string[];
-  tenantId: string;
-  orgRole: string;
-  workspaceRoles?: { wsId: string; role: string }[];
-}
-
-export interface InvitationListResponse {
-  invitations: Invitation[];
-  total: number;
-  page?: number;
-  limit?: number;
-}
 
 // ============================================================================
 // User Management Types
@@ -123,21 +92,6 @@ export interface DashboardPreferences {
   widgets: string[];
 }
 
-export interface SecuritySettings {
-  twoFactorEnabled: boolean;
-  lastPasswordChange?: ISODate;
-  sessionTimeout: number; // in minutes
-  trustedDevices?: TrustedDevice[];
-}
-
-export interface TrustedDevice {
-  id: string;
-  name: string;
-  browser: string;
-  os: string;
-  lastUsed: ISODate;
-  location?: string;
-}
 
 // ============================================================================
 // Search and Filter Types
@@ -181,17 +135,6 @@ export interface UpdateUserPreferencesRequest {
   dashboard?: Partial<DashboardPreferences>;
 }
 
-export interface UpdateSecuritySettingsRequest {
-  twoFactorEnabled?: boolean;
-  sessionTimeout?: number;
-  password?: string;
-  currentPassword?: string;
-}
-
-export interface UploadAvatarResponse {
-  avatarUrl: string;
-  thumbnailUrl?: string;
-}
 
 // ============================================================================
 // Store Types
@@ -201,7 +144,6 @@ export interface UserManagementState {
   // Current user data
   currentUser: User | null;
   userPreferences: UserPreferences | null;
-  securitySettings: SecuritySettings | null;
   userPermissions: UserPermissions | null;
 
   // User list data
@@ -210,20 +152,12 @@ export interface UserManagementState {
   usersLoading: boolean;
   usersError: string | null;
 
-  // Invitation data
-  invitations: Invitation[];
-  invitationsLoading: boolean;
-  invitationsError: string | null;
-
   // UI state
-  showInviteModal: boolean;
   selectedUser: UserWithTenantInfo | null;
 
   // Loading states
   isUpdatingProfile: boolean;
   isUpdatingPreferences: boolean;
-  isUpdatingSecuritySettings: boolean;
-  isUploadingAvatar: boolean;
 }
 
 export interface UserManagementActions {
@@ -232,26 +166,11 @@ export interface UserManagementActions {
   updateUserFilters: (filters: Partial<UserSearchFilters>) => void;
   selectUser: (user: UserWithTenantInfo | null) => void;
 
-  // Invitation actions
-  fetchInvitations: (tenantId: string) => Promise<void>;
-  sendInvitations: (data: SendInvitationRequest) => Promise<Invitation[]>;
-  cancelInvitation: (invitationId: string) => Promise<void>;
-  resendInvitation: (invitationId: string) => Promise<void>;
-
   // User profile actions
   updateProfile: (data: UpdateUserProfileRequest) => Promise<void>;
-  uploadAvatar: (file: File) => Promise<UploadAvatarResponse>;
 
   // User preferences actions
   updatePreferences: (data: UpdateUserPreferencesRequest) => Promise<void>;
-
-  // Security settings actions
-  updateSecuritySettings: (data: UpdateSecuritySettingsRequest) => Promise<void>;
-  enableTwoFactor: () => Promise<{ qrCode: string; backupCodes: string[] }>;
-  disableTwoFactor: () => Promise<void>;
-
-  // UI actions
-  setShowInviteModal: (show: boolean) => void;
 
   // Utility actions
   clearErrors: () => void;
@@ -263,15 +182,9 @@ export interface UserManagementActions {
 // ============================================================================
 
 export const USER_MANAGEMENT_EVENTS = {
-  USER_INVITED: 'user.invited',
   USER_UPDATED: 'user.updated',
   USER_PROFILE_UPDATED: 'user.profile.updated',
   USER_PREFERENCES_UPDATED: 'user.preferences.updated',
-  USER_SECURITY_UPDATED: 'user.security.updated',
-  INVITATION_SENT: 'invitation.sent',
-  INVITATION_ACCEPTED: 'invitation.accepted',
-  INVITATION_CANCELLED: 'invitation.cancelled',
-  AVATAR_UPLOADED: 'user.avatar.uploaded'
 } as const;
 
 export type UserManagementEventType = typeof USER_MANAGEMENT_EVENTS[keyof typeof USER_MANAGEMENT_EVENTS];
@@ -300,12 +213,6 @@ export const USER_STATUSES = {
   SUSPENDED: 'suspended'
 } as const;
 
-export const INVITATION_STATUSES = {
-  PENDING: 'pending',
-  ACCEPTED: 'accepted',
-  EXPIRED: 'expired',
-  CANCELLED: 'cancelled'
-} as const;
 
 export const THEMES = {
   LIGHT: 'light',
@@ -325,9 +232,6 @@ export function isValidWorkspaceRole(role: string): role is WorkspaceRole {
   return Object.values(WORKSPACE_ROLES).includes(role as WorkspaceRole);
 }
 
-export function isValidInvitationStatus(status: string): status is InvitationStatus {
-  return Object.values(INVITATION_STATUSES).includes(status as InvitationStatus);
-}
 
 // ============================================================================
 // Plugin Context Type
@@ -345,5 +249,4 @@ export interface UserManagementContext {
 export type TenantRole = typeof TENANT_ROLES[keyof typeof TENANT_ROLES];
 export type WorkspaceRole = typeof WORKSPACE_ROLES[keyof typeof WORKSPACE_ROLES];
 export type UserStatus = typeof USER_STATUSES[keyof typeof USER_STATUSES];
-export type InvitationStatus = typeof INVITATION_STATUSES[keyof typeof INVITATION_STATUSES];
 export type Theme = typeof THEMES[keyof typeof THEMES];

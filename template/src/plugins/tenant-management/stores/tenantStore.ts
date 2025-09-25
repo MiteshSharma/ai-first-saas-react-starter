@@ -39,7 +39,6 @@ interface TenantState extends RequestState {
   switchTenant: (tenantId: string) => Promise<void>;
   createTenant: (data: CreateTenantRequest) => Promise<Tenant>;
   updateTenant: (tenantId: string, data: UpdateTenantRequest) => Promise<Tenant>;
-  deleteTenant: (tenantId: string) => Promise<void>;
 
   // User management
   loadTenantUsers: (tenantId: string) => Promise<void>;
@@ -92,7 +91,7 @@ export const useTenantStore = create<TenantState>()(
 
       // Switch tenant context
       switchTenant: async (tenantId: string) => {
-        const { setLoading, setError, setCurrentRequest, canSwitchToTenant, getAdminForcedTenant } = get();
+        const { setLoading, setError, setCurrentRequest, canSwitchToTenant, getAdminForcedTenant, userTenants } = get();
 
         try {
           setLoading(true);
@@ -110,8 +109,11 @@ export const useTenantStore = create<TenantState>()(
             throw new Error('You do not have permission to access this tenant');
           }
 
-          const result = await tenantService.switchTenant(tenantId);
-          const tenant = result.tenant;
+          // Find tenant in local userTenants array instead of calling API
+          const tenant = userTenants.find(t => t.id === tenantId);
+          if (!tenant) {
+            throw new Error('Tenant not found in user tenants');
+          }
 
           set({ currentTenant: tenant });
 
@@ -222,42 +224,6 @@ export const useTenantStore = create<TenantState>()(
         }
       },
 
-      // Delete tenant
-      deleteTenant: async (tenantId: string) => {
-        const { setLoading, setError, setCurrentRequest, userTenants, setUserTenants, currentTenant, setCurrentTenant } = get();
-
-        try {
-          setLoading(true);
-          setError(null);
-          setCurrentRequest('deleteTenant');
-
-          await tenantService.deleteTenant(tenantId);
-
-          const updatedTenants = userTenants.filter(t => t.id !== tenantId);
-          setUserTenants(updatedTenants);
-
-          // Clear current tenant if it's the one being deleted
-          if (currentTenant?.id === tenantId) {
-            setCurrentTenant(null);
-          }
-
-          // Emit tenant deleted event
-          if (eventBus) {
-            eventBus.emit(TENANT_EVENTS.TENANT_DELETED, {
-              tenantId,
-              timestamp: new Date()
-            });
-          }
-
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to delete tenant';
-          setError(errorMessage);
-          throw error;
-        } finally {
-          setLoading(false);
-          setCurrentRequest(null);
-        }
-      },
 
       // Load tenant users
       loadTenantUsers: async (tenantId: string) => {

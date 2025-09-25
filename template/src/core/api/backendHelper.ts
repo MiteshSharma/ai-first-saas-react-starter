@@ -123,6 +123,11 @@ export interface PasswordResetCompletePayload {
   password: string;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface RefreshTokenPayload {
   refreshToken: string;
 }
@@ -154,6 +159,10 @@ export const postResetPasswordGetLink = async (payload: PasswordResetRequestPayl
 
 export const putResetPasswordWithToken = async (payload: PasswordResetCompletePayload): Promise<AxiosResponse<ApiResponse>> => {
   return apiHelper.put<ApiResponse>(URLS.AUTH_PASSWORD_RESET_COMPLETE, payload);
+};
+
+export const postChangePassword = async (payload: ChangePasswordPayload): Promise<AxiosResponse<ApiResponse>> => {
+  return apiHelper.post<ApiResponse>(URLS.AUTH_CHANGE_PASSWORD, payload);
 };
 
 export const deleteUserSignOut = async (): Promise<AxiosResponse<ApiResponse>> => {
@@ -610,6 +619,7 @@ const backendHelper = {
   postUserSignupComplete,
   postResetPasswordGetLink,
   putResetPasswordWithToken,
+  postChangePassword,
   deleteUserSignOut,
   putRefreshAccessToken,
 

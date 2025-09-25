@@ -25,7 +25,7 @@ export const SignupCompletePage: React.FC = () => {
 
   const handleSubmit = async (values: Omit<SignupCompleteData, 'token'>) => {
     if (!token) return;
-    
+
     try {
       clearError();
       await completeSignup({ ...values, token });
@@ -40,9 +40,9 @@ export const SignupCompletePage: React.FC = () => {
     return (
       <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
         <Alert
-          message="Invalid Link"
-          description="This signup link is invalid or expired. Please request a new one."
-          type="error"
+          message='Invalid Link'
+          description='This signup link is invalid or expired. Please request a new one.'
+          type='error'
           showIcon
         />
       </div>
@@ -55,12 +55,12 @@ export const SignupCompletePage: React.FC = () => {
         <Title level={2} style={{ textAlign: 'center', marginBottom: '2rem' }}>
           Complete Your Registration
         </Title>
-        
+
         {error && (
           <Alert
-            message="Error"
+            message='Error'
             description={error?.message}
-            type="error"
+            type='error'
             showIcon
             closable
             onClose={clearError}
@@ -70,43 +70,46 @@ export const SignupCompletePage: React.FC = () => {
 
         <Form
           form={form}
-          layout="vertical"
+          layout='vertical'
           onFinish={handleSubmit}
-          autoComplete="off"
+          autoComplete='off'
         >
           <Form.Item
-            name="name"
-            label="Full Name"
+            name='name'
+            label='Full Name'
             rules={[
               { required: true, message: 'Please enter your full name' },
-              { min: 2, message: 'Name must be at least 2 characters long' }
+              { min: 2, message: 'Name must be at least 2 characters long' },
             ]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Enter your full name"
-              size="large"
+              placeholder='Enter your full name'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="password"
-            label="Password"
+            name='password'
+            label='Password'
             rules={[
               { required: true, message: 'Please enter your password' },
-              { min: 8, message: 'Password must be at least 8 characters long' }
+              {
+                min: 8,
+                message: 'Password must be at least 8 characters long',
+              },
             ]}
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Create a password"
-              size="large"
+              placeholder='Create a password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="confirmPassword"
-            label="Confirm Password"
+            name='confirmPassword'
+            label='Confirm Password'
             dependencies={['password']}
             rules={[
               { required: true, message: 'Please confirm your password' },
@@ -122,28 +125,28 @@ export const SignupCompletePage: React.FC = () => {
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Confirm your password"
-              size="large"
+              placeholder='Confirm your password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="tenantName"
-            label="Organization Name (Optional)"
-            help="You can create an organization for your team"
+            name='tenantName'
+            label='Organization Name (Optional)'
+            help='You can create an organization for your team'
           >
             <Input
               prefix={<TeamOutlined />}
-              placeholder="Enter your organization name"
-              size="large"
+              placeholder='Enter your organization name'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
+              type='primary'
+              htmlType='submit'
+              size='large'
               block
               loading={loading}
             >

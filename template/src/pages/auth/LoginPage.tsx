@@ -35,10 +35,10 @@ export const LoginPage: React.FC = () => {
         displayName: 'Development User',
         avatar: 'https://via.placeholder.com/40',
         timezone: 'UTC',
-        locale: 'en-US'
+        locale: 'en-US',
       },
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
     const mockToken = 'mock-jwt-token-for-dev';
 
@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
       token: mockToken,
       loading: false,
       error: null,
-      currentRequest: null
+      currentRequest: null,
     });
 
     navigate('/dashboard');
@@ -62,9 +62,9 @@ export const LoginPage: React.FC = () => {
 
         {error && (
           <Alert
-            message="Login Failed"
+            message='Login Failed'
             description={error?.message}
-            type="error"
+            type='error'
             showIcon
             closable
             onClose={clearError}
@@ -74,44 +74,42 @@ export const LoginPage: React.FC = () => {
 
         <Form
           form={form}
-          layout="vertical"
+          layout='vertical'
           onFinish={handleSubmit}
-          autoComplete="off"
+          autoComplete='off'
         >
           <Form.Item
-            name="email"
-            label="Email Address"
+            name='email'
+            label='Email Address'
             rules={[
               { required: true, message: 'Please enter your email address' },
-              { type: 'email', message: 'Please enter a valid email address' }
+              { type: 'email', message: 'Please enter a valid email address' },
             ]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Enter your email"
-              size="large"
+              placeholder='Enter your email'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="password"
-            label="Password"
-            rules={[
-              { required: true, message: 'Please enter your password' }
-            ]}
+            name='password'
+            label='Password'
+            rules={[{ required: true, message: 'Please enter your password' }]}
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Enter your password"
-              size="large"
+              placeholder='Enter your password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
+              type='primary'
+              htmlType='submit'
+              size='large'
               block
               loading={loading}
             >
@@ -120,8 +118,8 @@ export const LoginPage: React.FC = () => {
           </Form.Item>
 
           <div style={{ textAlign: 'center' }}>
-            <Link to="/auth/password-reset-request">
-              <Button type="link">Forgot your password?</Button>
+            <Link to='/auth/password-reset-request'>
+              <Button type='link'>Forgot your password?</Button>
             </Link>
           </div>
 
@@ -129,15 +127,19 @@ export const LoginPage: React.FC = () => {
 
           <div style={{ textAlign: 'center' }}>
             <Text>Don't have an account? </Text>
-            <Link to="/auth/register">
-              <Button type="link" style={{ padding: 0 }}>Sign up here</Button>
+            <Link to='/auth/register'>
+              <Button type='link' style={{ padding: 0 }}>
+                Sign up here
+              </Button>
             </Link>
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '1rem' }}>
             <Text>Sign up with email? </Text>
-            <Link to="/auth/signup-with-email">
-              <Button type="link" style={{ padding: 0 }}>Get signup link</Button>
+            <Link to='/auth/signup-with-email'>
+              <Button type='link' style={{ padding: 0 }}>
+                Get signup link
+              </Button>
             </Link>
           </div>
 
@@ -145,7 +147,7 @@ export const LoginPage: React.FC = () => {
 
           <div style={{ textAlign: 'center' }}>
             <Button
-              type="default"
+              type='default'
               onClick={handleMockLogin}
               style={{ width: '100%' }}
             >

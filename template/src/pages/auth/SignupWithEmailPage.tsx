@@ -26,10 +26,17 @@ export const SignupWithEmailPage: React.FC = () => {
       <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
         <Card>
           <div style={{ textAlign: 'center' }}>
-            <MailOutlined style={{ fontSize: '3rem', color: '#52c41a', marginBottom: '1rem' }} />
+            <MailOutlined
+              style={{
+                fontSize: '3rem',
+                color: '#52c41a',
+                marginBottom: '1rem',
+              }}
+            />
             <Title level={3}>Check Your Email</Title>
             <Text>
-              We've sent you a signup link. Please check your inbox and click the link to complete your registration.
+              We've sent you a signup link. Please check your inbox and click
+              the link to complete your registration.
             </Text>
           </div>
         </Card>
@@ -43,12 +50,12 @@ export const SignupWithEmailPage: React.FC = () => {
         <Title level={2} style={{ textAlign: 'center', marginBottom: '2rem' }}>
           Sign Up
         </Title>
-        
+
         {error && (
           <Alert
-            message="Error"
+            message='Error'
             description={error?.message}
-            type="error"
+            type='error'
             showIcon
             closable
             onClose={clearError}
@@ -58,30 +65,30 @@ export const SignupWithEmailPage: React.FC = () => {
 
         <Form
           form={form}
-          layout="vertical"
+          layout='vertical'
           onFinish={handleSubmit}
-          autoComplete="off"
+          autoComplete='off'
         >
           <Form.Item
-            name="email"
-            label="Email Address"
+            name='email'
+            label='Email Address'
             rules={[
               { required: true, message: 'Please enter your email address' },
-              { type: 'email', message: 'Please enter a valid email address' }
+              { type: 'email', message: 'Please enter a valid email address' },
             ]}
           >
             <Input
               prefix={<MailOutlined />}
-              placeholder="Enter your email address"
-              size="large"
+              placeholder='Enter your email address'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
+              type='primary'
+              htmlType='submit'
+              size='large'
               block
               loading={loading}
             >

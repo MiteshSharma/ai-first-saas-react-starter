@@ -39,12 +39,6 @@ export class TenantService {
     return TenantBackendHelper.listForUser(userId);
   }
 
-  /**
-   * Switch to a different tenant context
-   */
-  async switchTenant(tenantId: string): Promise<{ tenant: Tenant; workspaces: any[] }> {
-    return TenantBackendHelper.switchTenant(tenantId);
-  }
 
   /**
    * Update tenant settings
@@ -67,12 +61,6 @@ export class TenantService {
     return TenantBackendHelper.updateTenant(tenantId, data);
   }
 
-  /**
-   * Delete a tenant
-   */
-  async deleteTenant(tenantId: string): Promise<void> {
-    return TenantBackendHelper.deleteTenant(tenantId);
-  }
 
   /**
    * Get tenant members
@@ -113,42 +101,10 @@ export class TenantService {
     return TenantBackendHelper.updateMemberWorkspacePermissions(tenantId, userId, permissions);
   }
 
-  /**
-   * Get tenant workspaces
-   */
-  async getTenantWorkspaces(tenantId: string): Promise<any[]> {
-    return TenantBackendHelper.getTenantWorkspaces(tenantId);
-  }
 
-  /**
-   * Create workspace in tenant
-   */
-  async createWorkspace(tenantId: string, data: any): Promise<any> {
-    return TenantBackendHelper.createWorkspace(tenantId, data);
-  }
 
-  // Note: Workspace operations should use workspace service instead
 
-  /**
-   * Test tenant isolation
-   */
-  async testTenantIsolation(tenantId: string): Promise<any> {
-    return TenantBackendHelper.testTenantIsolation(tenantId);
-  }
 
-  /**
-   * Get tenant-scoped data sources
-   */
-  async getDataSources(tenantId: string): Promise<any[]> {
-    return TenantBackendHelper.getDataSources(tenantId);
-  }
-
-  /**
-   * Get tenant-scoped charts
-   */
-  async getCharts(tenantId: string): Promise<any[]> {
-    return TenantBackendHelper.getCharts(tenantId);
-  }
 }
 
 // Export singleton instance

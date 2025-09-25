@@ -150,7 +150,7 @@ export const {{pageName}}: React.FC = () => {
         {{else}}
         {{#if hasStore}}
         <div className="actions">
-          <Button type="primary" onClick={{=<% %>=}}{handleAdd{{entityName}}}<%={{ }}=%>>
+          <Button type="primary" onClick={{{addHandler}}}>
             Add {{entityName}}
           </Button>
         </div>
@@ -171,10 +171,10 @@ export const {{pageName}}: React.FC = () => {
           {{#if hasStore}}
           <p>This page is connected to the TestStore.</p>
           <p>Current count: {testStore.count}</p>
-          <Button onClick={{=<% %>=}}{() => testStore.increment()}<%={{ }}=%>>Increment</Button>
+          <Button onClick={{{buttonHandler}}}>Increment</Button>
           {{/if}}
           {{#if hasComponents}}
-          <div style={{=<% %>=}}{{ marginTop: '24px' }}<%={{ }}=%>>
+          <div style={{{styleObject}}}>
             {{#each components}}
             <{{this}} />
             {{/each}}

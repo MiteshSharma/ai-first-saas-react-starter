@@ -156,23 +156,6 @@ export class WorkspaceBackendHelper {
   }
 
 
-  /**
-   * Delete a workspace
-   */
-  static async delete(workspaceId: string): Promise<void> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.delete(workspaceId);
-    }
-
-    try {
-      const url = WORKSPACE_ENDPOINTS.DELETE.replace(':workspaceId', workspaceId);
-      await apiHelper.delete(url);
-    } catch (error) {
-      console.error('Failed to delete workspace:', error);
-      throw new Error('Failed to delete workspace');
-    }
-  }
 
 }
 

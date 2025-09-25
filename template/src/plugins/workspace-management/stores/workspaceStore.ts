@@ -42,7 +42,6 @@ interface WorkspaceState {
   createWorkspace: (tenantId: string, data: CreateWorkspacePayload) => Promise<Workspace>;
   updateWorkspace: (workspaceId: string, data: UpdateWorkspacePayload) => Promise<void>;
   updateWorkspaceSettings: (workspaceId: string, settings: Partial<WorkspaceSettings>) => Promise<void>;
-  deleteWorkspace: (workspaceId: string) => Promise<void>;
 
   // Utility
   setFilter: (filter: Partial<WorkspaceListFilter>) => void;
@@ -237,28 +236,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           });
         }
       },
-
-      // Delete workspace
-      deleteWorkspace: async (workspaceId: string) => {
-        set({ loading: true, error: null });
-
-        try {
-          await WorkspaceService.delete(workspaceId);
-
-          // Remove from workspaces list
-          set(state => ({
-            workspaces: state.workspaces.filter(ws => ws.id !== workspaceId),
-            currentWorkspace: state.currentWorkspace?.id === workspaceId ? null : state.currentWorkspace,
-            loading: false
-          }));
-        } catch (error) {
-          set({
-            error: error instanceof Error ? error.message : 'Failed to delete workspace',
-            loading: false
-          });
-        }
-      },
-
 
       // Set filter
       setFilter: (filter: Partial<WorkspaceListFilter>) => {

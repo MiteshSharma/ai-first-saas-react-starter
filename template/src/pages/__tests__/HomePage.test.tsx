@@ -9,31 +9,29 @@ jest.mock('../../core/hooks/useTestStore', () => ({
     count: 0,
     increment: jest.fn(),
     decrement: jest.fn(),
-    reset: jest.fn()
-  })
+    reset: jest.fn(),
+  }),
 }));
 
 jest.mock('../../core/auth/AuthStore', () => ({
   useAuthStore: () => ({
     user: null,
-    logout: jest.fn()
-  })
+    logout: jest.fn(),
+  }),
 }));
 
 jest.mock('../../components/TestComponent', () => ({
-  TestComponent: ({ message }: { message: string }) => <div>Test Component: {message}</div>
+  TestComponent: ({ message }: { message: string }) => (
+    <div>Test Component: {message}</div>
+  ),
 }));
 
 jest.mock('../../core/utils/testUtils', () => ({
-  testUtilFunction: (msg: string) => `Processed: ${msg}`
+  testUtilFunction: (msg: string) => `Processed: ${msg}`,
 }));
 
 const renderWithRouter = (component: React.ReactNode) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
+  return render(<BrowserRouter>{component}</BrowserRouter>);
 };
 
 describe('HomePage', () => {
@@ -57,7 +55,9 @@ describe('HomePage', () => {
 
   it('should render test component with processed message', () => {
     renderWithRouter(<HomePage />);
-    expect(screen.getByText('Test Component: Processed: Hello World')).toBeInTheDocument();
+    expect(
+      screen.getByText('Test Component: Processed: Hello World')
+    ).toBeInTheDocument();
   });
 
   it('should have authentication navigation links', () => {

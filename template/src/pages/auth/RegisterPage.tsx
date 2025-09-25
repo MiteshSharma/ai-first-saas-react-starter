@@ -31,9 +31,9 @@ export const RegisterPage: React.FC = () => {
 
         {error && (
           <Alert
-            message="Registration Failed"
+            message='Registration Failed'
             description={error?.message}
-            type="error"
+            type='error'
             showIcon
             closable
             onClose={clearError}
@@ -43,58 +43,61 @@ export const RegisterPage: React.FC = () => {
 
         <Form
           form={form}
-          layout="vertical"
+          layout='vertical'
           onFinish={handleSubmit}
-          autoComplete="off"
+          autoComplete='off'
         >
           <Form.Item
-            name="name"
-            label="Full Name"
+            name='name'
+            label='Full Name'
             rules={[
               { required: true, message: 'Please enter your full name' },
-              { min: 2, message: 'Name must be at least 2 characters long' }
+              { min: 2, message: 'Name must be at least 2 characters long' },
             ]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Enter your full name"
-              size="large"
+              placeholder='Enter your full name'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="email"
-            label="Email Address"
+            name='email'
+            label='Email Address'
             rules={[
               { required: true, message: 'Please enter your email address' },
-              { type: 'email', message: 'Please enter a valid email address' }
+              { type: 'email', message: 'Please enter a valid email address' },
             ]}
           >
             <Input
               prefix={<MailOutlined />}
-              placeholder="Enter your email"
-              size="large"
+              placeholder='Enter your email'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="password"
-            label="Password"
+            name='password'
+            label='Password'
             rules={[
               { required: true, message: 'Please enter a password' },
-              { min: 8, message: 'Password must be at least 8 characters long' }
+              {
+                min: 8,
+                message: 'Password must be at least 8 characters long',
+              },
             ]}
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Create a password"
-              size="large"
+              placeholder='Create a password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item
-            name="confirmPassword"
-            label="Confirm Password"
+            name='confirmPassword'
+            label='Confirm Password'
             dependencies={['password']}
             rules={[
               { required: true, message: 'Please confirm your password' },
@@ -110,16 +113,16 @@ export const RegisterPage: React.FC = () => {
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Confirm your password"
-              size="large"
+              placeholder='Confirm your password'
+              size='large'
             />
           </Form.Item>
 
           <Form.Item>
             <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
+              type='primary'
+              htmlType='submit'
+              size='large'
               block
               loading={loading}
             >
@@ -131,15 +134,19 @@ export const RegisterPage: React.FC = () => {
 
           <div style={{ textAlign: 'center' }}>
             <Text>Already have an account? </Text>
-            <Link to="/auth/login">
-              <Button type="link" style={{ padding: 0 }}>Sign in here</Button>
+            <Link to='/auth/login'>
+              <Button type='link' style={{ padding: 0 }}>
+                Sign in here
+              </Button>
             </Link>
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '1rem' }}>
             <Text>Prefer email signup? </Text>
-            <Link to="/auth/signup-with-email">
-              <Button type="link" style={{ padding: 0 }}>Get signup link</Button>
+            <Link to='/auth/signup-with-email'>
+              <Button type='link' style={{ padding: 0 }}>
+                Get signup link
+              </Button>
             </Link>
           </div>
         </Form>

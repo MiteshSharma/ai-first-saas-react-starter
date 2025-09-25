@@ -73,18 +73,6 @@ export class TenantBackendHelper {
     return (response.data as { data: Tenant[] }).data;
   }
 
-  /**
-   * Switch to a different tenant context
-   */
-  static async switchTenant(tenantId: string): Promise<{ tenant: Tenant; workspaces: any[] }> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.switchTenant(tenantId);
-    }
-
-    const response = await apiHelper.post(TENANT_ENDPOINTS.SWITCH, { tenantId });
-    return (response.data as { data: { tenant: Tenant; workspaces: any[] } }).data;
-  }
 
   /**
    * Create a new tenant
@@ -113,18 +101,6 @@ export class TenantBackendHelper {
     return (response.data as { data: Tenant }).data;
   }
 
-  /**
-   * Delete a tenant
-   */
-  static async deleteTenant(tenantId: string): Promise<void> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.deleteTenant(tenantId);
-    }
-
-    const endpoint = TENANT_ENDPOINTS.DELETE.replace(':tenantId', tenantId);
-    await apiHelper.delete(endpoint);
-  }
 
   /**
    * Update tenant settings
@@ -199,6 +175,9 @@ export class TenantBackendHelper {
     return (response.data as { data: TenantUser }).data;
   }
 
+
+
+
   /**
    * Update user workspace permissions
    */
@@ -219,92 +198,6 @@ export class TenantBackendHelper {
     return (response.data as { data: TenantUser }).data;
   }
 
-  /**
-   * Get tenant workspaces
-   */
-  static async getTenantWorkspaces(tenantId: string): Promise<any[]> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      const result = await mockHandlers.switchTenant(tenantId);
-      return result.workspaces;
-    }
-
-    const endpoint = TENANT_ENDPOINTS.GET_WORKSPACES.replace(':tenantId', tenantId);
-    const response = await apiHelper.get(endpoint);
-    return (response.data as { data: any[] }).data;
-  }
-
-  /**
-   * Create workspace in tenant
-   */
-  static async createWorkspace(tenantId: string, data: any): Promise<any> {
-    if (isMockMode()) {
-      // Mock workspace creation
-      return {
-        id: `workspace-${Date.now()}`,
-        name: data.name,
-        tenantId,
-        description: data.description,
-        settings: {},
-        members: []
-      };
-    }
-
-    const endpoint = TENANT_ENDPOINTS.CREATE_WORKSPACE.replace(':tenantId', tenantId);
-    const response = await apiHelper.post(endpoint, data);
-    return (response.data as { data: any }).data;
-  }
-
-  /**
-   * Test tenant isolation
-   */
-  static async testTenantIsolation(tenantId: string): Promise<any> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.testTenantIsolation(tenantId);
-    }
-
-    const response = await apiHelper.get(TENANT_ENDPOINTS.TEST_ISOLATION, {
-      headers: {
-        'X-Tenant-Id': tenantId
-      }
-    });
-    return response.data as any;
-  }
-
-  /**
-   * Get tenant-scoped data sources
-   */
-  static async getDataSources(tenantId: string): Promise<any[]> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.getDataSources(tenantId);
-    }
-
-    const response = await apiHelper.get(TENANT_ENDPOINTS.GET_DATA_SOURCES, {
-      headers: {
-        'X-Tenant-Id': tenantId
-      }
-    });
-    return (response.data as { data: any[] }).data;
-  }
-
-  /**
-   * Get tenant-scoped charts
-   */
-  static async getCharts(tenantId: string): Promise<any[]> {
-    if (isMockMode()) {
-      const mockHandlers = await getMockHandlers();
-      return mockHandlers.getCharts(tenantId);
-    }
-
-    const response = await apiHelper.get(TENANT_ENDPOINTS.GET_CHARTS, {
-      headers: {
-        'X-Tenant-Id': tenantId
-      }
-    });
-    return (response.data as { data: any[] }).data;
-  }
 }
 
 export default TenantBackendHelper;

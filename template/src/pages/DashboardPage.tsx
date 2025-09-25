@@ -11,18 +11,26 @@ export const DashboardPage: React.FC = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <Title level={1}>Dashboard</Title>
-      
-      <Card title="Welcome!" style={{ marginBottom: '2rem' }}>
+
+      <Card title='Welcome!' style={{ marginBottom: '2rem' }}>
         {user ? (
           <div>
-            <Text>Successfully logged in as: <strong>{user.email}</strong></Text>
-            {user.profile?.displayName && <div><Text>Name: <strong>{user.profile.displayName}</strong></Text></div>}
+            <Text>
+              Successfully logged in as: <strong>{user.email}</strong>
+            </Text>
+            {user.profile?.displayName && (
+              <div>
+                <Text>
+                  Name: <strong>{user.profile.displayName}</strong>
+                </Text>
+              </div>
+            )}
             <div style={{ marginTop: '1rem' }}>
               <Space>
                 <Button onClick={logout} danger>
                   Logout
                 </Button>
-                <Link to="/">
+                <Link to='/'>
                   <Button>Back to Home</Button>
                 </Link>
               </Space>
@@ -32,8 +40,8 @@ export const DashboardPage: React.FC = () => {
           <div>
             <Text>Not logged in. Please log in to access the dashboard.</Text>
             <div style={{ marginTop: '1rem' }}>
-              <Link to="/auth/login">
-                <Button type="primary">Login</Button>
+              <Link to='/auth/login'>
+                <Button type='primary'>Login</Button>
               </Link>
             </div>
           </div>
